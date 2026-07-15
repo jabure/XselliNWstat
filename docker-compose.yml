@@ -11,6 +11,8 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:-bitte-in-der-.env-aendern}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
+    networks:
+      - proxy
     # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,
     # nicht weil die App das braucht, sondern damit sie unter keinen Umständen
     # andere Dienste auf deinem Server stören kann.
@@ -19,3 +21,9 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+
+networks:
+  # Muss auf dem Server schon existieren (z.B. von deinem Reverse Proxy angelegt).
+  # Falls nicht: einmalig `docker network create proxy` ausführen.
+  proxy:
+    external: true

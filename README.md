@@ -45,6 +45,17 @@ Im Unterordner `data/`, der auf dem Server liegt (nicht im Container –
 
 **Backup:** Es reicht, den `data/`-Ordner regelmäßig zu kopieren.
 
+## Reverse Proxy
+
+Der Container hängt jetzt zusätzlich im externen Docker-Netzwerk `proxy`
+(z. B. für nginx-proxy, Traefik, Caddy o.ä.). Das Netzwerk muss auf dem
+Server schon existieren, sonst schlägt `docker compose up` fehl:
+```
+docker network create proxy
+```
+Falls dein Reverse-Proxy-Setup das Netzwerk schon selbst anlegt (z. B. über
+dessen eigene docker-compose.yml), ist der Befehl oben nicht nötig.
+
 ## Wenn du das öffentlich (nicht nur im lokalen Netz) erreichbar machen willst
 
 Dann brauchst du zusätzlich noch:
