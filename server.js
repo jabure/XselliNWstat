@@ -70,7 +70,10 @@ function getUserRole(username){
   if(username === ADMIN_USERNAME) return 'admin'; // Bootstrap-Admin, auch für Bestandskonten ohne gespeicherte Rolle
   const users = readJson(USERS_FILE, {});
   const user = users[username];
-  return (user && VALID_ROLES.includes(user.role)) ? user.role : 'user';
+  if(!user) return 'user';
+  if(VALID_ROLES.includes(user.role)) return user.role;
+  if(user.isAdmin === true) return 'admin'; // Migration: Konten aus der Vorgänger-Version (nur isAdmin-Flag)
+  return 'user';
 }
 function hasRole(username, minRole){
   return ROLE_RANK[getUserRole(username)] >= ROLE_RANK[minRole];
