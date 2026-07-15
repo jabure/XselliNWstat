@@ -196,6 +196,11 @@
   #accountModalBody label{margin-top:10px;}
   .login-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .login-grid label{margin-top:0;}
+  .rechner-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:20px; align-items:start;}
+  .rechner-col-left, .rechner-col-right{min-width:0;}
+  @media (max-width: 980px){
+    .rechner-grid{grid-template-columns:1fr;}
+  }
   .cat-badge{
     font-size:0.75rem; font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
     border:1px solid var(--gold-soft); border-radius:12px; padding:2px 10px; margin-left:0;
@@ -226,42 +231,47 @@
     <div class="legend-item"><span class="legend-swatch computed"></span>Wird automatisch berechnet</div>
   </div>
 
-  <!-- Grunddaten -->
-  <div class="card">
-    <h2>Charakter-Grunddaten</h2>
-    <div class="grunddaten-grid">
-      <div>
-        <label for="itemlevel">Gegenstandsstufe</label>
-        <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="123.397">
-      </div>
-      <div>
-        <label for="klasse">Klasse</label>
-        <select id="klasse">
-          <option>Barbar</option><option>Barde</option><option>Kleriker</option>
-          <option selected>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
-          <option>Schurke</option><option>Hexenmeister</option><option>Magier</option>
-        </select>
-      </div>
-      <div>
-        <label for="vorbildpfad">Vorbildpfad</label>
-        <select id="vorbildpfad"></select>
-      </div>
-      <div>
-        <label for="klassentyp">Klassentyp (aus Vorbildpfad)</label>
-        <div id="klassentyp" class="klassentyp-badge">DPS</div>
+  <div class="rechner-grid">
+    <!-- Links: Ausrüstung & Boni -->
+    <div class="rechner-col-left">
+      <div class="card">
+        <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
+        <p class="helptext">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
+        <div id="sourceAccordions"></div>
       </div>
     </div>
-    <div class="rings" id="rings"></div>
-  </div>
 
-  <!-- Stat groups -->
-  <div id="statGroups"></div>
+    <!-- Rechts: Grunddaten + Stat-Gruppen -->
+    <div class="rechner-col-right">
+      <div class="card">
+        <h2>Charakter-Grunddaten</h2>
+        <div class="grunddaten-grid">
+          <div>
+            <label for="itemlevel">Gegenstandsstufe</label>
+            <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="123.397">
+          </div>
+          <div>
+            <label for="klasse">Klasse</label>
+            <select id="klasse">
+              <option>Barbar</option><option>Barde</option><option>Kleriker</option>
+              <option selected>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
+              <option>Schurke</option><option>Hexenmeister</option><option>Magier</option>
+            </select>
+          </div>
+          <div>
+            <label for="vorbildpfad">Vorbildpfad</label>
+            <select id="vorbildpfad"></select>
+          </div>
+          <div>
+            <label for="klassentyp">Klassentyp (aus Vorbildpfad)</label>
+            <div id="klassentyp" class="klassentyp-badge">DPS</div>
+          </div>
+        </div>
+        <div class="rings" id="rings"></div>
+      </div>
 
-  <!-- Ausrüstung & Boni -->
-  <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
-    <p class="helptext">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: einfach auswählen, die Boni kommen automatisch aus den importierten Presets (siehe "Presets &amp; Formeln").</p>
-    <div id="sourceAccordions"></div>
+      <div id="statGroups"></div>
+    </div>
   </div>
 
   <!-- Reset -->
@@ -482,6 +492,7 @@ const ALL_SOURCES = SOURCE_CATEGORIES.flatMap(c => c.sources);
 // Welchen Namen hat der Nutzer in Slot X gewählt? (persönlich gespeichert)
 let slotSelections = {};
 let gefaehrtenMode = 'presets'; // 'presets' = Dropdown-Slots, 'werte' = manuelle Werte-Tabelle (alle 10 Gefährten-Slots)
+let reittierMode = 'presets'; // 'presets' = Dropdown-Slots, 'werte' = manuelle Werte-Tabelle (alle 5 Reittier-Slots)
 let gefaehrtenActivePreset = 'Manuell'; // zeigt im eingeklappten Zustand, was zuletzt angewendet wurde
 let reittierActivePreset = 'Manuell';
 
@@ -500,7 +511,7 @@ function defaultGrunddaten(){
   return { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
 }
 function getCharDataBundle(){
-  return { grunddaten, baseInputs, sourceInputs, slotSelections, gefaehrtenMode, gefaehrtenActivePreset, reittierActivePreset };
+  return { grunddaten, baseInputs, sourceInputs, slotSelections, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset };
 }
 function applyCharDataBundle(bundle){
   bundle = bundle || {};
@@ -509,6 +520,7 @@ function applyCharDataBundle(bundle){
   sourceInputs = bundle.sourceInputs || {};
   slotSelections = bundle.slotSelections || {};
   gefaehrtenMode = bundle.gefaehrtenMode || 'presets';
+  reittierMode = bundle.reittierMode || 'presets';
   gefaehrtenActivePreset = bundle.gefaehrtenActivePreset || 'Manuell';
   reittierActivePreset = bundle.reittierActivePreset || 'Manuell';
 }
@@ -1204,6 +1216,7 @@ function renderReittierSlots(cat){
   const presetBtns = Object.keys(reittierPresets).map(p=>
     `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`
   ).join('');
+  const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">Manuell Werte</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
@@ -1217,21 +1230,100 @@ function renderReittierSlots(cat){
   return `<p class="helptext" style="margin-top:0;">Dein eigenes Reittier:</p>
     <div class="slot-grid" style="margin-bottom:18px;">${einzelHtml}</div>
     <p class="helptext">Gruppen-Buffs (Reittiere anderer Gruppenmitglieder):</p>
-    <div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}</div>
+    <div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
     <div class="slot-grid">${gruppeCards}</div>`;
 }
 
-function renderFoodSlots(cat){
-  const slotCards = FOOD_SLOTS.map(fs=>{
-    const sel = getSlotSelection(fs.key);
-    const options = ['Leer', ...fs.items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
-    return `<div class="slot-card">
-      <label>${fs.key.replace('Buff Food – ','')}</label>
-      <select data-slot="${fs.key}" data-cat="${cat.id}">${options}</select>
-      <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, foodDb)}</div>
+// "Manuell Werte" für Reittier Buffs: wie Ausrüstung, aber für alle 5 Reittier-Slots
+// (dein eigenes + 4 Gruppen-Slots). Oben ein Lade-Dropdown pro Spalte, darunter frei editierbar.
+function renderReittierWerteTable(){
+  const slots = [REITTIER_EINZEL_SLOT, ...REITTIER_GRUPPE_SLOTS];
+  const names = Object.keys(mountDb);
+
+  const loaderCards = slots.map(src=>{
+    const sel = getSlotSelection(src);
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card" style="padding:8px 10px;">
+      <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
+      <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
     </div>`;
   }).join('');
-  return `<div class="slot-grid">${slotCards}</div>`;
+
+  const totalCols = 1 + slots.length*2;
+  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow2 = `<th>Stat</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
+
+  const bodyHtml = STAT_GROUPS.map(g=>{
+    const groupStats = g.stats.filter(s=>s.type!=='derived');
+    if(groupStats.length===0) return '';
+    const rows = groupStats.map(stat=>{
+      const showPct = stat.type !== 'werteOnly';
+      const cells = slots.map((src,i)=>{
+        const v = getSourceVal(src, stat.id);
+        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+      }).join('');
+      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+    }).join('');
+    return `<tbody class="stat-subgroup" id="srcgrp-reittierwerte-${g.id}" data-group="${g.id}">
+      <tr class="subgroup-header" onclick="toggleSrcSubgroup('reittierwerte','${g.id}')">
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+      </tr>
+      ${rows}
+    </tbody>`;
+  }).join('');
+
+  return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">
+      ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`).join('')}
+      <button type="button" class="action gold" onclick="setReittierMode('werte')">Manuell Werte</button>
+    </div>
+    <p class="helptext" style="margin-top:0;">Pro Slot per Dropdown ein Reittier laden, oder direkt Werte/% eintragen.</p>
+    <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
+    <div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
+}
+function loadMountPreset(src, name){
+  applySlotSelection(src, name, mountDb);
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
+}
+function setReittierMode(mode){
+  reittierMode = mode;
+  queueSave();
+  renderSourceAccordions();
+}
+
+// Prüft, ob für eine Quelle irgendwo tatsächlich ein Wert/​% eingetragen ist -
+// unabhängig davon, ob das über ein geladenes Preset oder von Hand passiert ist.
+function sourceHasValue(src){
+  return ALL_STATS.some(s=>{
+    const v = getSourceVal(src, s.id);
+    return (v.werte||0) !== 0 || (v.prozent||0) !== 0;
+  });
+}
+
+// Buff Food: pro Slot oben ein Lade-Dropdown (füllt Werte aus der Datenbank),
+// darunter frei editierbare Werte/%-Tabelle wie bei Ausrüstung - so bleibt das
+// geladene Essen wirksam, kann aber jederzeit von Hand angepasst werden.
+function renderFoodWerteTable(cat){
+  const loaderCards = FOOD_SLOTS.map(fs=>{
+    const sel = getSlotSelection(fs.key);
+    const options = ['Leer', ...fs.items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card" style="padding:8px 10px;">
+      <label style="font-size:0.75rem;">${fs.key.replace('Buff Food – ','')}: aus Preset laden</label>
+      <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
+    </div>`;
+  }).join('');
+  return `<p class="helptext" style="margin-top:0;">Oben ein Essen laden (füllt die Werte automatisch), unten die Werte bei Bedarf frei anpassen.</p>
+    <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
+    ${renderManualTable(cat)}`;
+}
+function loadFoodPreset(src, name){
+  applySlotSelection(src, name, foodDb);
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
 }
 
 function renderBadgesHtml(cat){
@@ -1239,12 +1331,12 @@ function renderBadgesHtml(cat){
 }
 function catBadgeText(cat){
   if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? 'Manuell Werte' : gefaehrtenActivePreset];
-  if(cat.kind === 'reittier') return [reittierActivePreset];
+  if(cat.kind === 'reittier') return [reittierMode==='werte' ? 'Manuell Werte' : reittierActivePreset];
   if(cat.kind === 'bufffood'){
     const badges = [];
-    const anyActive = FOOD_SLOTS.some(fs => getSlotSelection(fs.key) !== 'Leer');
+    const anyActive = FOOD_SLOTS.some(fs => sourceHasValue(fs.key));
     badges.push(anyActive ? 'Buff Food aktiv' : 'keins ausgewählt');
-    const utilityActive = FOOD_SLOTS.some(fs => fs.key.includes('Utility') && getSlotSelection(fs.key) !== 'Leer');
+    const utilityActive = FOOD_SLOTS.some(fs => fs.key.includes('Utility') && sourceHasValue(fs.key));
     if(utilityActive) badges.push('Utility aktiv');
     return badges;
   }
@@ -1264,9 +1356,9 @@ function renderSourceAccordions(){
     } else if(cat.kind === 'gefaehrten'){
       bodyHtml = gefaehrtenMode==='werte' ? renderGefaehrtenWerteTable() : renderPresetSlots(cat, Object.keys(companionDb), companionDb, gefaehrtenPresets);
     } else if(cat.kind === 'reittier'){
-      bodyHtml = renderReittierSlots(cat);
+      bodyHtml = reittierMode==='werte' ? renderReittierWerteTable() : renderReittierSlots(cat);
     } else if(cat.kind === 'bufffood'){
-      bodyHtml = renderFoodSlots(cat);
+      bodyHtml = renderFoodWerteTable(cat);
     }
     return `<div class="accordion" id="acc-cat-${cat.id}">
       <button onclick="toggleCatAccordion('${cat.id}')" type="button">
@@ -1326,6 +1418,7 @@ function applyCatPreset(catId, presetName){
     const names = gefaehrtenPresets[presetName] || [];
     GEFAEHRTEN_SLOTS.forEach((src,i)=>{ applySlotSelection(src, names[i] || 'Leer', db); });
   } else if(catId === 'reittier'){
+    reittierMode = 'presets';
     reittierActivePreset = presetName;
     const names = reittierPresets[presetName] || [];
     REITTIER_GRUPPE_SLOTS.forEach((src,i)=>{ applySlotSelection(src, names[i] || 'Leer', db); });
@@ -1348,7 +1441,7 @@ function applyKlassentypSubgroups(){
     'Tank': ['defensive'],
     'Heiler': ['offensive', 'support'],
   }[grunddaten.klassentyp] || [];
-  ['ausruestung','gefwerte'].forEach(prefix=>{
+  ['ausruestung','gefwerte','reittierwerte','bufffood'].forEach(prefix=>{
     STAT_GROUPS.forEach(g=>{
       const el = document.getElementById(`srcgrp-${prefix}-${g.id}`);
       if(el) el.classList.toggle('open', rule.includes(g.id));
@@ -1711,7 +1804,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
     return;
   }
   if(pendingAction === 'werte' || pendingAction === 'alles'){ baseInputs = {}; }
-  if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; gefaehrtenMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
+  if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; gefaehrtenMode = 'presets'; reittierMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
   if(pendingAction === 'alles'){
     grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
     document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
