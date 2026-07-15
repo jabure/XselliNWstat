@@ -82,6 +82,7 @@
     color:var(--text-dim); font-size:0.82rem; pointer-events:none;
   }
   .computed{color:var(--gold); font-weight:700; font-variant-numeric:tabular-nums; background:rgba(200,149,46,0.10); border-radius:4px; padding:4px 6px; display:inline-block;}
+  .computed-stack{display:flex; flex-direction:column; gap:4px; align-items:flex-start;}
   .delta-pos{color:var(--sup); font-weight:600;}
   .delta-neg{color:var(--off); font-weight:600;}
   .muted{color:var(--text-dim);}
@@ -988,8 +989,7 @@ function buildStatGroupsDOM(){
           <td class="muted">&ndash;</td>
           <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
           <td class="muted">&ndash;</td>
-          <td class="computed" id="E-${stat.id}"></td>
-          <td class="muted">&ndash;</td>
+          <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span></td>
           <td class="muted" id="note-${stat.id}">&ndash;</td>
         </tr>`;
       }
@@ -999,8 +999,7 @@ function buildStatGroupsDOM(){
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
-          <td class="computed" id="E-${stat.id}"></td>
-          <td class="muted">&ndash;</td>
+          <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span></td>
           <td class="muted" id="note-${stat.id}">gedeckelt bei 120 + Zusatz</td>
         </tr>`;
       }
@@ -1009,14 +1008,13 @@ function buildStatGroupsDOM(){
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
         <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
         <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" value="${getBase(stat.id).I}"><span class="pct-suffix">%</span></span></td>
-        <td class="computed" id="E-${stat.id}"></td>
-        <td class="computed" id="F-${stat.id}"></td>
+        <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span><span class="computed" id="F-${stat.id}"></span></td>
         <td id="delta-${stat.id}" class="muted">&ndash;</td>
       </tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-stats-${g.id}" data-group="${g.id}">
       <tr class="subgroup-header" onclick="toggleSrcSubgroup('stats','${g.id}')">
-        <td colspan="7"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        <td colspan="6"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
       </tr>
       ${rows}
     </tbody>`;
@@ -1026,7 +1024,7 @@ function buildStatGroupsDOM(){
     <table class="stats-table">
       <thead><tr>
         <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
-        <th>Totale Werte (E)</th><th>Aktuelle % (F)</th><th>&Delta;</th>
+        <th>Totale Werte</th><th>&Delta;</th>
       </tr></thead>
       ${bodyHtml}
     </table>
@@ -1305,9 +1303,14 @@ function renderFoodWerteTable(cat){
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
     </div>`;
   }).join('');
-  return `<p class="helptext" style="margin-top:0;">Oben ein Essen laden (füllt die Werte automatisch), unten die Werte bei Bedarf frei anpassen.</p>
+  return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
-    ${renderManualTable(cat)}`;
+    <div class="accordion" id="acc-admin-food-manuell">
+      <button type="button" onclick="toggleAdminAccordion('food-manuell')">
+        <span>Manuell</span><span class="chevron">&#9656;</span>
+      </button>
+      <div class="body">${renderManualTable(cat)}</div>
+    </div>`;
 }
 function loadFoodPreset(src, name){
   applySlotSelection(src, name, foodDb);
