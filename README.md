@@ -102,9 +102,11 @@ du selbst am Server etwas eintippen musst.
 
 ## Bekannte Absicht/Grenzen dieser einfachen Lösung
 
-- Presets & Formeln sind aktuell für **jeden angemeldeten wie auch nicht
-  angemeldeten Besucher** less- und schreibbar (wie bisher). Eine
-  Admin-Beschränkung darauf haben wir uns für später vorgenommen.
+- Presets & Formeln können nur noch von Benutzern mit Admin-Rechten bearbeitet
+  werden. Der erste Admin ist, wer sich mit dem Namen aus `ADMIN_USERNAME`
+  registriert; weitere Admins lassen sich danach über die Benutzerübersicht
+  im Frontend (Reiter "Presets & Formeln") ernennen. Lesen bleibt für alle
+  offen, sonst könnten die Rechner der anderen nicht mehr rechnen.
 - Es gibt kein "Passwort vergessen"; wer sein Passwort verliert, braucht
   einen neuen Account (oder du bearbeitest `data/users.json` von Hand).
 - Bei sehr vielen gleichzeitigen Schreibvorgängen auf denselben Charakter

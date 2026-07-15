@@ -59,6 +59,8 @@ function authMiddleware(req, res, next){
   }
 }
 
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Xselli';
+
 /* ---------- Auth ---------- */
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body || {};
@@ -68,10 +70,13 @@ app.post('/api/auth/register', async (req, res) => {
   const users = readJson(USERS_FILE, {});
   if(users[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   const passwordHash = await bcrypt.hash(password, 10);
-  users[username] = { passwordHash, characters: [] };
+  // Wer sich mit exakt dem Namen aus ADMIN_USERNAME registriert, wird automatisch
+  // zum ersten Admin. Weitere Admins kann dieser danach über die Benutzerübersicht ernennen.
+  const isAdmin = username === ADMIN_USERNAME;
+  users[username] = { passwordHash, characters: [], isAdmin };
   writeJson(USERS_FILE, users);
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '90d' });
-  res.status(201).json({ token, username });
+  res.status(201).json({ token, username, isAdmin });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -82,10 +87,16 @@ app.post('/api/auth/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if(!ok) return res.status(401).json({ error: 'Benutzername oder Passwort falsch' });
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '90d' });
-  res.json({ token, username });
+  res.json({ token, username, isAdmin: isUserAdmin(username) });
 });
 
 /* ---------- Charaktere (pro Benutzer, benötigt Login) ---------- */
+app.get('/api/me', authMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  res.json({ username: req.username, isAdmin: isUserAdmin(req.username), characters: (user && user.characters) || [] });
+});
+
 app.get('/api/characters', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
@@ -138,12 +149,15 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
 /* ---------- Geteilte Daten: Formeln, Presets/Datenbanken ----------
    Lesen bleibt für alle offen (jeder Charakter-Rechner braucht die
    Gefährten-/Reittier-/Buff-Food-Datenbank und die Formeln, um zu rechnen).
-   Schreiben/Bearbeiten ist ab jetzt nur noch für das Admin-Konto erlaubt. */
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Xselli';
-
+   Schreiben/Bearbeiten ist nur für Benutzer mit isAdmin:true erlaubt. */
+function isUserAdmin(username){
+  if(username === ADMIN_USERNAME) return true; // Bootstrap-Admin, auch für schon vorhandene Konten ohne gespeichertes Flag
+  const users = readJson(USERS_FILE, {});
+  return !!(users[username] && users[username].isAdmin);
+}
 function adminOnlyMiddleware(req, res, next){
-  if(req.username !== ADMIN_USERNAME){
-    return res.status(403).json({ error: 'Nur das Admin-Konto darf Presets/Formeln ändern' });
+  if(!isUserAdmin(req.username)){
+    return res.status(403).json({ error: 'Dafür brauchst du Admin-Rechte' });
   }
   next();
 }
@@ -156,6 +170,25 @@ app.put('/api/shared', authMiddleware, adminOnlyMiddleware, (req, res) => {
   const updated = Object.assign({}, current, req.body || {});
   writeJson(SHARED_FILE, updated);
   res.json({ ok: true });
+});
+
+/* ---------- Admin: Benutzerübersicht & Rechte vergeben ---------- */
+app.get('/api/admin/users', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const list = Object.keys(users).map(username => ({
+    username,
+    isAdmin: isUserAdmin(username),
+    characterCount: (users[username].characters || []).length,
+  }));
+  res.json(list);
+});
+app.put('/api/admin/users/:username', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const target = users[req.params.username];
+  if(!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  target.isAdmin = !!(req.body && req.body.isAdmin);
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true, username: req.params.username, isAdmin: target.isAdmin });
 });
 
 // Frontend (die eine HTML-Datei) direkt mit ausliefern - ein Container, ein Port.

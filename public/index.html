@@ -270,7 +270,14 @@
 </div>
 
 <div id="pageAdmin" style="display:none;">
-  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich. Nur das Admin-Konto (Xselli) kann hier speichern.</div>
+  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich. Nur Benutzer mit Admin-Rechten können hier speichern.</div>
+
+  <!-- Benutzerübersicht -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
+    <p class="helptext">Wem du Admin-Rechte gibst, kann ebenfalls Presets & Formeln bearbeiten. Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
+    <div id="userOverview" class="char-list"></div>
+  </div>
 
   <!-- Presets -->
   <div class="card">
@@ -464,6 +471,7 @@ let reittierActivePreset = 'Manuell';
 let currentUser = null;   // Benutzername oder null (Gast)
 let currentChar = null;   // Charaktername oder null
 let isLoggedIn = false;
+let currentIsAdmin = false; // kommt vom Server (isAdmin-Flag des eingeloggten Kontos)
 let pendingDeleteChar = null;
 let authToken = null;
 
@@ -499,11 +507,14 @@ const apiGetShared = () => apiRequest('/api/shared');
 const apiSetShared = (partial) => apiRequest('/api/shared', {method:'PUT', body:JSON.stringify(partial)});
 const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
+const apiMe = () => apiRequest('/api/me');
 const apiListCharacters = () => apiRequest('/api/characters');
 const apiCreateCharacter = (name) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify({name})});
 const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name));
 const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
 const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'DELETE'});
+const apiAdminListUsers = () => apiRequest('/api/admin/users');
+const apiAdminSetUserAdmin = (username, isAdminFlag) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({isAdmin:isAdminFlag})});
 
 function persistLoginLocally(){
   localStorage.setItem('xselli_token', authToken);
@@ -577,7 +588,7 @@ async function registerAccount(){
   if(!username || !password){ setAccountMsg('Bitte Benutzername und Passwort eingeben.'); return; }
   try{
     const res = await apiRegister(username, password);
-    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null;
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentIsAdmin = !!res.isAdmin;
     persistLoginLocally();
     applyCharDataBundle({});
     updateAccountLabel();
@@ -589,7 +600,7 @@ async function loginAccount(){
   const password = document.getElementById('acc_password').value;
   try{
     const res = await apiLogin(username, password);
-    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null;
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentIsAdmin = !!res.isAdmin;
     persistLoginLocally();
     applyCharDataBundle({});
     updateAccountLabel();
@@ -598,7 +609,7 @@ async function loginAccount(){
 }
 function logoutAccount(){
   clearLoginLocally();
-  authToken = null; currentUser = null; currentChar = null; isLoggedIn = false;
+  authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentIsAdmin = false;
   applyCharDataBundle({});
   updateAccountLabel();
   closeAccountModal();
@@ -1355,8 +1366,7 @@ function refresh(rebuildInputs){
 }
 
 /* ---------- Seiten-Navigation ---------- */
-const ADMIN_USERNAME = 'Xselli'; // muss zum ADMIN_USERNAME im Server passen
-function isAdmin(){ return isLoggedIn && currentUser === ADMIN_USERNAME; }
+function isAdmin(){ return isLoggedIn && currentIsAdmin; }
 
 function updateAdminTabVisibility(){
   const tab = document.getElementById('tab-admin');
@@ -1382,7 +1392,39 @@ function showPage(name){
     renderMaxPrGrid();
     fillFormulaFields();
     fillPresetFields();
+    renderUserOverview();
   }
+}
+
+/* ---------- Admin: Benutzerübersicht ---------- */
+async function renderUserOverview(){
+  const el = document.getElementById('userOverview');
+  if(!el) return;
+  el.innerHTML = '<p class="helptext">Lade Benutzer ...</p>';
+  try{
+    const users = await apiAdminListUsers();
+    el.innerHTML = users.map(u => `
+      <div class="char-item">
+        <span style="flex:1;">${u.username} <span class="muted">(${u.characterCount} Charakter${u.characterCount===1?'':'e'})</span></span>
+        <label class="slot-check" style="margin-right:4px;">
+          <input type="checkbox" ${u.isAdmin?'checked':''} ${u.username===currentUser?'disabled':''}
+            onchange="toggleUserAdmin('${u.username.replace(/'/g,"\\'")}', this.checked)">
+          Admin
+        </label>
+      </div>`).join('') || '<p class="helptext">Keine Benutzer gefunden.</p>';
+  }catch(e){
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${e.message}</p>`;
+  }
+}
+async function toggleUserAdmin(username, checked){
+  try{
+    await apiAdminSetUserAdmin(username, checked);
+    document.getElementById('saveStatus').textContent = `${username}: Admin-Rechte ${checked?'erteilt':'entzogen'}.`;
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+  }
+  renderUserOverview();
 }
 
 /* ---------- Presets-Seite: Formular-Editor statt JSON ---------- */
@@ -1714,9 +1756,10 @@ async function init(){
   if(savedToken && savedUsername){
     authToken = savedToken; currentUser = savedUsername; isLoggedIn = true;
     try{
-      const chars = await apiListCharacters(); // prüft nebenbei, ob das Token noch gültig ist
+      const me = await apiMe(); // prüft nebenbei, ob das Token noch gültig ist, liefert isAdmin + Charaktere
+      currentIsAdmin = !!me.isAdmin;
       const savedChar = localStorage.getItem('xselli_lastchar_'+savedUsername);
-      if(savedChar && chars.includes(savedChar)){
+      if(savedChar && me.characters.includes(savedChar)){
         const res = await apiGetCharacter(savedChar);
         currentChar = savedChar;
         applyCharDataBundle(res.data);
@@ -1724,7 +1767,7 @@ async function init(){
     }catch(e){
       // Token abgelaufen oder ungültig -> zurück zu Gast
       clearLoginLocally();
-      authToken = null; currentUser = null; isLoggedIn = false; currentChar = null;
+      authToken = null; currentUser = null; isLoggedIn = false; currentChar = null; currentIsAdmin = false;
       applyCharDataBundle({});
     }
   }
