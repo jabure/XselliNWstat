@@ -1,0 +1,20 @@
+services:
+  xselli-stats:
+    build: .
+    container_name: xselli-stats-rechner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-bitte-in-der-.env-aendern}
+    # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,
+    # nicht weil die App das braucht, sondern damit sie unter keinen Umständen
+    # andere Dienste auf deinem Server stören kann.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Xselli's Stats-Rechner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+<style>
+  :root{
+    --bg:#14161c;
+    --panel:#1c1f27;
+    --panel-2:#232732;
+    --border:#2c303b;
+    --text:#e9e6dd;
+    --text-dim:#a7a49b;
+    --gold:#c8952e;
+    --gold-soft:#8a6b2c;
+    --off:#c9603f;
+    --def:#3f7fa6;
+    --sup:#4a9b6e;
+    --danger:#a4433a;
+    --edit:#4fae8a;
+    --edit-bg:#1a2c26;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:24px; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55; letter-spacing:0.01em;
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+  h1{
+    font-size:1.7rem; margin:0 0 2px 0; font-weight:700;
+    background:linear-gradient(90deg,var(--gold),#e8c878);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .subtitle{color:var(--text-dim); margin:0 0 24px 0; font-size:0.95rem;}
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:18px;
+  }
+  .card h2{
+    margin:0 0 14px 0; font-size:1.05rem; font-weight:700; color:var(--text);
+    display:flex; align-items:center; gap:8px;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none;}
+  .grunddaten-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
+  label{display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:4px;}
+  input[type=number], input[type=text], select, textarea{
+    width:100%; background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit); color:var(--text);
+    border-radius:6px; padding:8px 10px; font-size:0.92rem; font-family:inherit;
+    font-variant-numeric:tabular-nums;
+  }
+  select{border-left:3px solid var(--edit);}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:0.8rem; color:var(--text-dim);}
+  .legend-item{display:flex; align-items:center; gap:7px;}
+  .legend-swatch{width:14px; height:14px; border-radius:3px; flex:none;}
+  .legend-swatch.editable{background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit);}
+  .legend-swatch.computed{background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft);}
+  .rings{display:flex; gap:22px; flex-wrap:wrap; margin-top:6px;}
+  .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px;}
+  .ring-label{font-size:0.8rem; color:var(--text-dim);}
+  .ring-val{font-size:1.1rem; font-weight:700;}
+  table{width:100%; border-collapse:collapse; font-size:0.88rem;}
+  th{
+    text-align:left; color:var(--text-dim); font-weight:600; font-size:0.76rem;
+    text-transform:uppercase; letter-spacing:0.04em; padding:6px 8px; border-bottom:1px solid var(--border);
+  }
+  td{padding:6px 8px; border-bottom:1px solid #23262f; vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .statname{font-weight:600;}
+  .num-in{width:90px;}
+  input[type=number]{-moz-appearance:textfield;}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .pct-wrap{position:relative; display:inline-block;}
+  .pct-wrap input{padding-right:20px;}
+  .pct-suffix{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    color:var(--text-dim); font-size:0.82rem; pointer-events:none;
+  }
+  .computed{color:var(--gold); font-weight:700; font-variant-numeric:tabular-nums; background:rgba(200,149,46,0.10); border-radius:4px; padding:4px 6px; display:inline-block;}
+  .delta-pos{color:var(--sup); font-weight:600;}
+  .delta-neg{color:var(--off); font-weight:600;}
+  .muted{color:var(--text-dim);}
+  .accordion{border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;}
+  .accordion > button{
+    width:100%; text-align:left; background:var(--panel-2); border:none; color:var(--text);
+    padding:12px 14px; font-size:0.92rem; font-weight:600; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .accordion > button:hover{background:#2a2e3a;}
+  .accordion .body{padding:12px 14px; display:none; background:var(--panel);}
+  .accordion.open .body{display:block;}
+  .chevron{transition:transform .15s ease;}
+  .accordion.open .chevron{transform:rotate(90deg);}
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;}
+  button.action{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:9px 16px; border-radius:6px; cursor:pointer; font-size:0.88rem; font-weight:600;
+  }
+  button.action:hover{border-color:var(--gold);}
+  button.danger{border-color:var(--danger); color:#f0b3ac;}
+  button.danger:hover{background:var(--danger); color:#fff;}
+  button.gold{background:var(--gold); border-color:var(--gold); color:#1a1300;}
+  button.gold:hover{background:#e0aa3d;}
+  .formula-row{margin-bottom:14px;}
+  .formula-row label{color:var(--text);}
+  .formula-row textarea{min-height:44px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.85rem;}
+  .varlist{font-size:0.78rem; color:var(--text-dim); margin-top:4px;}
+  .toggle-admin{font-size:0.82rem; color:var(--gold); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0;}
+  .notice{background:#2a2418; border:1px solid var(--gold-soft); color:#e8c878; padding:10px 12px; border-radius:6px; font-size:0.85rem; margin-bottom:14px;}
+  .maxpr-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:16px;}
+  .maxpr-item label{margin-bottom:2px;}
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:50;}
+  .modal-bg.show{display:flex;}
+  .modal{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:360px;}
+  .modal p{margin:0 0 16px 0;}
+  .modal .btnrow{margin-top:0;}
+  .save-status{font-size:0.78rem; color:var(--text-dim); min-height:16px;}
+  .group-tabs{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+  .group-tab{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    padding:7px 14px; border-radius:20px; cursor:pointer; font-size:0.85rem; font-weight:600;
+  }
+  .group-tab.active{color:#fff; border-color:transparent;}
+  .helptext{font-size:0.8rem; color:var(--text-dim); margin:-6px 0 14px 0;}
+  .wide-table-scroll{overflow-x:auto; padding-bottom:4px;}
+  table.wide-table{width:max-content; min-width:100%;}
+  table.wide-table th, table.wide-table td{white-space:nowrap;}
+  table.wide-table .num-in{width:72px;}
+  table.wide-table thead th:first-child,
+  table.wide-table tbody td.statname{
+    position:sticky; left:0; z-index:3; background:var(--panel);
+    box-shadow:2px 0 4px rgba(0,0,0,0.35);
+  }
+  table.wide-table .subgroup-header td{position:static; box-shadow:none;}
+  table.wide-table thead tr:first-child th{
+    text-align:center; border-bottom:2px solid var(--gold-soft); color:var(--gold);
+    font-size:0.85rem; font-weight:700; text-transform:none; letter-spacing:0;
+    background:rgba(200,149,46,0.10); padding:8px 8px;
+  }
+  table.wide-table .slot-sep{border-left:2px solid var(--gold-soft);}
+  .group-accordion{margin-bottom:12px;}
+  .group-accordion > button{font-size:1.0rem;}
+  .group-accordion .dot{margin-right:6px;}
+  .subgroup-header td{
+    background:var(--panel-2); cursor:pointer; font-weight:700; font-size:0.85rem;
+    padding:8px 10px; border-bottom:1px solid var(--border);
+  }
+  .subgroup-header .chevron{display:inline-block; margin-right:6px; transition:transform .15s ease;}
+  .stat-subgroup.open .subgroup-header .chevron{transform:rotate(90deg);}
+  .stat-subgroup .subgroup-row{display:none;}
+  .stat-subgroup.open .subgroup-row{display:table-row;}
+  .klassentyp-badge{
+    display:inline-block; padding:8px 12px; border-radius:6px; font-weight:700; font-size:0.92rem;
+    background:var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--gold); color:var(--gold);
+  }
+  .slot-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px;}
+  .slot-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
+  .slot-card label{color:var(--text); font-weight:600; margin-bottom:6px;}
+  .slot-summary{margin-top:8px; font-size:0.78rem; display:block; padding:6px 8px;}
+  .page-nav{display:flex; gap:8px; margin-bottom:16px;}
+  .page-tab{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    padding:9px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:0.92rem; font-weight:700;
+  }
+  .page-tab.active{color:var(--gold); border-color:var(--gold-soft); background:var(--panel);}
+  .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
+  .entry-head{display:flex; gap:8px; margin-bottom:10px; align-items:center;}
+  .entry-head .entry-name{flex:1; font-weight:700;}
+  button.action.small{padding:5px 10px; font-size:0.78rem;}
+  button.action.danger.small{padding:5px 8px; font-size:0.78rem;}
+  .stat-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+  .stat-row select{max-width:220px;}
+  .stat-row .num-in{width:100px; flex:none;}
+  .slot-check-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);}
+  .slot-check{font-size:0.8rem; color:var(--text-dim); display:flex; align-items:center; gap:5px;}
+  .slot-check input{width:auto; border:none; padding:0;}
+  .preset-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
+  .preset-slot{display:flex; flex-direction:column;}
+  .preset-slot label{font-size:0.72rem; margin-bottom:3px;}
+  .cat-badges{display:inline-flex; gap:6px; flex-wrap:wrap;}
+  .account-bar{display:flex; justify-content:flex-end; margin-bottom:6px;}
+  .account-btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:7px 14px; border-radius:20px; cursor:pointer; font-size:0.85rem; font-weight:600; width:auto;
+  }
+  .account-btn:hover{border-color:var(--gold);}
+  .char-list{display:flex; flex-direction:column; gap:8px; margin:12px 0;}
+  .char-item{display:flex; gap:8px; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px;}
+  .char-item .action{flex:1; text-align:left;}
+  #accountModalBody h3{margin:0 0 10px 0; font-size:1rem;}
+  #accountModalBody label{margin-top:10px;}
+  .cat-badge{
+    font-size:0.75rem; font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
+    border:1px solid var(--gold-soft); border-radius:12px; padding:2px 10px; margin-left:0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="account-bar">
+    <button type="button" class="account-btn" onclick="openAccountPanel()">&#128100; <span id="accountLabel">Gast (nicht gespeichert)</span></button>
+  </div>
+  <h1>Xselli's Stats-Rechner</h1>
+  <p class="subtitle">Neverwinter Online &middot; Charakter-Stats selbst eintragen statt Sheet kopieren</p>
+
+  <div class="page-nav">
+    <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
+    <button class="page-tab" id="tab-admin" onclick="showPage('admin')" type="button">Presets &amp; Formeln</button>
+  </div>
+
+  <div id="saveStatus" class="save-status"></div>
+
+<div id="pageRechner">
+  <div class="legend">
+    <div class="legend-item"><span class="legend-swatch editable"></span>Selbst eintragen</div>
+    <div class="legend-item"><span class="legend-swatch computed"></span>Wird automatisch berechnet</div>
+  </div>
+
+  <!-- Grunddaten -->
+  <div class="card">
+    <h2>Charakter-Grunddaten</h2>
+    <div class="grunddaten-grid">
+      <div>
+        <label for="itemlevel">Gegenstandsstufe</label>
+        <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="123.397">
+      </div>
+      <div>
+        <label for="klasse">Klasse</label>
+        <select id="klasse">
+          <option>Barbar</option><option>Barde</option><option>Kleriker</option>
+          <option selected>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
+          <option>Schurke</option><option>Hexenmeister</option><option>Magier</option>
+        </select>
+      </div>
+      <div>
+        <label for="vorbildpfad">Vorbildpfad</label>
+        <select id="vorbildpfad"></select>
+      </div>
+      <div>
+        <label for="klassentyp">Klassentyp (aus Vorbildpfad)</label>
+        <div id="klassentyp" class="klassentyp-badge">DPS</div>
+      </div>
+    </div>
+    <div class="rings" id="rings"></div>
+  </div>
+
+  <!-- Stat groups -->
+  <div id="statGroups"></div>
+
+  <!-- Ausrüstung & Boni -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
+    <p class="helptext">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: einfach auswählen, die Boni kommen automatisch aus den importierten Presets (siehe "Presets &amp; Formeln").</p>
+    <div id="sourceAccordions"></div>
+  </div>
+
+  <!-- Reset -->
+  <div class="card">
+    <h2>Zurücksetzen</h2>
+    <div class="btnrow">
+      <button class="action" onclick="confirmAction('werte')">Werte zurücksetzen</button>
+      <button class="action" onclick="confirmAction('ausruestung')">Ausrüstung zurücksetzen</button>
+      <button class="action danger" onclick="confirmAction('alles')">Alles zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<div id="pageAdmin" style="display:none;">
+  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich.</div>
+
+  <!-- Presets -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--sup)"></span>Gefährten</h2>
+    <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt.</p>
+    <div id="companionEditor"></div>
+    <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
+
+    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
+    <p class="helptext">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
+    <div id="gefaehrtenPresetEditor"></div>
+    <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--sup)"></span>Reittiere</h2>
+    <p class="helptext">Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.</p>
+    <div id="mountEditor"></div>
+    <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
+
+    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
+    <div id="reittierPresetEditor"></div>
+    <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('reittierPresetEditor','reittier')">+ Preset hinzufügen</button></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--sup)"></span>Buff Food</h2>
+    <p class="helptext">Pro Essen: Name, Stats, und ankreuzen in welchem Food-Slot es wählbar sein soll.</p>
+    <div id="foodEditor"></div>
+    <div class="btnrow"><button type="button" class="action" onclick="addFoodEntryCard()">+ Neues Essen</button></div>
+
+    <div class="btnrow" style="margin-top:22px;">
+      <button class="action gold" onclick="savePresetsShared()">Presets speichern</button>
+      <button class="action" onclick="resetPresetsToDefault()">Standard wiederherstellen</button>
+    </div>
+  </div>
+
+  <!-- Formeln -->
+  <div class="card">
+    <h2><span class="dot" style="background:var(--def)"></span>Formeln</h2>
+    <div class="maxpr-grid" id="maxprGrid"></div>
+
+    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Formeln (Text, wird ausgewertet)</h3>
+    <div class="formula-row">
+      <label>Totale Werte (E) &ndash; Variablen: H, sourcesWerte</label>
+      <textarea id="f_eTotal"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Softcap-Funktion &ndash; Variablen: rating, maxPr, itemlevel</label>
+      <textarea id="f_softcap"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Aktuelle % mit Softcap (F) &ndash; Variablen: H, E, I, maxPr, itemlevel, sourcesProzent (nutzt softcap(...))</label>
+      <textarea id="f_fPercent"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Aktuelle % einfache Summe (für Schadensreduzierung / Bonus Schaden %) &ndash; Variablen: I, sourcesProzent</label>
+      <textarea id="f_fSimple"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Delta (Max% minus aktuelles %) &ndash; Variablen: maxPr, F</label>
+      <textarea id="f_delta"></textarea>
+    </div>
+
+    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Wehrhaftigkeit-Umverteilung pro Klasse/Vorbildpfad</h3>
+    <p class="helptext">Die Differenz zwischen "Aktuelle %" und berechnetem % bei Wehrhaftigkeit wird je nach Klasse/Vorbildpfad anteilig auf andere Stats verteilt (z. B. 0.5 = 50 % der Differenz). Format: JSON, Schlüssel ist "Klasse|Vorbildpfad".</p>
+    <div class="formula-row">
+      <textarea id="f_wehr" style="min-height:160px;"></textarea>
+    </div>
+
+    <div class="btnrow">
+      <button class="action gold" onclick="saveFormulas()">Formeln speichern</button>
+      <button class="action" onclick="resetFormulasToDefault()">Standard wiederherstellen</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <p id="modalText"></p>
+    <div class="btnrow">
+      <button class="action danger" id="modalConfirm">Ja, zurücksetzen</button>
+      <button class="action" onclick="closeModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="accountModalBg">
+  <div class="modal" style="max-width:420px;">
+    <div id="accountModalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Datenmodell ---------- */
+const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Verstärkung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
+
+// Aus deiner Excel importiert: "Presets" Tab (Gefährten AJ3:DC27, Reittiere AJ51:DC75) und
+// "Buff food Sammlung" Tab (Blöcke bei Zeile 2/31/60/90/120). Werte pro Stat: {werte, prozent}.
+const DEFAULT_COMPANION_DB = {
+  'Skorpion': {},
+  'Flapjack': { kampfvorteil:{werte:0,prozent:5} },
+  'Tutor': { kampfvorteil:{werte:0,prozent:5} },
+  'Spined Devil': {},
+  'Portobello': { kraft:{werte:0,prozent:3.5}, kampfvorteil:{werte:0,prozent:3.5} },
+  'Minsc': { kampfvorteil:{werte:0,prozent:2} },
+  "Drizzt Do'Urden": {},
+  'Blue Fire Eye': { kritwert:{werte:0,prozent:3} },
+  'Etrien': { kraft:{werte:0,prozent:2}, kritwert:{werte:0,prozent:2} },
+  'Stalwart Lion': { kritschaden:{werte:0,prozent:4} },
+  'Harfnerbard': { kraft:{werte:0,prozent:2}, kritwert:{werte:0,prozent:2} },
+  'Kapitänin Elaina Sartell': { kritschaden:{werte:0,prozent:5} },
+};
+const DEFAULT_MOUNT_DB = {
+  'Runische Aura': { kraft:{werte:2250,prozent:0}, verteidigung:{werte:2250,prozent:0} },
+  'Mystische Aura': { kraft:{werte:2250,prozent:0}, zielgenauigkeit:{werte:2250,prozent:0} },
+  'Rudelstrategien': { kampfvorteil:{werte:2250,prozent:0}, wahrnehmung:{werte:2250,prozent:0} },
+  'Rudelstrategien 2 (nimmt ab)': { kampfvorteil:{werte:1125,prozent:0}, wahrnehmung:{werte:1125,prozent:0} },
+  'Aura des Raubvogels': { kraft:{werte:1600,prozent:0} },
+};
+// Hinweis: "großes sommerfestmahl" und "scharfangebratener Thunfisch" hatten in der Excel bei
+// Trefferpunkte ein kaputtes Datums-Zellformat statt einer Zahl - hier erstmal auf 0 gesetzt.
+// Bitte kurz den echten Wert nachtragen (Presets bearbeiten -> Buff Food).
+const DEFAULT_FOOD_DB = {
+  'wassermelonensorbet': { kraft:{werte:0,prozent:5}, zielgenauigkeit:{werte:0,prozent:5} },
+  'großes sommerfestmahl': { kraft:{werte:0,prozent:2.5}, zielgenauigkeit:{werte:0,prozent:1.5}, kritwert:{werte:0,prozent:1.5}, kritschaden:{werte:0,prozent:2.5}, robustheit:{werte:0,prozent:1.5}, trefferpunkte:{werte:0,prozent:0} },
+  'Kürbissuppe': { kritwert:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
+  'Pikane Flügel': { zielgenauigkeit:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
+  'hochrippe': { kraft:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
+  'scharfangebratener Thunfisch': { kritwert:{werte:4000,prozent:0}, trefferpunkte:{werte:0,prozent:0} },
+  'Ratataouile': { zielgenauigkeit:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
+  'orkanelexir': { kritwert:{werte:2000,prozent:0}, kritschaden:{werte:0,prozent:5} },
+  'Geschenkelexir des Sonnenherren': { zielgenauigkeit:{werte:2000,prozent:0}, kampfvorteil:{werte:0,prozent:5} },
+  'Flaktok der Potenz Rang 3 +1': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
+  'wut der flamme': { bonusschaden:{werte:5,prozent:0} },
+  'präzision des Teufel': { zielgenauigkeit:{werte:0,prozent:5}, kritwert:{werte:0,prozent:5} },
+  'taktiker der schwetrtküste': { kraft:{werte:0,prozent:5}, kampfvorteil:{werte:0,prozent:5} },
+};
+let companionDb = JSON.parse(JSON.stringify(DEFAULT_COMPANION_DB));
+let mountDb = JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
+let foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
+
+const GEFAEHRTEN_SLOTS = Array.from({length:10}, (_,i)=>`Gefährte ${i+1}`);
+const DEFAULT_GEFAEHRTEN_PRESETS = {
+  '5er Standard': ['Skorpion','Flapjack','Tutor','Portobello','Spined Devil'],
+  '10er Standard': ['Flapjack','Skorpion','Skorpion','Tutor','Spined Devil','Portobello','Kapitänin Elaina Sartell',"Drizzt Do'Urden",'Blue Fire Eye','Etrien'],
+  'Manuell': [],
+};
+
+const REITTIER_EINZEL_SLOT = 'Reittier-Buff';
+const REITTIER_GRUPPE_SLOTS = Array.from({length:4}, (_,i)=>`Reittier Gruppen-Buff ${i+1}`);
+const DEFAULT_REITTIER_PRESETS = {
+  '5er Standard': ['Mystische Aura','Runische Aura'],
+  '10er Standard': ['Mystische Aura','Runische Aura','Rudelstrategien','Rudelstrategien 2 (nimmt ab)'],
+  'Manuell': [],
+};
+
+// Jeder Buff-Food-Slot hat seine eigene, feste Auswahlliste (so wie in deiner Excel je Dropdown-Zeile).
+const FOOD_SLOTS = [
+  { key:'Buff Food – Event-Food', items:['wassermelonensorbet','großes sommerfestmahl','Kürbissuppe','Pikane Flügel'] },
+  { key:'Buff Food – Hauptgericht', items:['hochrippe','scharfangebratener Thunfisch','Ratataouile'] },
+  { key:'Buff Food – Elixier', items:['orkanelexir','Geschenkelexir des Sonnenherren'] },
+  { key:'Buff Food – Sonderbuff', items:['Flaktok der Potenz Rang 3 +1'] },
+  { key:'Buff Food – Utility 1', items:['wut der flamme','präzision des Teufel','taktiker der schwetrtküste'] },
+  { key:'Buff Food – Utility 2', items:['wut der flamme','präzision des Teufel','taktiker der schwetrtküste'] },
+];
+const FOOD_SLOTS_DEFAULT = JSON.parse(JSON.stringify(FOOD_SLOTS));
+
+let gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
+let reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
+
+const SOURCE_CATEGORIES = [
+  { id:'ausruestung', label:'Ausrüstung', kind:'manual', sources: EQUIPMENT_SLOTS },
+  { id:'gefaehrten', label:'Gefährten', kind:'gefaehrten', sources: GEFAEHRTEN_SLOTS },
+  { id:'bufffood', label:'Buff Food', kind:'bufffood', sources: FOOD_SLOTS.map(f=>f.key) },
+  { id:'reittier', label:'Reittier Buffs', kind:'reittier', sources: [REITTIER_EINZEL_SLOT, ...REITTIER_GRUPPE_SLOTS] },
+];
+const ALL_SOURCES = SOURCE_CATEGORIES.flatMap(c => c.sources);
+
+// Welchen Namen hat der Nutzer in Slot X gewählt? (persönlich gespeichert)
+let slotSelections = {};
+let gefaehrtenMode = 'presets'; // 'presets' = Dropdown-Slots, 'werte' = manuelle Werte-Tabelle (alle 10 Gefährten-Slots)
+let gefaehrtenActivePreset = 'Manuell'; // zeigt im eingeklappten Zustand, was zuletzt angewendet wurde
+let reittierActivePreset = 'Manuell';
+
+/* ---------- Benutzer/Charakter-System ----------
+   Läuft jetzt über das eigene Backend (server.js): Passwörter werden dort mit
+   bcrypt gehasht, Login läuft über ein JWT-Token. Ohne Anmeldung ("Gast") wird
+   nichts an den Server geschickt - alles lebt nur im Browser-Tab. */
+let currentUser = null;   // Benutzername oder null (Gast)
+let currentChar = null;   // Charaktername oder null
+let isLoggedIn = false;
+let pendingDeleteChar = null;
+let authToken = null;
+
+function defaultGrunddaten(){
+  return { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
+}
+function getCharDataBundle(){
+  return { grunddaten, baseInputs, sourceInputs, slotSelections, gefaehrtenMode, gefaehrtenActivePreset, reittierActivePreset };
+}
+function applyCharDataBundle(bundle){
+  bundle = bundle || {};
+  grunddaten = bundle.grunddaten || defaultGrunddaten();
+  baseInputs = bundle.baseInputs || {};
+  sourceInputs = bundle.sourceInputs || {};
+  slotSelections = bundle.slotSelections || {};
+  gefaehrtenMode = bundle.gefaehrtenMode || 'presets';
+  gefaehrtenActivePreset = bundle.gefaehrtenActivePreset || 'Manuell';
+  reittierActivePreset = bundle.reittierActivePreset || 'Manuell';
+}
+
+/* ---------- API-Hilfsfunktionen (sprechen mit server.js) ---------- */
+async function apiRequest(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  if(authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  const res = await fetch(path, Object.assign({}, opts, {headers}));
+  let data = null;
+  try{ data = await res.json(); }catch(e){ /* kein JSON-Body */ }
+  if(!res.ok) throw new Error((data && data.error) || ('Serverfehler (' + res.status + ')'));
+  return data;
+}
+const apiGetShared = () => apiRequest('/api/shared');
+const apiSetShared = (partial) => apiRequest('/api/shared', {method:'PUT', body:JSON.stringify(partial)});
+const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
+const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
+const apiListCharacters = () => apiRequest('/api/characters');
+const apiCreateCharacter = (name) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify({name})});
+const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name));
+const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
+const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'DELETE'});
+
+function persistLoginLocally(){
+  localStorage.setItem('xselli_token', authToken);
+  localStorage.setItem('xselli_username', currentUser);
+}
+function clearLoginLocally(){
+  localStorage.removeItem('xselli_token');
+  localStorage.removeItem('xselli_username');
+  if(currentUser) localStorage.removeItem('xselli_lastchar_'+currentUser);
+}
+
+function updateAccountLabel(){
+  const el = document.getElementById('accountLabel');
+  if(!el) return;
+  if(!isLoggedIn) el.textContent = 'Gast (nicht gespeichert)';
+  else if(!currentChar) el.textContent = `${currentUser}: Charakter wählen`;
+  else el.textContent = `${currentUser} · ${currentChar}`;
+}
+function setAccountMsg(msg){
+  const el = document.getElementById('accMsg');
+  if(el) el.textContent = msg;
+}
+function openAccountPanel(){
+  renderAccountPanel();
+  document.getElementById('accountModalBg').classList.add('show');
+}
+function closeAccountModal(){
+  document.getElementById('accountModalBg').classList.remove('show');
+}
+async function renderAccountPanel(){
+  const body = document.getElementById('accountModalBody');
+  if(!isLoggedIn){
+    body.innerHTML = `
+      <h3>Anmelden oder registrieren</h3>
+      <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
+      <label>Benutzername</label><input type="text" id="acc_username">
+      <label>Passwort</label><input type="password" id="acc_password">
+      <div id="accMsg" class="helptext" style="color:var(--off);"></div>
+      <div class="btnrow">
+        <button class="action gold" type="button" onclick="loginAccount()">Anmelden</button>
+        <button class="action" type="button" onclick="registerAccount()">Registrieren</button>
+        <button class="action" type="button" onclick="closeAccountModal()">Abbrechen</button>
+      </div>`;
+    return;
+  }
+  let chars = [];
+  try{ chars = await apiListCharacters(); }catch(e){ setAccountMsg(e.message); }
+  const list = chars.length ? chars.map(name=>`
+    <div class="char-item">
+      <button class="action ${name===currentChar?'gold':''}" type="button" onclick="selectCharacter('${name.replace(/'/g,"\\'")}')">${name}</button>
+      <button class="action danger small" type="button" onclick="confirmDeleteCharacter('${name.replace(/'/g,"\\'")}')">Löschen</button>
+    </div>`).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
+  body.innerHTML = `
+    <h3>Angemeldet als ${currentUser}</h3>
+    <div class="char-list">${list}</div>
+    <div class="formula-row">
+      <label>Neuer Charakter</label>
+      <input type="text" id="acc_newchar" placeholder="Name eingeben...">
+    </div>
+    <div id="accMsg" class="helptext" style="color:var(--off);"></div>
+    <div class="btnrow">
+      <button class="action gold" type="button" onclick="createCharacter()">Charakter anlegen</button>
+      <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
+      <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
+    </div>`;
+}
+async function registerAccount(){
+  const username = document.getElementById('acc_username').value.trim();
+  const password = document.getElementById('acc_password').value;
+  if(!username || !password){ setAccountMsg('Bitte Benutzername und Passwort eingeben.'); return; }
+  try{
+    const res = await apiRegister(username, password);
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null;
+    persistLoginLocally();
+    applyCharDataBundle({});
+    updateAccountLabel();
+    renderAccountPanel();
+  }catch(e){ setAccountMsg(e.message); }
+}
+async function loginAccount(){
+  const username = document.getElementById('acc_username').value.trim();
+  const password = document.getElementById('acc_password').value;
+  try{
+    const res = await apiLogin(username, password);
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null;
+    persistLoginLocally();
+    applyCharDataBundle({});
+    updateAccountLabel();
+    renderAccountPanel();
+  }catch(e){ setAccountMsg(e.message); }
+}
+function logoutAccount(){
+  clearLoginLocally();
+  authToken = null; currentUser = null; currentChar = null; isLoggedIn = false;
+  applyCharDataBundle({});
+  updateAccountLabel();
+  closeAccountModal();
+  fullUiRefreshAfterProfileSwitch();
+}
+async function createCharacter(){
+  const name = document.getElementById('acc_newchar').value.trim();
+  if(!name){ setAccountMsg('Bitte einen Namen eingeben.'); return; }
+  try{
+    await apiCreateCharacter(name);
+    currentChar = name;
+    applyCharDataBundle({});
+    await apiSaveCharacter(name, getCharDataBundle());
+    localStorage.setItem('xselli_lastchar_'+currentUser, name);
+    updateAccountLabel();
+    renderAccountPanel();
+    fullUiRefreshAfterProfileSwitch();
+    closeAccountModal();
+  }catch(e){ setAccountMsg(e.message); }
+}
+async function selectCharacter(name){
+  try{
+    const res = await apiGetCharacter(name);
+    currentChar = name;
+    applyCharDataBundle(res.data);
+    localStorage.setItem('xselli_lastchar_'+currentUser, name);
+    updateAccountLabel();
+    fullUiRefreshAfterProfileSwitch();
+    closeAccountModal();
+  }catch(e){ setAccountMsg(e.message); }
+}
+function confirmDeleteCharacter(name){
+  pendingDeleteChar = name;
+  pendingAction = 'deletechar';
+  document.getElementById('modalText').textContent = `Charakter "${name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`;
+  document.getElementById('modalBg').classList.add('show');
+}
+function fullUiRefreshAfterProfileSwitch(){
+  document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+  document.getElementById('klasse').value = grunddaten.klasse;
+  populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
+  refresh(true);
+}
+function getSlotSelection(src){ return slotSelections[src] || 'Leer'; }
+
+// Schreibt die Werte/% eines gewählten Presets (Gefährte/Reittier/Food) in sourceInputs,
+// damit die bestehende Berechnung (sumSources etc.) unverändert weiterfunktioniert.
+function applySlotSelection(src, name, db){
+  slotSelections[src] = name;
+  const contrib = (name && name !== 'Leer' && db[name]) ? db[name] : {};
+  const bucket = {};
+  for(const statId in contrib){
+    bucket[statId] = { werte: contrib[statId].werte||0, prozent: contrib[statId].prozent||0 };
+  }
+  sourceInputs[src] = bucket;
+}
+function dbForCategory(catId){
+  if(catId==='gefaehrten') return companionDb;
+  if(catId==='reittier') return mountDb;
+  return null;
+}
+
+// type: 'softcap' (Werte+% mit Rating-Umrechnung), 'simple' (Werte+% reine Summe),
+// 'werteOnly' (nur Werte, kein %), 'derived' (kein direkter Input, wird berechnet)
+const STAT_GROUPS = [
+  { id:'offensive', label:'Offensive', color:'var(--off)', stats:[
+    {id:'kraft', label:'Kraft', type:'softcap', maxPr:1.20},
+    {id:'zielgenauigkeit', label:'Zielgenauigkeit', type:'softcap', maxPr:0.90},
+    {id:'kampfvorteil', label:'Kampfvorteil', type:'softcap', maxPr:1.20},
+    {id:'kritwert', label:'Kritischer Trefferwert', type:'softcap', maxPr:0.90},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', type:'softcap', maxPr:1.20},
+    {id:'bonusschaden', label:'Bonus Schaden %', type:'simple', maxPr:null},
+  ]},
+  { id:'defensive', label:'Defensive', color:'var(--def)', stats:[
+    {id:'verteidigung', label:'Verteidigung', type:'softcap', maxPr:1.20},
+    {id:'wahrnehmung', label:'Wahrnehmung', type:'softcap', maxPr:0.90},
+    {id:'kritvermeidung', label:'Krit-Vermeidung', type:'softcap', maxPr:0.90},
+    {id:'robustheit', label:'Robustheit', type:'softcap', maxPr:0.90},
+    {id:'robustheitstaerke', label:'Robustheitstärke', type:'softcap', maxPr:1.20},
+    {id:'trefferpunkte', label:'Trefferpunkte', type:'werteOnly', maxPr:null},
+    {id:'schadensreduzierung', label:'Schadensreduzierung', type:'simple', maxPr:null},
+  ]},
+  { id:'support', label:'Unterstützung', color:'var(--sup)', stats:[
+    {id:'wehrhaftigkeit', label:'Wehrhaftigkeit', type:'softcap', maxPr:1.20},
+    {id:'kontrollbonus', label:'Kontrollbonus', type:'softcap', maxPr:0.90},
+    {id:'kontrollresistenz', label:'Kontrollresistenz', type:'softcap', maxPr:0.90},
+    {id:'empfheilung', label:'Empfangene Heilung', type:'softcap', maxPr:1.20},
+    {id:'gewheilung', label:'Gewirkte Heilung', type:'softcap', maxPr:1.20},
+    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', type:'derived', maxPr:null, derivedFrom:'gewheilung'},
+  ]},
+];
+const ALL_STATS = STAT_GROUPS.flatMap(g => g.stats.map(s => ({...s, group:g.id, groupColor:g.color})));
+
+// Klasse -> [Vorbildpfad 1, Vorbildpfad 2]
+const KLASSEN_PFADE = {
+  'Barbar': ['Klingenmeister (DPS)', 'Wächter (Tank)'],
+  'Barde': ['Liedklinge (DPS)', 'Minnesänger (Heiler)'],
+  'Kleriker': ['Geweihter Kleriker (Heiler)', 'Arkaner Richter (DPS)'],
+  'Kämpfer': ['Wächter (Tank)', 'Schwertmeister (DPS)'],
+  'Paladin': ['Eidwahrer (Tank)', 'Gerechter (Heiler)'],
+  'Waldläufer': ['Pfadfinder', 'Sturmwächter'],
+  'Schurke': ['Attentäter', 'Flüsterklinge'],
+  'Hexenmeister': ['Seelenbinder (Heiler)', 'Höllenbrut (DPS)'],
+  'Magier': ['Arkanist', 'Thaumaturg'],
+};
+
+// Wehrhaftigkeit-Differenz (F-I von Wehrhaftigkeit) wird je nach Klasse+Vorbildpfad
+// anteilig auf andere Stats verteilt (aus deiner "Presets" Tabelle AD96:CX122 übernommen).
+// Schlüssel: "Klasse|Vorbildpfad" -> { statId: Anteil }
+const DEFAULT_WEHRVERTEILUNG = {
+  'Barbar|Klingenmeister (DPS)': { kraft:0.5, kritschaden:0.25, wahrnehmung:0.25 },
+  'Barbar|Wächter (Tank)': { kritschaden:0.25, verteidigung:0.5, wahrnehmung:0.25 },
+  'Barde|Liedklinge (DPS)': { kraft:0.5, kritschaden:0.25, robustheit:0.25 },
+  'Barde|Minnesänger (Heiler)': { kritschaden:0.25, robustheit:0.25 },
+  'Kleriker|Geweihter Kleriker (Heiler)': { kritschaden:0.25, kritvermeidung:0.25 },
+  'Kleriker|Arkaner Richter (DPS)': { kraft:0.5, kritschaden:0.25, kritvermeidung:0.25 },
+  'Kämpfer|Wächter (Tank)': { zielgenauigkeit:0.25, verteidigung:0.5, kritvermeidung:0.25 },
+  'Kämpfer|Schwertmeister (DPS)': { kraft:0.5, zielgenauigkeit:0.25, kritvermeidung:0.25 },
+  'Paladin|Eidwahrer (Tank)': { kritwert:0.25, verteidigung:0.5, robustheitstaerke:0.25 },
+  'Paladin|Gerechter (Heiler)': { kritwert:0.25, robustheitstaerke:0.25 },
+  'Waldläufer|Pfadfinder': { kraft:0.5, zielgenauigkeit:0.25, robustheit:0.25 },
+  'Waldläufer|Sturmwächter': { kraft:0.5, zielgenauigkeit:0.25, robustheit:0.25 },
+  'Schurke|Attentäter': { kraft:0.5, kampfvorteil:0.25, robustheitstaerke:0.25 },
+  'Schurke|Flüsterklinge': { kraft:0.5, kampfvorteil:0.25, robustheitstaerke:0.25 },
+  'Hexenmeister|Seelenbinder (Heiler)': { kritwert:0.25, wahrnehmung:0.25 },
+  'Hexenmeister|Höllenbrut (DPS)': { kraft:0.5, kritwert:0.25, wahrnehmung:0.25 },
+  'Magier|Arkanist': { kraft:0.5, kampfvorteil:0.25, kritvermeidung:0.25 },
+  'Magier|Thaumaturg': { kraft:0.5, kampfvorteil:0.25, kritvermeidung:0.25 },
+};
+let wehrVerteilung = JSON.parse(JSON.stringify(DEFAULT_WEHRVERTEILUNG));
+
+const DEFAULT_FORMULAS = {
+  eTotal: 'H + sourcesWerte',
+  softcap: 'max(0, min(maxPr == 1.2 ? 60 : 50, (rating - (itemlevel - 50000)) / 1000))',
+  fPercent: 'I - softcap(H, maxPr, itemlevel) + softcap(E, maxPr, itemlevel) + sourcesProzent',
+  fSimple: 'I + sourcesProzent',
+  delta: 'maxPr * 100 - F',
+};
+
+let formulas = {...DEFAULT_FORMULAS};
+let maxPrOverrides = {}; // statId -> number (fraction, e.g. 1.2)
+let grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
+let baseInputs = {};   // statId -> {H, I}
+let sourceInputs = {}; // sourceKey -> statId -> {werte, prozent}
+
+let saveTimer = null;
+
+/* ---------- Werte-Formatierung (1000er-Punkt) ---------- */
+function formatWerte(n){
+  if(n === null || n === undefined || n === '') return '';
+  const num = Number(n);
+  if(Number.isNaN(num)) return '';
+  return Math.round(num).toLocaleString('de-DE');
+}
+function parseWerte(str){
+  const digits = String(str).replace(/[^\d-]/g,'');
+  if(digits === '' || digits === '-') return 0;
+  return Number(digits);
+}
+// Beim Fokussieren: unformatiert (nur Ziffern) zeigen, damit man normal weitertippen kann.
+// Beim Verlassen des Feldes: wieder mit 1000er-Punkt formatieren.
+function attachWerteFormatting(root){
+  root.querySelectorAll('input.werte-in').forEach(inp=>{
+    inp.addEventListener('focus', e=>{ e.target.value = e.target.value.replace(/[^\d-]/g,''); });
+    inp.addEventListener('blur', e=>{ e.target.value = formatWerte(parseWerte(e.target.value)); });
+  });
+}
+
+function queueSave(){
+  if(!isLoggedIn || !currentChar){
+    // Gast-Modus oder noch kein Charakter gewählt: nichts wird gespeichert.
+    return;
+  }
+  document.getElementById('saveStatus').textContent = 'Speichere ...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      await apiSaveCharacter(currentChar, getCharDataBundle());
+      document.getElementById('saveStatus').textContent = 'Gespeichert';
+    }catch(e){
+      document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+    }
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
+  }, 400);
+}
+async function queueSaveShared(){
+  try{
+    await apiSetShared({ formulas, maxPrOverrides, wehrVerteilung });
+    document.getElementById('saveStatus').textContent = 'Formeln gespeichert (für alle)';
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+  }
+  setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
+}
+
+function getMaxPr(stat){
+  const ov = maxPrOverrides[stat.id];
+  return (ov !== undefined && ov !== null && ov !== '') ? Number(ov) : stat.maxPr;
+}
+function getBase(statId){
+  if(!baseInputs[statId]) baseInputs[statId] = {H:0, I:0};
+  return baseInputs[statId];
+}
+function getSourceVal(sourceKey, statId){
+  if(!sourceInputs[sourceKey]) sourceInputs[sourceKey] = {};
+  if(!sourceInputs[sourceKey][statId]) sourceInputs[sourceKey][statId] = {werte:0, prozent:0};
+  return sourceInputs[sourceKey][statId];
+}
+function sumSources(statId){
+  let werte=0, prozent=0;
+  for(const src of ALL_SOURCES){
+    const v = getSourceVal(src, statId);
+    werte += Number(v.werte)||0;
+    prozent += Number(v.prozent)||0;
+  }
+  return {werte, prozent};
+}
+
+/* ---------- Berechnung ---------- */
+function computeAll(){
+  const itemlevel = Number(grunddaten.itemlevel)||0;
+  const results = {};
+
+  // erst alle nicht-derived Stats
+  for(const stat of ALL_STATS){
+    if(stat.type === 'derived') continue;
+    const base = getBase(stat.id);
+    const H = Number(base.H)||0;
+    const I = Number(base.I)||0;
+    const {werte:sourcesWerte, prozent:sourcesProzent} = sumSources(stat.id);
+    const maxPr = getMaxPr(stat) || 0;
+
+    let E = null, F = null, delta = null, error = null;
+    try{
+      E = math.evaluate(formulas.eTotal, {H, sourcesWerte});
+    }catch(e){ error = 'E: ' + e.message; E = H + sourcesWerte; }
+
+    if(stat.type === 'softcap'){
+      try{
+        const scope = {H, E, I, maxPr, itemlevel, sourcesProzent};
+        math.evaluate(`softcap(rating, maxPr, itemlevel) = ${formulas.softcap}`, scope);
+        F = math.evaluate(formulas.fPercent, scope);
+      }catch(e){ error = (error?error+' | ':'') + 'F: ' + e.message; }
+      if(F !== null){
+        try{ delta = math.evaluate(formulas.delta, {maxPr, F}); }
+        catch(e){ error = (error?error+' | ':'') + 'Delta: ' + e.message; }
+      }
+    } else if(stat.type === 'simple'){
+      try{ F = math.evaluate(formulas.fSimple, {I, sourcesProzent}); }
+      catch(e){ error = (error?error+' | ':'') + 'F: ' + e.message; }
+    }
+    results[stat.id] = {H, I, E, F, delta, sourcesWerte, sourcesProzent, error, maxPr};
+  }
+
+  // Wehrhaftigkeit-Differenz auf andere Stats verteilen (klassen-/vorbildpfadabhängig)
+  const wehr = results['wehrhaftigkeit'];
+  if(wehr && wehr.F !== null && wehr.I !== null){
+    const diff = wehr.F - wehr.I;
+    const key = `${grunddaten.klasse}|${grunddaten.vorbildpfad}`;
+    const verteilung = wehrVerteilung[key] || {};
+    for(const statId in verteilung){
+      const r = results[statId];
+      if(!r || r.F === null) continue;
+      const bonus = diff * verteilung[statId];
+      r.wehrBonus = bonus;
+      r.F = r.F + bonus;
+      if(r.maxPr){
+        try{ r.delta = math.evaluate(formulas.delta, {maxPr:r.maxPr, F:r.F}); }catch(e){ /* keep old delta */ }
+      }
+    }
+  }
+
+  // dann derived Stats
+  for(const stat of ALL_STATS){
+    if(stat.type !== 'derived') continue;
+    const from = results[stat.derivedFrom];
+    const {werte:sourcesWerte} = sumSources(stat.id);
+    let E = null, error = null;
+    try{
+      const fFromCapped = Math.min(from && from.F !== null ? from.F : 0, 120);
+      E = fFromCapped + sourcesWerte;
+    }catch(e){ error = e.message; }
+    results[stat.id] = {H:null, I:null, E, F:null, delta:null, sourcesWerte, sourcesProzent:0, error, maxPr:null};
+  }
+  return results;
+}
+
+/* ---------- Rendering ---------- */
+function fmt(n){
+  if(n === null || n === undefined || Number.isNaN(n)) return '&ndash;';
+  return (Math.round(n*100)/100).toLocaleString('de-DE');
+}
+
+function renderRings(results){
+  const groupAvgPct = STAT_GROUPS.map(g=>{
+    const withPct = g.stats.filter(s=>s.type==='softcap'||s.type==='simple');
+    if(withPct.length===0) return {label:g.label, color:g.color, val:0};
+    let sum=0, count=0;
+    for(const s of withPct){
+      const r = results[s.id];
+      const maxPr = getMaxPr(s) || (r.maxPr) || 1;
+      if(r.F !== null && maxPr){ sum += Math.min(r.F/(maxPr*100),1); count++; }
+    }
+    return {label:g.label, color:g.color, val: count? Math.round((sum/count)*100):0};
+  });
+  const el = document.getElementById('rings');
+  el.innerHTML = groupAvgPct.map(g=>{
+    const r=28, c=2*Math.PI*r, off = c - (g.val/100)*c;
+    return `<div class="ring-box">
+      <svg width="70" height="70" viewBox="0 0 70 70">
+        <circle cx="35" cy="35" r="${r}" fill="none" stroke="#2c303b" stroke-width="7"/>
+        <circle cx="35" cy="35" r="${r}" fill="none" stroke="${g.color}" stroke-width="7"
+          stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"
+          transform="rotate(-90 35 35)"/>
+        <text x="35" y="40" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700">${g.val}%</text>
+      </svg>
+      <div class="ring-label">${g.label} &Oslash; zum Max</div>
+    </div>`;
+  }).join('');
+}
+
+// Baut die Tabellen EINMAL auf (inkl. Eingabefelder). Wird nur bei Init oder
+// komplettem Reset neu aufgerufen - beim Tippen bleiben die Inputs unangetastet,
+// damit der Cursor/Fokus nicht verloren geht.
+function buildStatGroupsDOM(){
+  const el = document.getElementById('statGroups');
+  el.innerHTML = STAT_GROUPS.map(g=>{
+    const rows = g.stats.map(stat=>{
+      const maxPr = getMaxPr(stat);
+      if(stat.type==='werteOnly'){
+        return `<tr>
+          <td class="statname">${stat.label}</td>
+          <td class="muted">&ndash;</td>
+          <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
+          <td class="muted">&ndash;</td>
+          <td class="computed" id="E-${stat.id}"></td>
+          <td class="muted">&ndash;</td>
+          <td class="muted" id="note-${stat.id}">&ndash;</td>
+        </tr>`;
+      }
+      if(stat.type==='derived'){
+        return `<tr>
+          <td class="statname">${stat.label}</td>
+          <td class="muted">&ndash;</td>
+          <td class="muted">&ndash;</td>
+          <td class="muted">&ndash;</td>
+          <td class="computed" id="E-${stat.id}"></td>
+          <td class="muted">&ndash;</td>
+          <td class="muted" id="note-${stat.id}">gedeckelt bei 120 + Zusatz</td>
+        </tr>`;
+      }
+      return `<tr>
+        <td class="statname">${stat.label}</td>
+        <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
+        <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
+        <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" value="${getBase(stat.id).I}"><span class="pct-suffix">%</span></span></td>
+        <td class="computed" id="E-${stat.id}"></td>
+        <td class="computed" id="F-${stat.id}"></td>
+        <td id="delta-${stat.id}" class="muted">&ndash;</td>
+      </tr>`;
+    }).join('');
+    return `<div class="accordion group-accordion" id="group-acc-${g.id}">
+      <button type="button" onclick="toggleGroupAccordion('${g.id}')">
+        <span><span class="dot" style="background:${g.color}"></span>${g.label}</span>
+        <span class="chevron">&#9656;</span>
+      </button>
+      <div class="body">
+      <table>
+        <thead><tr>
+          <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
+          <th>Totale Werte (E)</th><th>Aktuelle % (F)</th><th>Delta zu Max</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.querySelectorAll('input[data-role]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const statId = e.target.dataset.stat;
+      const role = e.target.dataset.role;
+      const val = e.target.value === '' ? 0 : (role === 'H' ? parseWerte(e.target.value) : Number(e.target.value));
+      getBase(statId)[role] = val;
+      queueSave();
+      refresh(false);
+    });
+  });
+  attachWerteFormatting(el);
+
+  applyKlassentypAccordion();
+}
+
+function toggleGroupAccordion(groupId){
+  document.getElementById('group-acc-'+groupId).classList.toggle('open');
+}
+function setGroupOpen(groupId, open){
+  const el = document.getElementById('group-acc-'+groupId);
+  if(!el) return;
+  el.classList.toggle('open', open);
+}
+// Öffnet je nach Klassentyp automatisch die relevanten Stat-Gruppen.
+function applyKlassentypAccordion(){
+  const rule = {
+    'DPS': ['offensive'],
+    'Tank': ['defensive'],
+    'Heiler': ['offensive', 'support'],
+  }[grunddaten.klassentyp] || [];
+  STAT_GROUPS.forEach(g => setGroupOpen(g.id, rule.includes(g.id)));
+}
+
+// Aktualisiert nur die berechneten Zellen (E, F, Delta) - rührt die <input>-Felder nicht an.
+function updateStatGroups(results){
+  for(const stat of ALL_STATS){
+    const r = results[stat.id];
+    const eCell = document.getElementById(`E-${stat.id}`);
+    if(eCell) eCell.textContent = fmt(r.E);
+    if(stat.type==='werteOnly' || stat.type==='derived') continue;
+    const fCell = document.getElementById(`F-${stat.id}`);
+    if(fCell){
+      let txt = fmt(r.F) + '%';
+      if(r.wehrBonus){ txt += ` (${r.wehrBonus>=0?'+':''}${fmt(r.wehrBonus)}% Wehrhaftigkeit)`; }
+      fCell.textContent = txt;
+    }
+    const dCell = document.getElementById(`delta-${stat.id}`);
+    if(dCell && stat.type==='softcap' && r.delta !== null){
+      dCell.textContent = fmt(r.delta) + '%';
+      dCell.className = r.delta >= 0 ? 'delta-pos' : 'delta-neg';
+    }
+  }
+}
+
+function renderManualTable(cat){
+  const totalCols = 1 + cat.sources.length*2;
+  const headRow1 = `<th></th>` + cat.sources.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow2 = `<th>Stat</th>` + cat.sources.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
+
+  const bodyHtml = STAT_GROUPS.map(g=>{
+    const groupStats = g.stats.filter(s=>s.type!=='derived');
+    if(groupStats.length===0) return '';
+    const rows = groupStats.map(stat=>{
+      const showPct = stat.type !== 'werteOnly';
+      const cells = cat.sources.map((src,i)=>{
+        const v = getSourceVal(src, stat.id);
+        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+      }).join('');
+      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+    }).join('');
+    return `<tbody class="stat-subgroup" id="srcgrp-${cat.id}-${g.id}" data-group="${g.id}">
+      <tr class="subgroup-header" onclick="toggleSrcSubgroup('${cat.id}','${g.id}')">
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+      </tr>
+      ${rows}
+    </tbody>`;
+  }).join('');
+
+  return `<div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
+}
+
+// Text-Zusammenfassung dessen, was ein gewählter Preset-Name an Boni gibt (für die kleine Vorschau je Slot).
+function summarizeContrib(name, db){
+  const contrib = (name && name !== 'Leer' && db[name]) ? db[name] : {};
+  const parts = [];
+  for(const statId in contrib){
+    const stat = ALL_STATS.find(s=>s.id===statId);
+    const label = stat ? stat.label : statId;
+    const {werte, prozent} = contrib[statId];
+    if(werte) parts.push(`${label} +${formatWerte(werte)}`);
+    if(prozent) parts.push(`${label} +${prozent}%`);
+  }
+  return parts.length ? parts.join(', ') : '–';
+}
+
+function slugSrc(src){ return src.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+function renderPresetSlots(cat, names, db, presets){
+  const presetBtns = presets ? Object.keys(presets).map(p=>
+    `<button type="button" class="action" onclick="applyCatPreset('${cat.id}','${p.replace(/'/g,"\\'")}')">${p}</button>`
+  ).join('') : '';
+  const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>`;
+  const slotCards = cat.sources.map(src=>{
+    const sel = getSlotSelection(src);
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card">
+      <label>${src}</label>
+      <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
+      <div class="slot-summary computed" id="summary-${slugSrc(src)}">${summarizeContrib(sel, db)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
+    <div class="slot-grid">${slotCards}</div>`;
+}
+
+// "Manuell Werte" für Gefährten: wie Ausrüstung, aber für alle 10 Gefährten-Slots.
+// Zusätzlich pro Spalte ein kleines "aus Preset laden"-Dropdown, danach frei überschreibbar.
+function renderGefaehrtenWerteTable(){
+  const slots = GEFAEHRTEN_SLOTS;
+  const names = Object.keys(companionDb);
+
+  const loaderCards = slots.map(src=>{
+    const sel = getSlotSelection(src);
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card" style="padding:8px 10px;">
+      <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
+      <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
+    </div>`;
+  }).join('');
+
+  const totalCols = 1 + slots.length*2;
+  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow2 = `<th>Stat</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
+
+  const bodyHtml = STAT_GROUPS.map(g=>{
+    const groupStats = g.stats.filter(s=>s.type!=='derived');
+    if(groupStats.length===0) return '';
+    const rows = groupStats.map(stat=>{
+      const showPct = stat.type !== 'werteOnly';
+      const cells = slots.map((src,i)=>{
+        const v = getSourceVal(src, stat.id);
+        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+      }).join('');
+      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+    }).join('');
+    return `<tbody class="stat-subgroup" id="srcgrp-gefwerte-${g.id}" data-group="${g.id}">
+      <tr class="subgroup-header" onclick="toggleSrcSubgroup('gefwerte','${g.id}')">
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+      </tr>
+      ${rows}
+    </tbody>`;
+  }).join('');
+
+  return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','5er Standard')">5er Standard</button>
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','10er Standard')">10er Standard</button>
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','Manuell')">Manuell</button>
+      <button type="button" class="action gold" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>
+    </div>
+    <p class="helptext" style="margin-top:0;">Pro Gefährte per Dropdown einen vorhandenen Preset laden, oder direkt Werte/% eintragen (z. B. für noch nicht hinterlegte Gefährten).</p>
+    <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
+    <div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
+}
+function loadCompanionPreset(src, name){
+  applySlotSelection(src, name, companionDb);
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
+}
+function setGefaehrtenMode(mode){
+  gefaehrtenMode = mode;
+  queueSave();
+  renderSourceAccordions();
+}
+
+function renderReittierSlots(cat){
+  const names = Object.keys(mountDb);
+  const einzelSel = getSlotSelection(REITTIER_EINZEL_SLOT);
+  const einzelOptions = ['Leer', ...names].map(n=>`<option value="${n}" ${n===einzelSel?'selected':''}>${n}</option>`).join('');
+  const einzelHtml = `<div class="slot-card">
+    <label>${REITTIER_EINZEL_SLOT}</label>
+    <select data-slot="${REITTIER_EINZEL_SLOT}" data-cat="${cat.id}">${einzelOptions}</select>
+    <div class="slot-summary computed" id="summary-${slugSrc(REITTIER_EINZEL_SLOT)}">${summarizeContrib(einzelSel, mountDb)}</div>
+  </div>`;
+
+  const presetBtns = Object.keys(reittierPresets).map(p=>
+    `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`
+  ).join('');
+  const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
+    const sel = getSlotSelection(src);
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card">
+      <label>${src}</label>
+      <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
+      <div class="slot-summary computed" id="summary-${slugSrc(src)}">${summarizeContrib(sel, mountDb)}</div>
+    </div>`;
+  }).join('');
+
+  return `<p class="helptext" style="margin-top:0;">Dein eigenes Reittier:</p>
+    <div class="slot-grid" style="margin-bottom:18px;">${einzelHtml}</div>
+    <p class="helptext">Gruppen-Buffs (Reittiere anderer Gruppenmitglieder):</p>
+    <div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}</div>
+    <div class="slot-grid">${gruppeCards}</div>`;
+}
+
+function renderFoodSlots(cat){
+  const slotCards = FOOD_SLOTS.map(fs=>{
+    const sel = getSlotSelection(fs.key);
+    const options = ['Leer', ...fs.items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    return `<div class="slot-card">
+      <label>${fs.key.replace('Buff Food – ','')}</label>
+      <select data-slot="${fs.key}" data-cat="${cat.id}">${options}</select>
+      <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, foodDb)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="slot-grid">${slotCards}</div>`;
+}
+
+function renderBadgesHtml(cat){
+  return catBadgeText(cat).map(b=>`<span class="cat-badge">${b}</span>`).join(' ');
+}
+function catBadgeText(cat){
+  if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? 'Manuell Werte' : gefaehrtenActivePreset];
+  if(cat.kind === 'reittier') return [reittierActivePreset];
+  if(cat.kind === 'bufffood'){
+    const badges = [];
+    const anyActive = FOOD_SLOTS.some(fs => getSlotSelection(fs.key) !== 'Leer');
+    badges.push(anyActive ? 'Buff Food aktiv' : 'keins ausgewählt');
+    const utilityActive = FOOD_SLOTS.some(fs => fs.key.includes('Utility') && getSlotSelection(fs.key) !== 'Leer');
+    if(utilityActive) badges.push('Utility aktiv');
+    return badges;
+  }
+  return [];
+}
+
+function renderSourceAccordions(){
+  const el = document.getElementById('sourceAccordions');
+  const isFirstBuild = el.children.length === 0;
+  const prevOpenCats = Array.from(el.querySelectorAll(':scope > .accordion.open')).map(a=>a.id);
+  const prevOpenSubgroups = Array.from(el.querySelectorAll('.stat-subgroup.open')).map(a=>a.id);
+
+  el.innerHTML = SOURCE_CATEGORIES.map(cat=>{
+    let bodyHtml;
+    if(cat.kind === 'manual'){
+      bodyHtml = renderManualTable(cat);
+    } else if(cat.kind === 'gefaehrten'){
+      bodyHtml = gefaehrtenMode==='werte' ? renderGefaehrtenWerteTable() : renderPresetSlots(cat, Object.keys(companionDb), companionDb, gefaehrtenPresets);
+    } else if(cat.kind === 'reittier'){
+      bodyHtml = renderReittierSlots(cat);
+    } else if(cat.kind === 'bufffood'){
+      bodyHtml = renderFoodSlots(cat);
+    }
+    return `<div class="accordion" id="acc-cat-${cat.id}">
+      <button onclick="toggleCatAccordion('${cat.id}')" type="button">
+        <span>${cat.label} <span class="cat-badges" id="catbadges-${cat.id}">${renderBadgesHtml(cat)}</span></span>
+        <span class="chevron">&#9656;</span>
+      </button>
+      <div class="body">${bodyHtml}</div>
+    </div>`;
+  }).join('');
+
+  // Manuelle Ausrüstungs-Eingaben (Werte/%)
+  el.querySelectorAll('input[data-src]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const src = e.target.dataset.src, statId = e.target.dataset.stat, field = e.target.dataset.field;
+      const val = e.target.value === '' ? 0 : (field === 'werte' ? parseWerte(e.target.value) : Number(e.target.value));
+      getSourceVal(src, statId)[field] = val;
+      queueSave();
+      refresh(false);
+    });
+  });
+  // Dropdown-Auswahl bei Gefährten/Buff Food/Reittier
+  el.querySelectorAll('select[data-slot]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const src = e.target.dataset.slot, catId = e.target.dataset.cat;
+      const db = catId==='bufffood' ? foodDb : dbForCategory(catId);
+      applySlotSelection(src, e.target.value, db);
+      const summaryEl = document.getElementById('summary-'+slugSrc(src));
+      if(summaryEl) summaryEl.textContent = summarizeContrib(e.target.value, db);
+      // Manuelle Einzel-Auswahl weicht von einem Preset ab -> Badge auf "Manuell" setzen
+      if(catId === 'gefaehrten') gefaehrtenActivePreset = 'Manuell';
+      if(catId === 'reittier') reittierActivePreset = 'Manuell';
+      const catObj = SOURCE_CATEGORIES.find(c=>c.id===catId);
+      const badgeWrap = document.getElementById('catbadges-'+catId);
+      if(badgeWrap && catObj) badgeWrap.innerHTML = renderBadgesHtml(catObj);
+      queueSave();
+      refresh(false);
+    });
+  });
+  attachWerteFormatting(el);
+
+  // Auf-/zugeklappte Bereiche bleiben über einen Rebuild hinweg erhalten (z.B. nach Preset-Klick),
+  // damit sich Fenster nicht von selbst schließen, während man das Ergebnis prüft.
+  if(isFirstBuild){
+    applyKlassentypSubgroups();
+  } else {
+    prevOpenCats.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
+    prevOpenSubgroups.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
+  }
+}
+
+// Preset-Button (z.B. "5er Standard"): befüllt alle Slots der Kategorie automatisch, Rest wird "Leer".
+function applyCatPreset(catId, presetName){
+  const db = dbForCategory(catId);
+  if(catId === 'gefaehrten'){
+    gefaehrtenMode = 'presets';
+    gefaehrtenActivePreset = presetName;
+    const names = gefaehrtenPresets[presetName] || [];
+    GEFAEHRTEN_SLOTS.forEach((src,i)=>{ applySlotSelection(src, names[i] || 'Leer', db); });
+  } else if(catId === 'reittier'){
+    reittierActivePreset = presetName;
+    const names = reittierPresets[presetName] || [];
+    REITTIER_GRUPPE_SLOTS.forEach((src,i)=>{ applySlotSelection(src, names[i] || 'Leer', db); });
+  }
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
+}
+
+function toggleCatAccordion(catId){
+  document.getElementById('acc-cat-'+catId).classList.toggle('open');
+}
+function toggleSrcSubgroup(catId, groupId){
+  document.getElementById(`srcgrp-${catId}-${groupId}`).classList.toggle('open');
+}
+// Öffnet in der Ausrüstungstabelle die zum Klassentyp passende(n) Stat-Untergruppe(n).
+function applyKlassentypSubgroups(){
+  const rule = {
+    'DPS': ['offensive'],
+    'Tank': ['defensive'],
+    'Heiler': ['offensive', 'support'],
+  }[grunddaten.klassentyp] || [];
+  ['ausruestung','gefwerte'].forEach(prefix=>{
+    STAT_GROUPS.forEach(g=>{
+      const el = document.getElementById(`srcgrp-${prefix}-${g.id}`);
+      if(el) el.classList.toggle('open', rule.includes(g.id));
+    });
+  });
+}
+
+function renderMaxPrGrid(){
+  const el = document.getElementById('maxprGrid');
+  el.innerHTML = ALL_STATS.filter(s=>s.maxPr!==null).map(stat=>{
+    const val = maxPrOverrides[stat.id] !== undefined ? maxPrOverrides[stat.id] : stat.maxPr;
+    return `<div class="maxpr-item">
+      <label>${stat.label}</label>
+      <input type="number" step="0.01" class="num-in" style="width:100%" data-maxpr="${stat.id}" value="${val}">
+    </div>`;
+  }).join('');
+  el.querySelectorAll('input[data-maxpr]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      maxPrOverrides[e.target.dataset.maxpr] = Number(e.target.value);
+    });
+  });
+}
+
+function fillFormulaFields(){
+  document.getElementById('f_eTotal').value = formulas.eTotal;
+  document.getElementById('f_softcap').value = formulas.softcap;
+  document.getElementById('f_fPercent').value = formulas.fPercent;
+  document.getElementById('f_fSimple').value = formulas.fSimple;
+  document.getElementById('f_delta').value = formulas.delta;
+  document.getElementById('f_wehr').value = JSON.stringify(wehrVerteilung, null, 2);
+}
+
+function refresh(rebuildInputs){
+  if(rebuildInputs) buildStatGroupsDOM();
+  const results = computeAll();
+  renderRings(results);
+  updateStatGroups(results);
+  if(rebuildInputs) renderSourceAccordions();
+}
+
+/* ---------- Seiten-Navigation ---------- */
+function showPage(name){
+  document.getElementById('pageRechner').style.display = name==='rechner' ? '' : 'none';
+  document.getElementById('pageAdmin').style.display = name==='admin' ? '' : 'none';
+  document.getElementById('tab-rechner').classList.toggle('active', name==='rechner');
+  document.getElementById('tab-admin').classList.toggle('active', name==='admin');
+  if(name==='admin'){
+    renderMaxPrGrid();
+    fillFormulaFields();
+    fillPresetFields();
+  }
+}
+
+/* ---------- Presets-Seite: Formular-Editor statt JSON ---------- */
+function statOptionsHtml(selected){
+  const opts = ['<option value="">– Stat wählen –</option>'];
+  ALL_STATS.filter(s=>s.type!=='derived').forEach(s=>{
+    opts.push(`<option value="${s.id}" ${s.id===selected?'selected':''}>${s.label}</option>`);
+  });
+  return opts.join('');
+}
+function statRowHtml(statId, werte, prozent){
+  return `<div class="stat-row">
+    <select class="stat-select">${statOptionsHtml(statId)}</select>
+    <input type="text" inputmode="numeric" class="num-in werte-in stat-werte" value="${formatWerte(werte||0)}" placeholder="Werte">
+    <span class="pct-wrap"><input type="number" step="0.01" class="num-in stat-prozent" value="${prozent||0}"><span class="pct-suffix">%</span></span>
+    <button type="button" class="action danger small" onclick="this.closest('.stat-row').remove()">✕</button>
+  </div>`;
+}
+function addStatRowTo(btn){
+  const card = btn.closest('.entry-card');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = statRowHtml('',0,0);
+  const row = wrapper.firstElementChild;
+  card.querySelector('.stat-rows').appendChild(row);
+  attachWerteFormatting(row);
+}
+function entryCardHtml(name, statsObj, extraHtml){
+  const rows = Object.keys(statsObj||{}).map(id=>statRowHtml(id, statsObj[id].werte, statsObj[id].prozent)).join('');
+  return `<div class="entry-card">
+    <div class="entry-head">
+      <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben...">
+      <button type="button" class="action danger small" onclick="this.closest('.entry-card').remove()">Entfernen</button>
+    </div>
+    <div class="stat-rows">${rows}</div>
+    <button type="button" class="action small" onclick="addStatRowTo(this)">+ Stat</button>
+    ${extraHtml||''}
+  </div>`;
+}
+function renderEntryEditor(containerId, db){
+  const el = document.getElementById(containerId);
+  el.innerHTML = Object.keys(db).map(name=>entryCardHtml(name, db[name])).join('');
+  attachWerteFormatting(el);
+}
+function addEntryCard(containerId){
+  const el = document.getElementById(containerId);
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = entryCardHtml('', {});
+  const card = wrapper.firstElementChild;
+  el.appendChild(card);
+  attachWerteFormatting(card);
+}
+function collectEntryEditor(containerId){
+  const el = document.getElementById(containerId);
+  const result = {};
+  el.querySelectorAll(':scope > .entry-card').forEach(card=>{
+    const name = card.querySelector('.entry-name').value.trim();
+    if(!name) return;
+    const stats = {};
+    card.querySelectorAll('.stat-row').forEach(row=>{
+      const statId = row.querySelector('.stat-select').value;
+      if(!statId) return;
+      const werte = parseWerte(row.querySelector('.stat-werte').value);
+      const prozent = Number(row.querySelector('.stat-prozent').value)||0;
+      if(werte || prozent) stats[statId] = {werte, prozent};
+    });
+    result[name] = stats;
+  });
+  return result;
+}
+
+// Buff Food: wie oben, plus Checkboxen für die Food-Slots, in denen das Essen wählbar sein soll.
+function renderFoodEditor(){
+  const el = document.getElementById('foodEditor');
+  el.innerHTML = Object.keys(foodDb).map(name=>{
+    const checks = FOOD_SLOTS.map((fs,i)=>{
+      const checked = fs.items.includes(name);
+      return `<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}" ${checked?'checked':''}> ${fs.key.replace('Buff Food – ','')}</label>`;
+    }).join('');
+    return entryCardHtml(name, foodDb[name], `<div class="slot-check-row">${checks}</div>`);
+  }).join('');
+  attachWerteFormatting(el);
+}
+function addFoodEntryCard(){
+  const el = document.getElementById('foodEditor');
+  const checks = FOOD_SLOTS.map((fs,i)=>`<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}"> ${fs.key.replace('Buff Food – ','')}</label>`).join('');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = entryCardHtml('', {}, `<div class="slot-check-row">${checks}</div>`);
+  const card = wrapper.firstElementChild;
+  el.appendChild(card);
+  attachWerteFormatting(card);
+}
+function collectFoodEditor(){
+  const el = document.getElementById('foodEditor');
+  const result = {};
+  const slotItems = FOOD_SLOTS.map(()=>[]);
+  el.querySelectorAll(':scope > .entry-card').forEach(card=>{
+    const name = card.querySelector('.entry-name').value.trim();
+    if(!name) return;
+    const stats = {};
+    card.querySelectorAll('.stat-row').forEach(row=>{
+      const statId = row.querySelector('.stat-select').value;
+      if(!statId) return;
+      const werte = parseWerte(row.querySelector('.stat-werte').value);
+      const prozent = Number(row.querySelector('.stat-prozent').value)||0;
+      if(werte || prozent) stats[statId] = {werte, prozent};
+    });
+    result[name] = stats;
+    card.querySelectorAll('.food-slot-check').forEach(chk=>{
+      if(chk.checked) slotItems[Number(chk.dataset.slotidx)].push(name);
+    });
+  });
+  FOOD_SLOTS.forEach((fs,i)=>{ fs.items = slotItems[i]; });
+  return result;
+}
+
+// Gruppen-Presets (5er/10er Standard): pro Preset eine Reihe Dropdowns, ein Slot je Position.
+function presetCardHtml(presetName, slotLabels, names, assigned){
+  const selects = slotLabels.map((label,i)=>{
+    const val = assigned[i] || 'Leer';
+    const opts = ['Leer', ...names].map(n=>`<option value="${n}" ${n===val?'selected':''}>${n}</option>`).join('');
+    return `<div class="preset-slot"><label>${label}</label><select class="preset-slot-select">${opts}</select></div>`;
+  }).join('');
+  return `<div class="preset-card">
+    <div class="entry-head">
+      <input type="text" class="entry-name preset-name" value="${presetName}" placeholder="Preset-Name">
+      <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
+    </div>
+    <div class="slot-grid">${selects}</div>
+  </div>`;
+}
+function renderPresetEditor(containerId, presetsObj, slotLabels, names){
+  const el = document.getElementById(containerId);
+  el.innerHTML = Object.keys(presetsObj).map(pname=>presetCardHtml(pname, slotLabels, names, presetsObj[pname]||[])).join('');
+}
+function addPresetCard(containerId, kind){
+  const el = document.getElementById(containerId);
+  const slotLabels = kind==='gefaehrten' ? GEFAEHRTEN_SLOTS : REITTIER_GRUPPE_SLOTS;
+  const names = kind==='gefaehrten' ? Object.keys(companionDb) : Object.keys(mountDb);
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = presetCardHtml('Neues Preset', slotLabels, names, []);
+  el.appendChild(wrapper.firstElementChild);
+}
+function collectPresetEditor(containerId){
+  const el = document.getElementById(containerId);
+  const result = {};
+  el.querySelectorAll(':scope > .preset-card').forEach(card=>{
+    const name = card.querySelector('.preset-name').value.trim();
+    if(!name) return;
+    result[name] = Array.from(card.querySelectorAll('.preset-slot-select')).map(s=>s.value);
+  });
+  return result;
+}
+
+function fillPresetFields(){
+  renderEntryEditor('companionEditor', companionDb);
+  renderEntryEditor('mountEditor', mountDb);
+  renderFoodEditor();
+  renderPresetEditor('gefaehrtenPresetEditor', gefaehrtenPresets, GEFAEHRTEN_SLOTS, Object.keys(companionDb));
+  renderPresetEditor('reittierPresetEditor', reittierPresets, REITTIER_GRUPPE_SLOTS, Object.keys(mountDb));
+}
+async function savePresetsShared(){
+  companionDb = collectEntryEditor('companionEditor');
+  mountDb = collectEntryEditor('mountEditor');
+  foodDb = collectFoodEditor();
+  gefaehrtenPresets = collectPresetEditor('gefaehrtenPresetEditor');
+  reittierPresets = collectPresetEditor('reittierPresetEditor');
+
+  try{
+    await apiSetShared({
+      companionDb, mountDb, foodDb,
+      foodSlots: FOOD_SLOTS.map(fs=>({key:fs.key, items:fs.items})),
+      gefaehrtenPresets, reittierPresets,
+    });
+    document.getElementById('saveStatus').textContent = 'Presets gespeichert (für alle)';
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+  }
+  setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
+  fillPresetFields();
+  renderSourceAccordions();
+  refresh(false);
+}
+function resetPresetsToDefault(){
+  companionDb = JSON.parse(JSON.stringify(DEFAULT_COMPANION_DB));
+  mountDb = JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
+  foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
+  gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
+  reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
+  FOOD_SLOTS_DEFAULT.forEach((def,i)=>{ FOOD_SLOTS[i].items = [...def.items]; });
+  fillPresetFields();
+}
+
+/* ---------- Admin: Formeln ---------- */
+async function saveFormulas(){
+  formulas.eTotal = document.getElementById('f_eTotal').value;
+  formulas.softcap = document.getElementById('f_softcap').value;
+  formulas.fPercent = document.getElementById('f_fPercent').value;
+  formulas.fSimple = document.getElementById('f_fSimple').value;
+  formulas.delta = document.getElementById('f_delta').value;
+  try{
+    wehrVerteilung = JSON.parse(document.getElementById('f_wehr').value);
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Fehler im JSON der Wehrhaftigkeit-Tabelle – nichts wurde gespeichert: ' + e.message;
+    return;
+  }
+  await queueSaveShared();
+  refresh(false);
+}
+function resetFormulasToDefault(){
+  formulas = {...DEFAULT_FORMULAS};
+  maxPrOverrides = {};
+  wehrVerteilung = JSON.parse(JSON.stringify(DEFAULT_WEHRVERTEILUNG));
+  fillFormulaFields();
+  renderMaxPrGrid();
+}
+
+/* ---------- Reset Modal ---------- */
+let pendingAction = null;
+function confirmAction(type){
+  pendingAction = type;
+  const text = {
+    werte: 'Alle "Aktuelle Werte" und "Aktuelle %" Eingaben zurücksetzen?',
+    ausruestung: 'Alle Ausrüstungs- und Bonus-Eingaben zurücksetzen?',
+    alles: 'Wirklich ALLES zurücksetzen, inklusive Grunddaten?',
+  }[type];
+  document.getElementById('modalText').textContent = text;
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); pendingAction = null; }
+document.getElementById('modalConfirm').addEventListener('click', async ()=>{
+  if(pendingAction === 'deletechar' && pendingDeleteChar){
+    try{ await apiDeleteCharacter(pendingDeleteChar); }catch(e){ setAccountMsg(e.message); }
+    if(currentChar === pendingDeleteChar){
+      currentChar = null;
+      applyCharDataBundle({});
+      fullUiRefreshAfterProfileSwitch();
+    }
+    updateAccountLabel();
+    renderAccountPanel();
+    pendingDeleteChar = null;
+    closeModal();
+    return;
+  }
+  if(pendingAction === 'werte' || pendingAction === 'alles'){ baseInputs = {}; }
+  if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; gefaehrtenMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
+  if(pendingAction === 'alles'){
+    grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
+    document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+    document.getElementById('klasse').value = grunddaten.klasse;
+    populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
+  }
+  queueSave();
+  refresh(true);
+  closeModal();
+});
+
+/* ---------- Vorbildpfad-Dropdown (abhängig von Klasse) ---------- */
+function populateVorbildpfad(klasse, selected){
+  const sel = document.getElementById('vorbildpfad');
+  const pfade = KLASSEN_PFADE[klasse] || [];
+  sel.innerHTML = pfade.map(p=>`<option value="${p}">${p}</option>`).join('');
+  if(selected && pfade.includes(selected)){
+    sel.value = selected;
+  } else if(pfade.length){
+    sel.value = pfade[0];
+    grunddaten.vorbildpfad = pfade[0];
+  }
+  updateKlassentyp();
+}
+
+// Klassentyp (Tank/Heiler/DPS) wird direkt aus dem Namen des Vorbildpfads abgeleitet,
+// z.B. "Schwertmeister (DPS)" -> DPS. Pfade ohne Klammerzusatz (Waldläufer/Schurke/Magier) sind reine DPS-Pfade.
+function klassentypFromPfad(pfad){
+  if(!pfad) return 'DPS';
+  if(pfad.includes('(Tank)')) return 'Tank';
+  if(pfad.includes('(Heiler)')) return 'Heiler';
+  return 'DPS';
+}
+function updateKlassentyp(){
+  grunddaten.klassentyp = klassentypFromPfad(grunddaten.vorbildpfad);
+  const badge = document.getElementById('klassentyp');
+  if(badge) badge.textContent = grunddaten.klassentyp;
+  applyKlassentypAccordion();
+  applyKlassentypSubgroups();
+}
+
+/* ---------- Grunddaten Bindings ---------- */
+function bindGrunddaten(){
+  document.getElementById('itemlevel').addEventListener('input', e=>{ grunddaten.itemlevel = e.target.value === '' ? 0 : parseWerte(e.target.value); queueSave(); refresh(false); });
+  attachWerteFormatting(document);
+  document.getElementById('klasse').addEventListener('change', e=>{
+    grunddaten.klasse = e.target.value;
+    populateVorbildpfad(grunddaten.klasse, null); // Klasse gewechselt -> ersten Pfad der neuen Klasse nehmen
+    queueSave();
+    refresh(false);
+  });
+  document.getElementById('vorbildpfad').addEventListener('change', e=>{
+    grunddaten.vorbildpfad = e.target.value;
+    updateKlassentyp();
+    queueSave();
+    refresh(false);
+  });
+}
+
+/* ---------- Init ---------- */
+async function init(){
+  // Start immer als Gast mit Standardwerten - persönliche Charakterdaten werden
+  // erst geladen, wenn man sich anmeldet und einen Charakter auswählt.
+  applyCharDataBundle({});
+
+  try{
+    const shared = await apiGetShared();
+    if(shared.formulas) formulas = {...DEFAULT_FORMULAS, ...shared.formulas};
+    if(shared.maxPrOverrides) maxPrOverrides = shared.maxPrOverrides;
+    if(shared.wehrVerteilung) wehrVerteilung = shared.wehrVerteilung;
+    if(shared.companionDb) companionDb = shared.companionDb;
+    if(shared.mountDb) mountDb = shared.mountDb;
+    if(shared.foodDb) foodDb = shared.foodDb;
+    if(shared.gefaehrtenPresets) gefaehrtenPresets = shared.gefaehrtenPresets;
+    if(shared.reittierPresets) reittierPresets = shared.reittierPresets;
+    if(shared.foodSlots) shared.foodSlots.forEach((def,i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
+  }catch(e){
+    console.warn('Presets/Formeln konnten nicht vom Server geladen werden:', e.message);
+  }
+
+  // Login-Status aus dem Browser wiederherstellen (Token bleibt lokal gespeichert)
+  const savedToken = localStorage.getItem('xselli_token');
+  const savedUsername = localStorage.getItem('xselli_username');
+  if(savedToken && savedUsername){
+    authToken = savedToken; currentUser = savedUsername; isLoggedIn = true;
+    try{
+      const chars = await apiListCharacters(); // prüft nebenbei, ob das Token noch gültig ist
+      const savedChar = localStorage.getItem('xselli_lastchar_'+savedUsername);
+      if(savedChar && chars.includes(savedChar)){
+        const res = await apiGetCharacter(savedChar);
+        currentChar = savedChar;
+        applyCharDataBundle(res.data);
+      }
+    }catch(e){
+      // Token abgelaufen oder ungültig -> zurück zu Gast
+      clearLoginLocally();
+      authToken = null; currentUser = null; isLoggedIn = false; currentChar = null;
+      applyCharDataBundle({});
+    }
+  }
+
+  document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+  document.getElementById('klasse').value = grunddaten.klasse;
+  populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
+  updateAccountLabel();
+
+  bindGrunddaten();
+  refresh(true);
+}
+init();
+</script>
+</body>
+</html>
