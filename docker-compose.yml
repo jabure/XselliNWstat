@@ -10,6 +10,7 @@ services:
     environment:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:-bitte-in-der-.env-aendern}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
     # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,
     # nicht weil die App das braucht, sondern damit sie unter keinen Umständen
     # andere Dienste auf deinem Server stören kann.

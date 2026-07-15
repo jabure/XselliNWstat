@@ -136,13 +136,22 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
 });
 
 /* ---------- Geteilte Daten: Formeln, Presets/Datenbanken ----------
-   Aktuell für alle offen (lesen UND schreiben) - passend zum bisherigen
-   Verhalten. Später: hier authMiddleware + Admin-Flag ergänzen, wenn nur
-   noch bestimmte Benutzer die Presets/Formeln bearbeiten dürfen sollen. */
+   Lesen bleibt für alle offen (jeder Charakter-Rechner braucht die
+   Gefährten-/Reittier-/Buff-Food-Datenbank und die Formeln, um zu rechnen).
+   Schreiben/Bearbeiten ist ab jetzt nur noch für das Admin-Konto erlaubt. */
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Xselli';
+
+function adminOnlyMiddleware(req, res, next){
+  if(req.username !== ADMIN_USERNAME){
+    return res.status(403).json({ error: 'Nur das Admin-Konto darf Presets/Formeln ändern' });
+  }
+  next();
+}
+
 app.get('/api/shared', (req, res) => {
   res.json(readJson(SHARED_FILE, {}));
 });
-app.put('/api/shared', (req, res) => {
+app.put('/api/shared', authMiddleware, adminOnlyMiddleware, (req, res) => {
   const current = readJson(SHARED_FILE, {});
   const updated = Object.assign({}, current, req.body || {});
   writeJson(SHARED_FILE, updated);
