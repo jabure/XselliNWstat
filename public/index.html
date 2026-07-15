@@ -136,16 +136,15 @@
     position:sticky; left:0; z-index:3; background:var(--panel);
     box-shadow:2px 0 4px rgba(0,0,0,0.35);
   }
-  table.wide-table .subgroup-header td{position:static; box-shadow:none;}
+  table.wide-table .subgroup-header td{
+    position:sticky; left:0; z-index:5; background:var(--panel-2); box-shadow:2px 0 4px rgba(0,0,0,0.35);
+  }
   table.wide-table thead tr:first-child th{
     text-align:center; border-bottom:2px solid var(--gold-soft); color:var(--gold);
     font-size:0.85rem; font-weight:700; text-transform:none; letter-spacing:0;
     background:rgba(200,149,46,0.10); padding:8px 8px;
   }
   table.wide-table .slot-sep{border-left:2px solid var(--gold-soft);}
-  .group-accordion{margin-bottom:12px;}
-  .group-accordion > button{font-size:1.0rem;}
-  .group-accordion .dot{margin-right:6px;}
   .subgroup-header td{
     background:var(--panel-2); cursor:pointer; font-weight:700; font-size:0.85rem;
     padding:8px 10px; border-bottom:1px solid var(--border);
@@ -182,6 +181,14 @@
   .preset-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
   .preset-slot{display:flex; flex-direction:column;}
   .preset-slot label{font-size:0.72rem; margin-bottom:3px;}
+  .user-toggle{
+    flex:1; text-align:left; background:none; border:none; color:var(--text); cursor:pointer;
+    font-size:0.92rem; padding:0; display:flex; align-items:center; gap:4px;
+  }
+  .user-toggle .chevron{display:inline-block; transition:transform .15s ease;}
+  .user-chars{padding:8px 10px 4px 30px; font-size:0.85rem;}
+  .user-char-item{padding:3px 0; color:var(--text-dim); border-bottom:1px solid #23262f;}
+  .user-char-item:last-child{border-bottom:none;}
   .cat-badges{display:inline-flex; gap:6px; flex-wrap:wrap;}
   .account-bar{display:flex; justify-content:flex-end; margin-bottom:6px;}
   .account-btn{
@@ -972,11 +979,11 @@ function renderRings(results){
 // damit der Cursor/Fokus nicht verloren geht.
 function buildStatGroupsDOM(){
   const el = document.getElementById('statGroups');
-  el.innerHTML = STAT_GROUPS.map(g=>{
+  const bodyHtml = STAT_GROUPS.map(g=>{
     const rows = g.stats.map(stat=>{
       const maxPr = getMaxPr(stat);
       if(stat.type==='werteOnly'){
-        return `<tr>
+        return `<tr class="subgroup-row">
           <td class="statname">${stat.label}</td>
           <td class="muted">&ndash;</td>
           <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
@@ -987,7 +994,7 @@ function buildStatGroupsDOM(){
         </tr>`;
       }
       if(stat.type==='derived'){
-        return `<tr>
+        return `<tr class="subgroup-row">
           <td class="statname">${stat.label}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
@@ -997,7 +1004,7 @@ function buildStatGroupsDOM(){
           <td class="muted" id="note-${stat.id}">gedeckelt bei 120 + Zusatz</td>
         </tr>`;
       }
-      return `<tr>
+      return `<tr class="subgroup-row">
         <td class="statname">${stat.label}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
         <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
@@ -1007,22 +1014,23 @@ function buildStatGroupsDOM(){
         <td id="delta-${stat.id}" class="muted">&ndash;</td>
       </tr>`;
     }).join('');
-    return `<div class="accordion group-accordion" id="group-acc-${g.id}">
-      <button type="button" onclick="toggleGroupAccordion('${g.id}')">
-        <span><span class="dot" style="background:${g.color}"></span>${g.label}</span>
-        <span class="chevron">&#9656;</span>
-      </button>
-      <div class="body">
-      <table>
-        <thead><tr>
-          <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
-          <th>Totale Werte (E)</th><th>Aktuelle % (F)</th><th>Delta zu Max</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      </div>
-    </div>`;
+    return `<tbody class="stat-subgroup" id="srcgrp-stats-${g.id}" data-group="${g.id}">
+      <tr class="subgroup-header" onclick="toggleSrcSubgroup('stats','${g.id}')">
+        <td colspan="7"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+      </tr>
+      ${rows}
+    </tbody>`;
   }).join('');
+
+  el.innerHTML = `<div class="card">
+    <table class="stats-table">
+      <thead><tr>
+        <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
+        <th>Totale Werte (E)</th><th>Aktuelle % (F)</th><th>&Delta;</th>
+      </tr></thead>
+      ${bodyHtml}
+    </table>
+  </div>`;
 
   el.querySelectorAll('input[data-role]').forEach(inp=>{
     inp.addEventListener('input', e=>{
@@ -1036,25 +1044,7 @@ function buildStatGroupsDOM(){
   });
   attachWerteFormatting(el);
 
-  applyKlassentypAccordion();
-}
-
-function toggleGroupAccordion(groupId){
-  document.getElementById('group-acc-'+groupId).classList.toggle('open');
-}
-function setGroupOpen(groupId, open){
-  const el = document.getElementById('group-acc-'+groupId);
-  if(!el) return;
-  el.classList.toggle('open', open);
-}
-// Öffnet je nach Klassentyp automatisch die relevanten Stat-Gruppen.
-function applyKlassentypAccordion(){
-  const rule = {
-    'DPS': ['offensive'],
-    'Tank': ['defensive'],
-    'Heiler': ['offensive', 'support'],
-  }[grunddaten.klassentyp] || [];
-  STAT_GROUPS.forEach(g => setGroupOpen(g.id, rule.includes(g.id)));
+  applyKlassentypSubgroups();
 }
 
 // Aktualisiert nur die berechneten Zellen (E, F, Delta) - rührt die <input>-Felder nicht an.
@@ -1441,7 +1431,7 @@ function applyKlassentypSubgroups(){
     'Tank': ['defensive'],
     'Heiler': ['offensive', 'support'],
   }[grunddaten.klassentyp] || [];
-  ['ausruestung','gefwerte','reittierwerte','bufffood'].forEach(prefix=>{
+  ['stats','ausruestung','gefwerte','reittierwerte','bufffood'].forEach(prefix=>{
     STAT_GROUPS.forEach(g=>{
       const el = document.getElementById(`srcgrp-${prefix}-${g.id}`);
       if(el) el.classList.toggle('open', rule.includes(g.id));
@@ -1540,16 +1530,35 @@ async function renderUserOverview(){
     const users = await apiAdminListUsers();
     const roleOptions = ['user','moderator','coadmin','admin'];
     const roleLabel = {user:'Nutzer', moderator:'Moderator', coadmin:'Coadmin', admin:'Admin'};
-    el.innerHTML = users.map(u => `
-      <div class="char-item">
-        <span style="flex:1;">${u.username} <span class="muted">(${u.characterCount} Charakter${u.characterCount===1?'':'e'})</span></span>
-        <select ${u.username===currentUser?'disabled':''} onchange="setUserRole('${u.username.replace(/'/g,"\\'")}', this.value)" style="width:auto;">
-          ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
-        </select>
-      </div>`).join('') || '<p class="helptext">Keine Benutzer gefunden.</p>';
+    el.innerHTML = users.map(u => {
+      const slug = slugSrc(u.username);
+      const charList = u.characters.length
+        ? u.characters.map(c=>`<div class="user-char-item">${c}</div>`).join('')
+        : '<div class="muted" style="padding:4px 0;">Keine Charaktere</div>';
+      return `<div class="user-item-wrap">
+        <div class="char-item">
+          <button type="button" class="user-toggle" onclick="toggleUserChars('${slug}')">
+            <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${u.username}
+            <span class="muted">(${u.characters.length} Charakter${u.characters.length===1?'':'e'})</span>
+          </button>
+          <select ${u.username===currentUser?'disabled':''} onchange="setUserRole('${u.username.replace(/'/g,"\\'")}', this.value)" style="width:auto;">
+            ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="user-chars" id="userchars-${slug}" style="display:none;">${charList}</div>
+      </div>`;
+    }).join('') || '<p class="helptext">Keine Benutzer gefunden.</p>';
   }catch(e){
     el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${e.message}</p>`;
   }
+}
+function toggleUserChars(slug){
+  const el = document.getElementById('userchars-'+slug);
+  const chev = document.getElementById('userchevron-'+slug);
+  if(!el) return;
+  const willOpen = el.style.display === 'none';
+  el.style.display = willOpen ? 'block' : 'none';
+  if(chev) chev.style.transform = willOpen ? 'rotate(90deg)' : '';
 }
 async function setUserRole(username, role){
   try{
@@ -1842,7 +1851,6 @@ function updateKlassentyp(){
   grunddaten.klassentyp = klassentypFromPfad(grunddaten.vorbildpfad);
   const badge = document.getElementById('klassentyp');
   if(badge) badge.textContent = grunddaten.klassentyp;
-  applyKlassentypAccordion();
   applyKlassentypSubgroups();
 }
 

@@ -221,7 +221,7 @@ app.get('/api/admin/users', authMiddleware, requireRole('admin'), (req, res) => 
   const list = Object.keys(users).map(username => ({
     username,
     role: getUserRole(username),
-    characterCount: (users[username].characters || []).length,
+    characters: users[username].characters || [],
   }));
   res.json(list);
 });
