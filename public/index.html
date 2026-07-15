@@ -34,7 +34,8 @@
     background:linear-gradient(90deg,var(--gold),#e8c878);
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  .subtitle{color:var(--text-dim); margin:0 0 24px 0; font-size:0.95rem;}
+  .subtitle{color:var(--text-dim); margin:0 0 4px 0; font-size:0.95rem;}
+  .version-tag{color:var(--text-dim); margin:0 0 24px 0; font-size:0.72rem; opacity:0.7;}
   .card{
     background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
     padding:18px 20px; margin-bottom:18px;
@@ -193,6 +194,8 @@
   .char-item .action{flex:1; text-align:left;}
   #accountModalBody h3{margin:0 0 10px 0; font-size:1rem;}
   #accountModalBody label{margin-top:10px;}
+  .login-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .login-grid label{margin-top:0;}
   .cat-badge{
     font-size:0.75rem; font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
     border:1px solid var(--gold-soft); border-radius:12px; padding:2px 10px; margin-left:0;
@@ -206,6 +209,7 @@
   </div>
   <h1>Xselli's Stats-Rechner</h1>
   <p class="subtitle">Neverwinter Online &middot; Charakter-Stats selbst eintragen statt Sheet kopieren</p>
+  <p class="version-tag" id="versionTag"></p>
 
   <div class="page-nav">
     <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
@@ -569,8 +573,10 @@ async function renderAccountPanel(){
     body.innerHTML = `
       <h3>Anmelden oder registrieren</h3>
       <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
-      <label>Benutzername</label><input type="text" id="acc_username">
-      <label>Passwort</label><input type="password" id="acc_password">
+      <div class="login-grid">
+        <div><label>Benutzername</label><input type="text" id="acc_username"></div>
+        <div><label>Passwort</label><input type="password" id="acc_password"></div>
+      </div>
       <div id="accMsg" class="helptext" style="color:var(--off);"></div>
       <div class="btnrow">
         <button class="action gold" type="button" onclick="loginAccount()">Anmelden</button>
@@ -1770,6 +1776,11 @@ async function init(){
   // Start immer als Gast mit Standardwerten - persönliche Charakterdaten werden
   // erst geladen, wenn man sich anmeldet und einen Charakter auswählt.
   applyCharDataBundle({});
+
+  try{
+    const v = await apiRequest('/api/version');
+    document.getElementById('versionTag').textContent = 'Version ' + v.version;
+  }catch(e){ /* Version nicht so wichtig, dass es die Seite blockieren sollte */ }
 
   try{
     const shared = await apiGetShared();

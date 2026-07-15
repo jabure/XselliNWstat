@@ -46,6 +46,11 @@ function charFile(username, charname){
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+const PKG_VERSION = require('./package.json').version;
+app.get('/api/version', (req, res) => {
+  res.json({ version: PKG_VERSION });
+});
+
 function authMiddleware(req, res, next){
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -129,6 +134,17 @@ app.get('/api/characters', authMiddleware, (req, res) => {
   res.json((user && user.characters) || []);
 });
 
+// Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
+// (nicht nur vom aktuellen) - so kann derselbe Charaktername nie zwei
+// verschiedenen Leuten gehören. Groß-/Kleinschreibung wird dabei ignoriert.
+function isCharNameTakenByOther(name, ownUsername){
+  const users = readJson(USERS_FILE, {});
+  const lower = name.trim().toLowerCase();
+  return Object.keys(users).some(u =>
+    u !== ownUsername && (users[u].characters || []).some(c => c.toLowerCase() === lower)
+  );
+}
+
 app.post('/api/characters', authMiddleware, (req, res) => {
   const { name } = req.body || {};
   if(!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
@@ -136,6 +152,9 @@ app.post('/api/characters', authMiddleware, (req, res) => {
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   if(user.characters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter gibt es schon' });
+  if(isCharNameTakenByOther(name, req.username)){
+    return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
+  }
   user.characters.push(name);
   writeJson(USERS_FILE, users);
   writeJson(charFile(req.username, name), {});
