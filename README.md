@@ -53,6 +53,34 @@ Dann brauchst du zusätzlich noch:
 - Ein bisschen Sorgfalt beim offenen Port (Firewall, evtl. Rate-Limiting
   gegen Login-Versuche) – dafür kann ich dir bei Bedarf noch was ergänzen.
 
+## Von hier auf deinen eigenen Git-Server bringen
+
+Du hast zwei Dateien bekommen: `xselli-server.bundle` (komplette Git-Historie)
+und `xselli-server.tar.gz` (nur die Dateien, ohne Git). Für automatisierte
+Updates brauchst du die `.bundle`-Datei und ein eigenes Git-Repo (z. B. auf
+GitHub, GitLab oder einem selbst gehosteten Gitea/Forgejo).
+
+**Einmalig einrichten:**
+1. Leeres, privates Repo bei GitHub/GitLab/Gitea anlegen (z. B. `xselli-stats-rechner`).
+2. Auf einem Rechner mit Git (z. B. deinem PC oder direkt dem Server):
+   ```
+   git clone xselli-server.bundle xselli-server
+   cd xselli-server
+   git remote add origin <URL-deines-leeren-Repos>
+   git push -u origin master
+   ```
+3. Auf deinem Server das Repo von dort klonen:
+   ```
+   git clone <URL-deines-Repos> xselli-server
+   cd xselli-server
+   cp .env.example .env   # und JWT_SECRET darin anpassen
+   docker compose up -d --build
+   ```
+
+Ab jetzt reicht es, Änderungen in dein Repo zu pushen (z. B. wenn ich dir hier
+eine aktualisierte `index.html` gebe) - dein Server holt sie sich über den
+Cronjob unten von selbst.
+
 ## Automatisierte Updates per Git
 
 Im Ordner liegt `update.sh` – holt per `git pull` den neuesten Stand und baut
