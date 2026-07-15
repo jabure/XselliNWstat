@@ -461,13 +461,16 @@ let mountDb = JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
 let foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
 
 const GEFAEHRTEN_SLOTS = Array.from({length:10}, (_,i)=>`Gefährte ${i+1}`);
+// Raptor-Reittiere zählen als Gefährten-Zusatz: jeder gibt einen festen Kraft-Bonus.
+const RAPTOR_SOURCE_KEY = 'Anzahl Raptor';
+const RAPTOR_KRAFT_PROZENT_PRO_STUECK = 4.5;
 const DEFAULT_GEFAEHRTEN_PRESETS = {
   '5er Standard': ['Skorpion','Flapjack','Tutor','Portobello','Spined Devil'],
   '10er Standard': ['Flapjack','Skorpion','Skorpion','Tutor','Spined Devil','Portobello','Kapitänin Elaina Sartell',"Drizzt Do'Urden",'Blue Fire Eye','Etrien'],
   'Manuell': [],
 };
 
-const REITTIER_EINZEL_SLOT = 'Reittier-Buff';
+// (Das eigene Reittier gibt es hier nicht mehr - siehe "Anzahl Raptor" bei Gefährten)
 const REITTIER_GRUPPE_SLOTS = Array.from({length:4}, (_,i)=>`Reittier Gruppen-Buff ${i+1}`);
 const DEFAULT_REITTIER_PRESETS = {
   '5er Standard': ['Mystische Aura','Runische Aura'],
@@ -493,12 +496,13 @@ const SOURCE_CATEGORIES = [
   { id:'ausruestung', label:'Ausrüstung', kind:'manual', sources: EQUIPMENT_SLOTS },
   { id:'gefaehrten', label:'Gefährten', kind:'gefaehrten', sources: GEFAEHRTEN_SLOTS },
   { id:'bufffood', label:'Buff Food', kind:'bufffood', sources: FOOD_SLOTS.map(f=>f.key) },
-  { id:'reittier', label:'Reittier Buffs', kind:'reittier', sources: [REITTIER_EINZEL_SLOT, ...REITTIER_GRUPPE_SLOTS] },
+  { id:'reittier', label:'Reittier Buffs', kind:'reittier', sources: REITTIER_GRUPPE_SLOTS },
 ];
-const ALL_SOURCES = SOURCE_CATEGORIES.flatMap(c => c.sources);
+const ALL_SOURCES = [...SOURCE_CATEGORIES.flatMap(c => c.sources), RAPTOR_SOURCE_KEY];
 
 // Welchen Namen hat der Nutzer in Slot X gewählt? (persönlich gespeichert)
 let slotSelections = {};
+let raptorCount = 0; // Anzahl Raptor-Reittiere (0-4), jeder gibt Kraft-Bonus
 let gefaehrtenMode = 'presets'; // 'presets' = Dropdown-Slots, 'werte' = manuelle Werte-Tabelle (alle 10 Gefährten-Slots)
 let reittierMode = 'presets'; // 'presets' = Dropdown-Slots, 'werte' = manuelle Werte-Tabelle (alle 5 Reittier-Slots)
 let gefaehrtenActivePreset = 'Manuell'; // zeigt im eingeklappten Zustand, was zuletzt angewendet wurde
@@ -519,7 +523,7 @@ function defaultGrunddaten(){
   return { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
 }
 function getCharDataBundle(){
-  return { grunddaten, baseInputs, sourceInputs, slotSelections, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset };
+  return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset };
 }
 function applyCharDataBundle(bundle){
   bundle = bundle || {};
@@ -527,6 +531,7 @@ function applyCharDataBundle(bundle){
   baseInputs = bundle.baseInputs || {};
   sourceInputs = bundle.sourceInputs || {};
   slotSelections = bundle.slotSelections || {};
+  raptorCount = bundle.raptorCount || 0;
   gefaehrtenMode = bundle.gefaehrtenMode || 'presets';
   reittierMode = bundle.reittierMode || 'presets';
   gefaehrtenActivePreset = bundle.gefaehrtenActivePreset || 'Manuell';
@@ -1111,6 +1116,23 @@ function summarizeContrib(name, db){
 
 function slugSrc(src){ return src.replace(/[^a-zA-Z0-9]/g,'_'); }
 
+// "Anzahl Raptor": eigener Punkt bei Gefährten, 0-4 Stück, je 4,5% Kraft.
+function renderRaptorControl(){
+  const options = [0,1,2,3,4].map(n=>`<option value="${n}" ${n===raptorCount?'selected':''}>${n}</option>`).join('');
+  return `<div class="slot-card" style="max-width:240px;margin-bottom:14px;">
+    <label>Anzahl Raptor (je ${RAPTOR_KRAFT_PROZENT_PRO_STUECK}% Kraft)</label>
+    <select onchange="setRaptorCount(this.value)">${options}</select>
+    <div class="slot-summary computed">${raptorCount>0 ? `Kraft +${formatWerte(raptorCount*RAPTOR_KRAFT_PROZENT_PRO_STUECK)}%` : '–'}</div>
+  </div>`;
+}
+function setRaptorCount(val){
+  raptorCount = Number(val)||0;
+  sourceInputs[RAPTOR_SOURCE_KEY] = { kraft: { werte:0, prozent: raptorCount*RAPTOR_KRAFT_PROZENT_PRO_STUECK } };
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
+}
+
 function renderPresetSlots(cat, names, db, presets){
   const presetBtns = presets ? Object.keys(presets).map(p=>
     `<button type="button" class="action" onclick="applyCatPreset('${cat.id}','${p.replace(/'/g,"\\'")}')">${p}</button>`
@@ -1125,7 +1147,8 @@ function renderPresetSlots(cat, names, db, presets){
       <div class="slot-summary computed" id="summary-${slugSrc(src)}">${summarizeContrib(sel, db)}</div>
     </div>`;
   }).join('');
-  return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
+  const raptorHtml = cat.id==='gefaehrten' ? renderRaptorControl() : '';
+  return `${raptorHtml}<div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
     <div class="slot-grid">${slotCards}</div>`;
 }
 
@@ -1175,6 +1198,7 @@ function renderGefaehrtenWerteTable(){
       <button type="button" class="action" onclick="applyCatPreset('gefaehrten','Manuell')">Manuell</button>
       <button type="button" class="action gold" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>
     </div>
+    ${renderRaptorControl()}
     <p class="helptext" style="margin-top:0;">Pro Gefährte per Dropdown einen vorhandenen Preset laden, oder direkt Werte/% eintragen (z. B. für noch nicht hinterlegte Gefährten).</p>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
@@ -1193,13 +1217,6 @@ function setGefaehrtenMode(mode){
 
 function renderReittierSlots(cat){
   const names = Object.keys(mountDb);
-  const einzelSel = getSlotSelection(REITTIER_EINZEL_SLOT);
-  const einzelOptions = ['Leer', ...names].map(n=>`<option value="${n}" ${n===einzelSel?'selected':''}>${n}</option>`).join('');
-  const einzelHtml = `<div class="slot-card">
-    <label>${REITTIER_EINZEL_SLOT}</label>
-    <select data-slot="${REITTIER_EINZEL_SLOT}" data-cat="${cat.id}">${einzelOptions}</select>
-    <div class="slot-summary computed" id="summary-${slugSrc(REITTIER_EINZEL_SLOT)}">${summarizeContrib(einzelSel, mountDb)}</div>
-  </div>`;
 
   const presetBtns = Object.keys(reittierPresets).map(p=>
     `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`
@@ -1215,17 +1232,15 @@ function renderReittierSlots(cat){
     </div>`;
   }).join('');
 
-  return `<p class="helptext" style="margin-top:0;">Dein eigenes Reittier:</p>
-    <div class="slot-grid" style="margin-bottom:18px;">${einzelHtml}</div>
-    <p class="helptext">Gruppen-Buffs (Reittiere anderer Gruppenmitglieder):</p>
+  return `<p class="helptext" style="margin-top:0;">Gruppen-Buffs (Reittiere der Gruppenmitglieder):</p>
     <div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
     <div class="slot-grid">${gruppeCards}</div>`;
 }
 
-// "Manuell Werte" für Reittier Buffs: wie Ausrüstung, aber für alle 5 Reittier-Slots
-// (dein eigenes + 4 Gruppen-Slots). Oben ein Lade-Dropdown pro Spalte, darunter frei editierbar.
+// "Manuell Werte" für Reittier Buffs: wie Ausrüstung, für die 4 Gruppen-Slots.
+// Oben ein Lade-Dropdown pro Spalte, darunter frei editierbar.
 function renderReittierWerteTable(){
-  const slots = [REITTIER_EINZEL_SLOT, ...REITTIER_GRUPPE_SLOTS];
+  const slots = REITTIER_GRUPPE_SLOTS;
   const names = Object.keys(mountDb);
 
   const loaderCards = slots.map(src=>{
@@ -1816,7 +1831,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
     return;
   }
   if(pendingAction === 'werte' || pendingAction === 'alles'){ baseInputs = {}; }
-  if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; gefaehrtenMode = 'presets'; reittierMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
+  if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; raptorCount = 0; gefaehrtenMode = 'presets'; reittierMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
   if(pendingAction === 'alles'){
     grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
     document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
