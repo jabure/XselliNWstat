@@ -209,7 +209,9 @@
 
   <div class="page-nav">
     <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
-    <button class="page-tab" id="tab-admin" onclick="showPage('admin')" type="button" style="display:none;">Presets &amp; Formeln</button>
+    <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;">Presets</button>
+    <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;">Formeln</button>
+    <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;">Benutzer</button>
   </div>
 
   <div id="saveStatus" class="save-status"></div>
@@ -269,53 +271,60 @@
   </div>
 </div>
 
-<div id="pageAdmin" style="display:none;">
-  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich. Nur Benutzer mit Admin-Rechten können hier speichern.</div>
+<div id="pagePresets" style="display:none;">
+  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich.</div>
 
-  <!-- Benutzerübersicht -->
-  <div class="card">
-    <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
-    <p class="helptext">Wem du Admin-Rechte gibst, kann ebenfalls Presets & Formeln bearbeiten. Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
-    <div id="userOverview" class="char-list"></div>
-  </div>
+  <div class="accordion" id="acc-admin-companion">
+    <button type="button" onclick="toggleAdminAccordion('companion')">
+      <span><span class="dot" style="background:var(--sup)"></span>Gefährten</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt.</p>
+      <div id="companionEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
 
-  <!-- Presets -->
-  <div class="card">
-    <h2><span class="dot" style="background:var(--sup)"></span>Gefährten</h2>
-    <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt.</p>
-    <div id="companionEditor"></div>
-    <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
-
-    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
-    <p class="helptext">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
-    <div id="gefaehrtenPresetEditor"></div>
-    <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
-  </div>
-
-  <div class="card">
-    <h2><span class="dot" style="background:var(--sup)"></span>Reittiere</h2>
-    <p class="helptext">Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.</p>
-    <div id="mountEditor"></div>
-    <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
-
-    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
-    <div id="reittierPresetEditor"></div>
-    <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('reittierPresetEditor','reittier')">+ Preset hinzufügen</button></div>
-  </div>
-
-  <div class="card">
-    <h2><span class="dot" style="background:var(--sup)"></span>Buff Food</h2>
-    <p class="helptext">Pro Essen: Name, Stats, und ankreuzen in welchem Food-Slot es wählbar sein soll.</p>
-    <div id="foodEditor"></div>
-    <div class="btnrow"><button type="button" class="action" onclick="addFoodEntryCard()">+ Neues Essen</button></div>
-
-    <div class="btnrow" style="margin-top:22px;">
-      <button class="action gold" onclick="savePresetsShared()">Presets speichern</button>
-      <button class="action" onclick="resetPresetsToDefault()">Standard wiederherstellen</button>
+      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
+      <p class="helptext">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
+      <div id="gefaehrtenPresetEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
     </div>
   </div>
 
-  <!-- Formeln -->
+  <div class="accordion" id="acc-admin-mount">
+    <button type="button" onclick="toggleAdminAccordion('mount')">
+      <span><span class="dot" style="background:var(--sup)"></span>Reittiere</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.</p>
+      <div id="mountEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
+
+      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
+      <div id="reittierPresetEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('reittierPresetEditor','reittier')">+ Preset hinzufügen</button></div>
+    </div>
+  </div>
+
+  <div class="accordion" id="acc-admin-food">
+    <button type="button" onclick="toggleAdminAccordion('food')">
+      <span><span class="dot" style="background:var(--sup)"></span>Buff Food</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Pro Essen: Name, Stats, und ankreuzen in welchem Food-Slot es wählbar sein soll.</p>
+      <div id="foodEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addFoodEntryCard()">+ Neues Essen</button></div>
+    </div>
+  </div>
+
+  <div class="btnrow" style="margin-top:20px;">
+    <button class="action gold" onclick="savePresetsShared()">Presets speichern</button>
+    <button class="action" onclick="resetPresetsToDefault()">Standard wiederherstellen</button>
+  </div>
+</div>
+
+<div id="pageFormeln" style="display:none;">
+  <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich.</div>
+
   <div class="card">
     <h2><span class="dot" style="background:var(--def)"></span>Formeln</h2>
     <div class="maxpr-grid" id="maxprGrid"></div>
@@ -352,6 +361,14 @@
       <button class="action gold" onclick="saveFormulas()">Formeln speichern</button>
       <button class="action" onclick="resetFormulasToDefault()">Standard wiederherstellen</button>
     </div>
+  </div>
+</div>
+
+<div id="pageUsers" style="display:none;">
+  <div class="card">
+    <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
+    <p class="helptext">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
+    <div id="userOverview" class="char-list"></div>
   </div>
 </div>
 </div>
@@ -471,7 +488,7 @@ let reittierActivePreset = 'Manuell';
 let currentUser = null;   // Benutzername oder null (Gast)
 let currentChar = null;   // Charaktername oder null
 let isLoggedIn = false;
-let currentIsAdmin = false; // kommt vom Server (isAdmin-Flag des eingeloggten Kontos)
+let currentRole = 'user'; // kommt vom Server: 'user' | 'moderator' | 'coadmin' | 'admin'
 let pendingDeleteChar = null;
 let authToken = null;
 
@@ -504,7 +521,8 @@ async function apiRequest(path, opts){
   return data;
 }
 const apiGetShared = () => apiRequest('/api/shared');
-const apiSetShared = (partial) => apiRequest('/api/shared', {method:'PUT', body:JSON.stringify(partial)});
+const apiSetPresets = (partial) => apiRequest('/api/shared/presets', {method:'PUT', body:JSON.stringify(partial)});
+const apiSetFormulas = (partial) => apiRequest('/api/shared/formulas', {method:'PUT', body:JSON.stringify(partial)});
 const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
@@ -514,7 +532,7 @@ const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURICompone
 const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
 const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'DELETE'});
 const apiAdminListUsers = () => apiRequest('/api/admin/users');
-const apiAdminSetUserAdmin = (username, isAdminFlag) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({isAdmin:isAdminFlag})});
+const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({role})});
 
 function persistLoginLocally(){
   localStorage.setItem('xselli_token', authToken);
@@ -588,7 +606,7 @@ async function registerAccount(){
   if(!username || !password){ setAccountMsg('Bitte Benutzername und Passwort eingeben.'); return; }
   try{
     const res = await apiRegister(username, password);
-    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentIsAdmin = !!res.isAdmin;
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentRole = res.role || 'user';
     persistLoginLocally();
     applyCharDataBundle({});
     updateAccountLabel();
@@ -600,7 +618,7 @@ async function loginAccount(){
   const password = document.getElementById('acc_password').value;
   try{
     const res = await apiLogin(username, password);
-    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentIsAdmin = !!res.isAdmin;
+    authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentRole = res.role || 'user';
     persistLoginLocally();
     applyCharDataBundle({});
     updateAccountLabel();
@@ -609,7 +627,7 @@ async function loginAccount(){
 }
 function logoutAccount(){
   clearLoginLocally();
-  authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentIsAdmin = false;
+  authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentRole = 'user';
   applyCharDataBundle({});
   updateAccountLabel();
   closeAccountModal();
@@ -797,7 +815,7 @@ function queueSave(){
 }
 async function queueSaveShared(){
   try{
-    await apiSetShared({ formulas, maxPrOverrides, wehrVerteilung });
+    await apiSetFormulas({ formulas, maxPrOverrides, wehrVerteilung });
     document.getElementById('saveStatus').textContent = 'Formeln gespeichert (für alle)';
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -1366,34 +1384,52 @@ function refresh(rebuildInputs){
 }
 
 /* ---------- Seiten-Navigation ---------- */
-function isAdmin(){ return isLoggedIn && currentIsAdmin; }
+const ROLE_RANK = { user:0, moderator:1, coadmin:2, admin:3 };
+function hasRole(minRole){
+  if(!isLoggedIn) return false;
+  return (ROLE_RANK[currentRole] ?? 0) >= ROLE_RANK[minRole];
+}
+// Welche Rolle braucht man mindestens, um eine Seite zu sehen?
+const PAGE_MIN_ROLE = { rechner:'user', presets:'moderator', formeln:'coadmin', users:'admin' };
+const PAGE_IDS = ['rechner','presets','formeln','users'];
 
 function updateAdminTabVisibility(){
-  const tab = document.getElementById('tab-admin');
-  if(!tab) return;
-  tab.style.display = isAdmin() ? '' : 'none';
-  // Falls jemand ohne Admin-Rechte gerade auf der Presets&Formeln-Seite war
-  // (z.B. nach Logout), zurück zur Rechner-Seite wechseln.
-  if(!isAdmin() && document.getElementById('pageAdmin').style.display !== 'none'){
-    showPage('rechner');
+  PAGE_IDS.forEach(p=>{
+    if(p==='rechner') return;
+    const tab = document.getElementById('tab-'+p);
+    if(tab) tab.style.display = hasRole(PAGE_MIN_ROLE[p]) ? '' : 'none';
+  });
+  // Falls jemand ohne ausreichende Rolle gerade auf einer geschützten Seite war
+  // (z.B. nach Logout oder Rollen-Änderung), zurück zur Rechner-Seite wechseln.
+  const openPage = PAGE_IDS.find(p => p!=='rechner' && document.getElementById('page'+capitalize(p)).style.display !== 'none');
+  if(openPage && !hasRole(PAGE_MIN_ROLE[openPage])) showPage('rechner');
+}
+function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function showPage(name){
+  if(!hasRole(PAGE_MIN_ROLE[name])){
+    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+PAGE_MIN_ROLE[name]+'".';
+    return;
+  }
+  PAGE_IDS.forEach(p=>{
+    document.getElementById('page'+capitalize(p)).style.display = p===name ? '' : 'none';
+    document.getElementById('tab-'+p).classList.toggle('active', p===name);
+  });
+  if(name==='presets'){
+    fillPresetFields();
+  }
+  if(name==='formeln'){
+    renderMaxPrGrid();
+    fillFormulaFields();
+  }
+  if(name==='users'){
+    renderUserOverview();
   }
 }
 
-function showPage(name){
-  if(name === 'admin' && !isAdmin()){
-    document.getElementById('saveStatus').textContent = 'Presets & Formeln sind nur für das Admin-Konto zugänglich.';
-    return;
-  }
-  document.getElementById('pageRechner').style.display = name==='rechner' ? '' : 'none';
-  document.getElementById('pageAdmin').style.display = name==='admin' ? '' : 'none';
-  document.getElementById('tab-rechner').classList.toggle('active', name==='rechner');
-  document.getElementById('tab-admin').classList.toggle('active', name==='admin');
-  if(name==='admin'){
-    renderMaxPrGrid();
-    fillFormulaFields();
-    fillPresetFields();
-    renderUserOverview();
-  }
+// Gefährten/Reittiere/Buff Food auf der Presets-Seite einzeln auf-/zuklappbar
+function toggleAdminAccordion(key){
+  document.getElementById('acc-admin-'+key).classList.toggle('open');
 }
 
 /* ---------- Admin: Benutzerübersicht ---------- */
@@ -1403,23 +1439,23 @@ async function renderUserOverview(){
   el.innerHTML = '<p class="helptext">Lade Benutzer ...</p>';
   try{
     const users = await apiAdminListUsers();
+    const roleOptions = ['user','moderator','coadmin','admin'];
+    const roleLabel = {user:'Nutzer', moderator:'Moderator', coadmin:'Coadmin', admin:'Admin'};
     el.innerHTML = users.map(u => `
       <div class="char-item">
         <span style="flex:1;">${u.username} <span class="muted">(${u.characterCount} Charakter${u.characterCount===1?'':'e'})</span></span>
-        <label class="slot-check" style="margin-right:4px;">
-          <input type="checkbox" ${u.isAdmin?'checked':''} ${u.username===currentUser?'disabled':''}
-            onchange="toggleUserAdmin('${u.username.replace(/'/g,"\\'")}', this.checked)">
-          Admin
-        </label>
+        <select ${u.username===currentUser?'disabled':''} onchange="setUserRole('${u.username.replace(/'/g,"\\'")}', this.value)" style="width:auto;">
+          ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
+        </select>
       </div>`).join('') || '<p class="helptext">Keine Benutzer gefunden.</p>';
   }catch(e){
     el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${e.message}</p>`;
   }
 }
-async function toggleUserAdmin(username, checked){
+async function setUserRole(username, role){
   try{
-    await apiAdminSetUserAdmin(username, checked);
-    document.getElementById('saveStatus').textContent = `${username}: Admin-Rechte ${checked?'erteilt':'entzogen'}.`;
+    await apiAdminSetUserRole(username, role);
+    document.getElementById('saveStatus').textContent = `${username}: Rolle auf "${role}" gesetzt.`;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
@@ -1593,7 +1629,7 @@ async function savePresetsShared(){
   reittierPresets = collectPresetEditor('reittierPresetEditor');
 
   try{
-    await apiSetShared({
+    await apiSetPresets({
       companionDb, mountDb, foodDb,
       foodSlots: FOOD_SLOTS.map(fs=>({key:fs.key, items:fs.items})),
       gefaehrtenPresets, reittierPresets,
@@ -1757,7 +1793,7 @@ async function init(){
     authToken = savedToken; currentUser = savedUsername; isLoggedIn = true;
     try{
       const me = await apiMe(); // prüft nebenbei, ob das Token noch gültig ist, liefert isAdmin + Charaktere
-      currentIsAdmin = !!me.isAdmin;
+      currentRole = me.role || 'user';
       const savedChar = localStorage.getItem('xselli_lastchar_'+savedUsername);
       if(savedChar && me.characters.includes(savedChar)){
         const res = await apiGetCharacter(savedChar);
@@ -1767,7 +1803,7 @@ async function init(){
     }catch(e){
       // Token abgelaufen oder ungültig -> zurück zu Gast
       clearLoginLocally();
-      authToken = null; currentUser = null; isLoggedIn = false; currentChar = null; currentIsAdmin = false;
+      authToken = null; currentUser = null; isLoggedIn = false; currentChar = null; currentRole = 'user';
       applyCharDataBundle({});
     }
   }
