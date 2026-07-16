@@ -1676,7 +1676,7 @@ function renderUebersicht(){
     };
     return {
       kraft: 1 + frac('kraft', pl('kraft')),
-      zg:    1 - (P.gegnerDeflect/100) * Math.max(0, P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit'))),
+      zg:    1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit')))),
       kv:    1 + (frac('kampfvorteil', pl('kampfvorteil')) - P.gegnerAwareness/100),
       krit:  1 + frac('kritwert', pl('kritwert')) * frac('kritschaden', pl('kritschaden')),
       bonus: 1 + frac('bonusschaden', pl('bonusschaden')),
@@ -1814,7 +1814,7 @@ function renderUebersicht(){
     function totalGiven(overrideId, x){
       const raw = Object.assign({}, actualRaw, {[overrideId]: x});
       const kraftF = 1 + capFrac('kraft', raw.kraft);
-      const zgF = 1 - (P.gegnerDeflect/100) * Math.max(0, P.gegnerDeflectSev/100 - capFrac('zielgenauigkeit', raw.zielgenauigkeit));
+      const zgF = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - capFrac('zielgenauigkeit', raw.zielgenauigkeit)));
       const kvF = 1 + (capFrac('kampfvorteil', raw.kampfvorteil) - P.gegnerAwareness/100);
       const kritF = 1 + capFrac('kritwert', raw.kritwert) * capFrac('kritschaden', raw.kritschaden);
       return waffenschaden * kraftF * zgF * kvF * kritF / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fB.bonus;
@@ -1824,12 +1824,18 @@ function renderUebersicht(){
       const pts = [];
       for(let i=0;i<=N;i++){
         const x = (s.xMax/N)*i;
-        const gain = totalDmg ? (totalGiven(s.id, x+1) - totalGiven(s.id, x)) / totalDmg * 100 : 0;
+        // Wichtig: gegen den Gesamtschaden AN DIESER STELLE normalisieren (nicht gegen den
+        // festen aktuellen Gesamtschaden) - sonst verschwindet der abnehmende Grenznutzen,
+        // weil der absolute Zuwachs pro Prozentpunkt bei Stats wie Kraft konstant ist, der
+        // relative Zuwachs aber sinkt, je größer der Gesamtschaden an dieser Stelle bereits ist.
+        const baseHere = totalGiven(s.id, x);
+        const gain = baseHere ? (totalGiven(s.id, x+1) - baseHere) / baseHere * 100 : 0;
         pts.push({x, y:gain});
       }
       // Punkt beim aktuellen echten Wert des Stats markieren.
       const curX = Math.min(actualRaw[s.id], s.xMax);
-      const curY = totalDmg ? (totalGiven(s.id, curX+1) - totalGiven(s.id, curX)) / totalDmg * 100 : 0;
+      const curBase = totalGiven(s.id, curX);
+      const curY = curBase ? (totalGiven(s.id, curX+1) - curBase) / curBase * 100 : 0;
       return {...s, pts, curX, curY};
     });
 
@@ -1912,7 +1918,8 @@ function renderUebersicht(){
       &bull; "Gesamt %" ist dein tatsächlicher Wert (ungecappt) - "Genutzt (gecappt)" ist das, was im Spiel wirklich zählt, wenn du über dem Cap bist.<br>
       &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>.<br>
       &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72) - beide sind einzeln schaltbar.<br>
-      &bull; Zielgenauigkeit gleicht das Deflecten des Gegners korrekt aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1); auch beim "Veränderten Wert" wird dieser volle Zusammenhang neu berechnet, nicht nur ein Wert ein-/ausgeschaltet.<br>
+      &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus - Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − deine Zielgenauigkeit)), so wie im Neverwinter-Wiki dokumentiert (nicht mehr die frühere, zu ungenaue Subtraktions-Näherung). Je näher deine Zielgenauigkeit an die Deflect-Härte des Gegners kommt, desto weniger Schaden geht durchs Deflecten verloren; auch beim "Veränderten Wert" wird dieser volle Zusammenhang neu berechnet, nicht nur ein Wert ein-/ausgeschaltet.<br>
+      &bull; Quelle für diese und weitere Formeln: <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Neverwinter-Wiki (Combat)</a>.<br>
       &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
       &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
     </div>
