@@ -188,7 +188,7 @@
   }
   .user-toggle .chevron{display:inline-block; transition:transform .15s ease;}
   .user-chars{padding:8px 10px 4px 30px; font-size:0.85rem;}
-  .user-char-item{padding:3px 0; color:var(--text-dim); border-bottom:1px solid #23262f;}
+  .user-char-item{padding:5px 0; color:var(--text-dim); border-bottom:1px solid #23262f; display:flex; gap:8px; align-items:center;}
   .user-char-item:last-child{border-bottom:none;}
   .cat-badges{display:inline-flex; gap:6px; flex-wrap:wrap;}
   .account-bar{display:flex; justify-content:flex-end; margin-bottom:6px;}
@@ -199,7 +199,11 @@
   .account-btn:hover{border-color:var(--gold);}
   .char-list{display:flex; flex-direction:column; gap:8px; margin:12px 0;}
   .char-item{display:flex; gap:8px; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px;}
-  .char-item .action{flex:1; text-align:left;}
+  .char-item .action{text-align:left;}
+  .char-item .action.small{flex:none;}
+  .char-select{flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:8px 12px;}
+  .char-select .char-name{font-weight:700;}
+  .char-select .char-info{font-size:0.74rem; opacity:0.75; font-weight:400;}
   #accountModalBody h3{margin:0 0 10px 0; font-size:1rem;}
   #accountModalBody label{margin-top:10px;}
   .login-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
@@ -519,6 +523,9 @@ let currentChar = null;   // Charaktername oder null
 let isLoggedIn = false;
 let currentRole = 'user'; // kommt vom Server: 'user' | 'moderator' | 'coadmin' | 'admin'
 let pendingDeleteChar = null;
+let myCharacters = []; // zuletzt geladene eigene Charaktere (inkl. Klassen-Info)
+let adminUsers = [];   // zuletzt geladene Benutzerliste (nur Admin)
+let pendingAdminUser = null;
 let authToken = null;
 
 function defaultGrunddaten(){
@@ -558,12 +565,15 @@ const apiRegister = (username, password) => apiRequest('/api/auth/register', {me
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
 const apiListCharacters = () => apiRequest('/api/characters');
-const apiCreateCharacter = (name) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify({name})});
+const apiCreateCharacter = (name, copyFrom) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify(copyFrom ? {name, copyFrom} : {name})});
 const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name));
 const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
 const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'DELETE'});
 const apiAdminListUsers = () => apiRequest('/api/admin/users');
 const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({role})});
+const apiAdminResetPassword = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/reset-password', {method:'POST'});
+const apiAdminDeleteUser = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'DELETE'});
+const apiAdminCopyCharacter = (username, charname) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/characters/'+encodeURIComponent(charname)+'/copy', {method:'POST'});
 
 function persistLoginLocally(){
   localStorage.setItem('xselli_token', authToken);
@@ -614,17 +624,34 @@ async function renderAccountPanel(){
   }
   let chars = [];
   try{ chars = await apiListCharacters(); }catch(e){ setAccountMsg(e.message); }
-  const list = chars.length ? chars.map(name=>`
-    <div class="char-item">
-      <button class="action ${name===currentChar?'gold':''}" type="button" onclick="selectCharacter('${name.replace(/'/g,"\\'")}')">${name}</button>
-      <button class="action danger small" type="button" onclick="confirmDeleteCharacter('${name.replace(/'/g,"\\'")}')">Löschen</button>
-    </div>`).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
+  myCharacters = chars;
+  const list = chars.length ? chars.map((c, i)=>{
+    const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
+    return `<div class="char-item">
+      <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
+        <span class="char-name">${c.name}</span>
+        <span class="char-info">${info}</span>
+      </button>
+      <button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>
+      <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>
+    </div>`;
+  }).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
+
+  const vorlageOptions = ['<option value="">– leer starten –</option>',
+    ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${c.name}</option>`)].join('');
+
   body.innerHTML = `
     <h3>Angemeldet als ${currentUser}</h3>
     <div class="char-list">${list}</div>
-    <div class="formula-row">
-      <label>Neuer Charakter</label>
-      <input type="text" id="acc_newchar" placeholder="Name eingeben...">
+    <div class="login-grid" style="margin-top:12px;">
+      <div>
+        <label>Neuer Charakter</label>
+        <input type="text" id="acc_newchar" placeholder="Name eingeben...">
+      </div>
+      <div>
+        <label>Vorlage</label>
+        <select id="acc_copyfrom">${vorlageOptions}</select>
+      </div>
     </div>
     <div id="accMsg" class="helptext" style="color:var(--off);"></div>
     <div class="btnrow">
@@ -632,6 +659,22 @@ async function renderAccountPanel(){
       <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
       <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
     </div>`;
+}
+
+// Zugriff über den Index statt über den Namen - so machen auch Charakternamen
+// mit Sonderzeichen (Anführungszeichen o.ä.) keine Probleme.
+function selectCharacterByIndex(i){ selectCharacter(myCharacters[i].name); }
+function confirmDeleteCharacterByIndex(i){ confirmDeleteCharacter(myCharacters[i].name); }
+async function copyOwnCharacterByIndex(i){
+  const src = myCharacters[i].name;
+  let target = src + ' (Kopie)', n = 2;
+  const existing = myCharacters.map(c=>c.name);
+  while(existing.includes(target)) target = `${src} (Kopie ${n++})`;
+  try{
+    await apiCreateCharacter(target, src);
+    setAccountMsg('');
+    renderAccountPanel();
+  }catch(e){ setAccountMsg(e.message); }
 }
 async function registerAccount(){
   const username = document.getElementById('acc_username').value.trim();
@@ -669,11 +712,19 @@ function logoutAccount(){
 async function createCharacter(){
   const name = document.getElementById('acc_newchar').value.trim();
   if(!name){ setAccountMsg('Bitte einen Namen eingeben.'); return; }
+  const copyIdx = document.getElementById('acc_copyfrom').value;
+  const copyFrom = copyIdx !== '' && myCharacters[copyIdx] ? myCharacters[copyIdx].name : null;
   try{
-    await apiCreateCharacter(name);
+    await apiCreateCharacter(name, copyFrom);
     currentChar = name;
-    applyCharDataBundle({});
-    await apiSaveCharacter(name, getCharDataBundle());
+    if(copyFrom){
+      // Kopie: die übernommenen Daten direkt laden
+      const res = await apiGetCharacter(name);
+      applyCharDataBundle(res.data);
+    } else {
+      applyCharDataBundle({});
+      await apiSaveCharacter(name, getCharDataBundle());
+    }
     localStorage.setItem('xselli_lastchar_'+currentUser, name);
     updateAccountLabel();
     renderAccountPanel();
@@ -696,6 +747,7 @@ function confirmDeleteCharacter(name){
   pendingDeleteChar = name;
   pendingAction = 'deletechar';
   document.getElementById('modalText').textContent = `Charakter "${name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`;
+  document.getElementById('modalConfirm').textContent = 'Ja, löschen';
   document.getElementById('modalBg').classList.add('show');
 }
 function fullUiRefreshAfterProfileSwitch(){
@@ -1564,22 +1616,32 @@ async function renderUserOverview(){
   el.innerHTML = '<p class="helptext">Lade Benutzer ...</p>';
   try{
     const users = await apiAdminListUsers();
+    adminUsers = users;
     const roleOptions = ['user','moderator','coadmin','admin'];
     const roleLabel = {user:'Nutzer', moderator:'Moderator', coadmin:'Coadmin', admin:'Admin'};
-    el.innerHTML = users.map(u => {
+    el.innerHTML = users.map((u, ui) => {
       const slug = slugSrc(u.username);
       const charList = u.characters.length
-        ? u.characters.map(c=>`<div class="user-char-item">${c}</div>`).join('')
+        ? u.characters.map((c, ci)=>{
+            const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
+            return `<div class="user-char-item">
+              <span style="flex:1;"><strong>${c.name}</strong> <span class="muted">${info}</span></span>
+              <button type="button" class="action small" onclick="adminCopyChar(${ui}, ${ci})">In meinen Account kopieren</button>
+            </div>`;
+          }).join('')
         : '<div class="muted" style="padding:4px 0;">Keine Charaktere</div>';
+      const isSelf = u.username === currentUser;
       return `<div class="user-item-wrap">
         <div class="char-item">
           <button type="button" class="user-toggle" onclick="toggleUserChars('${slug}')">
             <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${u.username}
             <span class="muted">(${u.characters.length} Charakter${u.characters.length===1?'':'e'})</span>
           </button>
-          <select ${u.username===currentUser?'disabled':''} onchange="setUserRole('${u.username.replace(/'/g,"\\'")}', this.value)" style="width:auto;">
+          <select ${isSelf?'disabled':''} onchange="setUserRoleByIndex(${ui}, this.value)" style="width:auto;">
             ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
           </select>
+          <button type="button" class="action small" ${isSelf?'disabled':''} onclick="confirmResetPassword(${ui})">Passwort zurücksetzen</button>
+          <button type="button" class="action danger small" ${isSelf?'disabled':''} onclick="confirmDeleteUser(${ui})">Account löschen</button>
         </div>
         <div class="user-chars" id="userchars-${slug}" style="display:none;">${charList}</div>
       </div>`;
@@ -1595,6 +1657,33 @@ function toggleUserChars(slug){
   const willOpen = el.style.display === 'none';
   el.style.display = willOpen ? 'block' : 'none';
   if(chev) chev.style.transform = willOpen ? 'rotate(90deg)' : '';
+}
+function setUserRoleByIndex(ui, role){ setUserRole(adminUsers[ui].username, role); }
+
+// Fremden Charakter in den eigenen Account kopieren (zum Ansehen). Original bleibt unverändert.
+async function adminCopyChar(ui, ci){
+  const u = adminUsers[ui], c = u.characters[ci];
+  try{
+    const res = await apiAdminCopyCharacter(u.username, c.name);
+    document.getElementById('saveStatus').textContent = `Kopiert als "${res.name}" – über die Charakterauswahl oben rechts abrufbar.`;
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+  }
+}
+function confirmResetPassword(ui){
+  pendingAdminUser = adminUsers[ui].username;
+  pendingAction = 'resetpw';
+  document.getElementById('modalText').textContent = `Passwort von "${pendingAdminUser}" wirklich auf das Standardpasswort zurücksetzen?`;
+  document.getElementById('modalConfirm').textContent = 'Ja, zurücksetzen';
+  document.getElementById('modalBg').classList.add('show');
+}
+function confirmDeleteUser(ui){
+  pendingAdminUser = adminUsers[ui].username;
+  pendingAction = 'deleteuser';
+  document.getElementById('modalText').textContent = `Account "${pendingAdminUser}" mit allen Charakteren wirklich löschen? Das kann nicht rückgängig gemacht werden.`;
+  document.getElementById('modalConfirm').textContent = 'Ja, löschen';
+  document.getElementById('modalBg').classList.add('show');
 }
 async function setUserRole(username, role){
   try{
@@ -1831,10 +1920,37 @@ function confirmAction(type){
     alles: 'Wirklich ALLES zurücksetzen, inklusive Grunddaten?',
   }[type];
   document.getElementById('modalText').textContent = text;
+  document.getElementById('modalConfirm').textContent = 'Ja, zurücksetzen';
   document.getElementById('modalBg').classList.add('show');
 }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); pendingAction = null; }
 document.getElementById('modalConfirm').addEventListener('click', async ()=>{
+  if(pendingAction === 'resetpw' && pendingAdminUser){
+    try{
+      const res = await apiAdminResetPassword(pendingAdminUser);
+      document.getElementById('saveStatus').textContent = `Passwort von "${pendingAdminUser}" zurückgesetzt auf: ${res.password}`;
+      setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
+    }catch(e){
+      document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+    }
+    pendingAdminUser = null;
+    closeModal();
+    renderUserOverview();
+    return;
+  }
+  if(pendingAction === 'deleteuser' && pendingAdminUser){
+    try{
+      await apiAdminDeleteUser(pendingAdminUser);
+      document.getElementById('saveStatus').textContent = `Account "${pendingAdminUser}" gelöscht.`;
+      setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 3000);
+    }catch(e){
+      document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+    }
+    pendingAdminUser = null;
+    closeModal();
+    renderUserOverview();
+    return;
+  }
   if(pendingAction === 'deletechar' && pendingDeleteChar){
     try{ await apiDeleteCharacter(pendingDeleteChar); }catch(e){ setAccountMsg(e.message); }
     if(currentChar === pendingDeleteChar){

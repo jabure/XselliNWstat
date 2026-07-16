@@ -128,10 +128,19 @@ app.get('/api/me', authMiddleware, (req, res) => {
   res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [] });
 });
 
+// Liefert zu einem Charakter die Kurzinfos (Klasse/Vorbildpfad) aus seinen Daten,
+// damit die Auswahlliste im Frontend mehr als nur den Namen zeigen kann.
+function charSummary(username, name){
+  const data = readJson(charFile(username, name), {});
+  const g = data.grunddaten || {};
+  return { name, klasse: g.klasse || '', vorbildpfad: g.vorbildpfad || '', klassentyp: g.klassentyp || '' };
+}
+
 app.get('/api/characters', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  res.json((user && user.characters) || []);
+  const names = (user && user.characters) || [];
+  res.json(names.map(n => charSummary(req.username, n)));
 });
 
 // Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
@@ -146,7 +155,7 @@ function isCharNameTakenByOther(name, ownUsername){
 }
 
 app.post('/api/characters', authMiddleware, (req, res) => {
-  const { name } = req.body || {};
+  const { name, copyFrom } = req.body || {};
   if(!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
@@ -155,9 +164,15 @@ app.post('/api/characters', authMiddleware, (req, res) => {
   if(isCharNameTakenByOther(name, req.username)){
     return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
   }
+  // Optional: Daten eines eigenen vorhandenen Charakters übernehmen (Kopie).
+  let initialData = {};
+  if(copyFrom){
+    if(!user.characters.includes(copyFrom)) return res.status(404).json({ error: 'Vorlage-Charakter nicht gefunden' });
+    initialData = readJson(charFile(req.username, copyFrom), {});
+  }
   user.characters.push(name);
   writeJson(USERS_FILE, users);
-  writeJson(charFile(req.username, name), {});
+  writeJson(charFile(req.username, name), initialData);
   res.status(201).json({ name });
 });
 
@@ -221,7 +236,7 @@ app.get('/api/admin/users', authMiddleware, requireRole('admin'), (req, res) => 
   const list = Object.keys(users).map(username => ({
     username,
     role: getUserRole(username),
-    characters: users[username].characters || [],
+    characters: (users[username].characters || []).map(n => charSummary(username, n)),
   }));
   res.json(list);
 });
@@ -234,6 +249,57 @@ app.put('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req
   target.role = role;
   writeJson(USERS_FILE, users);
   res.json({ ok: true, username: req.params.username, role });
+});
+
+// Passwort auf den Standardwert zurücksetzen (die Person sollte es danach selbst ändern).
+const DEFAULT_RESET_PASSWORD = process.env.DEFAULT_RESET_PASSWORD || '123456789';
+app.post('/api/admin/users/:username/reset-password', authMiddleware, requireRole('admin'), async (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const target = users[req.params.username];
+  if(!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  target.passwordHash = await bcrypt.hash(DEFAULT_RESET_PASSWORD, 10);
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true, username: req.params.username, password: DEFAULT_RESET_PASSWORD });
+});
+
+// Kompletten Account inkl. aller Charakterdaten löschen.
+app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req, res) => {
+  const target = req.params.username;
+  if(target === req.username) return res.status(400).json({ error: 'Du kannst dich nicht selbst löschen' });
+  if(target === ADMIN_USERNAME) return res.status(400).json({ error: 'Das Haupt-Admin-Konto kann nicht gelöscht werden' });
+  const users = readJson(USERS_FILE, {});
+  if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  (users[target].characters || []).forEach(c => {
+    try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
+  });
+  delete users[target];
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true });
+});
+
+// Charakter eines anderen Benutzers in den eigenen Account kopieren (zum Ansehen).
+// Das Original bleibt unangetastet.
+app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware, requireRole('admin'), (req, res) => {
+  const source = req.params.username;
+  const sourceChar = req.params.charname;
+  const users = readJson(USERS_FILE, {});
+  if(!users[source] || !(users[source].characters || []).includes(sourceChar)){
+    return res.status(404).json({ error: 'Charakter nicht gefunden' });
+  }
+  const me = users[req.username];
+  if(!me) return res.status(404).json({ error: 'Eigener Benutzer nicht gefunden' });
+
+  // Eindeutigen Zielnamen finden, damit weder eigene noch fremde Namen kollidieren.
+  const base = `${sourceChar} (Kopie von ${source})`;
+  let target = base, i = 2;
+  while(me.characters.includes(target) || isCharNameTakenByOther(target, req.username)){
+    target = `${base} ${i++}`;
+  }
+  const data = readJson(charFile(source, sourceChar), {});
+  me.characters.push(target);
+  writeJson(USERS_FILE, users);
+  writeJson(charFile(req.username, target), data);
+  res.status(201).json({ name: target });
 });
 
 // Frontend (die eine HTML-Datei) direkt mit ausliefern - ein Container, ein Port.

@@ -11,6 +11,7 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:-bitte-in-der-.env-aendern}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
+      - DEFAULT_RESET_PASSWORD=${DEFAULT_RESET_PASSWORD:-123456789}
     networks:
       - proxy
     # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,
