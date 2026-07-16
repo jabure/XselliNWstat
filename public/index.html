@@ -98,6 +98,12 @@
   .delta-ok{color:var(--sup); font-weight:600;}
   .delta-under{color:var(--off); font-weight:600;}
   .delta-over{color:var(--gold); font-weight:700;}
+  .toggle-active-btn{
+    padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; cursor:pointer;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
+  }
+  .toggle-active-btn.on{color:#fff; background:var(--sup); border-color:var(--sup);}
+  .toggle-active-btn.off{color:#fff; background:var(--off); border-color:var(--off);}
   .muted{color:var(--text-dim);}
   .accordion{border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;}
   .accordion > button{
@@ -560,13 +566,31 @@ function defaultUebersichtParams(){
   return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, deltaPct:3 };
 }
 let uebersichtParams = defaultUebersichtParams();
+// Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
+// damit lässt sich z. B. simulieren "was wäre ohne diesen Buff/Stat". Fehlt ein Eintrag, gilt er als aktiv.
+function defaultCalcActive(){ return { schaden:{}, heilung:{}, tank:{} }; }
+let calcActive = defaultCalcActive();
+function isActive(scope, statId){
+  return !(calcActive[scope] && calcActive[scope][statId] === false);
+}
+function toggleCalcActive(scope, statId){
+  if(!calcActive[scope]) calcActive[scope] = {};
+  calcActive[scope][statId] = !isActive(scope, statId);
+  queueSave();
+  renderUebersicht();
+}
+function activeToggleBtn(scope, statId){
+  const active = isActive(scope, statId);
+  return `<button type="button" class="toggle-active-btn ${active?'on':'off'}" onclick="toggleCalcActive('${scope}','${statId}')" title="${active?'Wird eingerechnet - klicken zum Ausschließen':'Ausgeschlossen - klicken zum Einrechnen'}">${active?'Aktiv':'Aus'}</button>`;
+}
 function getCharDataBundle(){
-  return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset, uebersichtParams };
+  return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset, uebersichtParams, calcActive };
 }
 function applyCharDataBundle(bundle){
   bundle = bundle || {};
   grunddaten = bundle.grunddaten || defaultGrunddaten();
   uebersichtParams = Object.assign(defaultUebersichtParams(), bundle.uebersichtParams || {});
+  calcActive = Object.assign(defaultCalcActive(), bundle.calcActive || {});
   baseInputs = bundle.baseInputs || {};
   sourceInputs = bundle.sourceInputs || {};
   slotSelections = bundle.slotSelections || {};
@@ -1616,6 +1640,7 @@ function calcFactorRows(rows){
     <td class="statname">${r.label}</td>
     <td style="text-align:right;">${r.value}</td>
     <td style="text-align:right;" class="muted">${r.factor}</td>
+    <td style="text-align:center;">${(r.scope && r.id) ? activeToggleBtn(r.scope, r.id) : '<span class="muted">&ndash;</span>'}</td>
   </tr>`).join('');
 }
 function renderUebersicht(){
@@ -1688,33 +1713,48 @@ function renderUebersicht(){
     return `<span class="${cls}">${d>0?'+':''}${fmt(d*100)} %</span>`;
   };
   const dmgRowDefs = [
-    {id:'kraft', factor:'× '+fmt(fB.kraft)},
-    {id:'zielgenauigkeit', factor:'× '+fmt(fB.zg)},
-    {id:'kampfvorteil', factor:'× '+fmt(fB.kv)},
-    {id:'kritwert', factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>'},
+    {id:'kraft', factor:'× '+fmt(fB.kraft), toggle:'kraft'},
+    {id:'zielgenauigkeit', factor:'× '+fmt(fB.zg), toggle:'zielgenauigkeit'},
+    {id:'kampfvorteil', factor:'× '+fmt(fB.kv), toggle:'kampfvorteil'},
+    {id:'kritwert', factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>', toggle:'kritwert'},
     {id:'kritschaden', factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>'},
-    {id:'bonusschaden', factor:'× '+fmt(fB.bonus)},
+    {id:'bonusschaden', factor:'× '+fmt(fB.bonus), toggle:'bonusschaden'},
   ];
   const dmgRows = dmgRowDefs.map(r=>`<tr>
     <td class="statname">${statLabel(r.id)}</td>
     <td style="text-align:right;">${fmt(frac(r.id)*100)} %</td>
     <td style="text-align:right;">${r.factor}</td>
     <td style="text-align:right;">${plusCell(r.id)}</td>
+    <td style="text-align:center;">${r.toggle ? activeToggleBtn('schaden', r.toggle) : '<span class="muted">&ndash;</span>'}</td>
   </tr>`).join('');
   const paramInput = (key, label) => `<div>
     <label>${label}</label>
     <span class="pct-wrap"><input type="number" step="0.5" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]}"><span class="pct-suffix">%</span></span>
   </div>`;
 
+  // "Veränderter Wert": Gesamtschaden neu gerechnet, aber ausgeschaltete Stats zählen mit Faktor 1
+  // (= gar kein Einfluss) statt ihrem echten Faktor - so lässt sich z. B. simulieren "ohne Bonus Schaden".
+  const neutralOr = (scope, id, val) => isActive(scope, id) ? val : 1;
+  const fT = {
+    kraft: neutralOr('schaden','kraft', fB.kraft),
+    zg:    neutralOr('schaden','zielgenauigkeit', fB.zg),
+    kv:    neutralOr('schaden','kampfvorteil', fB.kv),
+    krit:  neutralOr('schaden','kritwert', fB.krit),
+    bonus: neutralOr('schaden','bonusschaden', fB.bonus),
+  };
+  const totalDmgToggled = waffenschaden * fT.kraft * fT.zg * fT.kv * fT.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fT.bonus;
+
   /* --- 3) Heilungsberechnung --- */
   const heilTotal = results['gesamtheilung'] && results['gesamtheilung'].E !== null ? results['gesamtheilung'].E : 0;
   const healMult = fB.kraft * fB.krit * (1+heilTotal/100);
   const heilWert = waffenschaden * healMult * (P.faehigkeit/100);
   const healRows = calcFactorRows([
-    {label:statLabel('kraft'), value:fmt(frac('kraft')*100)+' %', factor:'× '+fmt(fB.kraft)},
-    {label:'Krit (Wert × Schaden)', value:fmt(frac('kritwert')*100)+' % × '+fmt(frac('kritschaden')*100)+' %', factor:'× '+fmt(fB.krit)},
-    {label:statLabel('gesamtheilung'), value:fmt(heilTotal)+' %', factor:'× '+fmt(1+heilTotal/100)},
+    {label:statLabel('kraft'), value:fmt(frac('kraft')*100)+' %', factor:'× '+fmt(fB.kraft), scope:'heilung', id:'kraft'},
+    {label:'Krit (Wert × Schaden)', value:fmt(frac('kritwert')*100)+' % × '+fmt(frac('kritschaden')*100)+' %', factor:'× '+fmt(fB.krit), scope:'heilung', id:'kritwert'},
+    {label:statLabel('gesamtheilung'), value:fmt(heilTotal)+' %', factor:'× '+fmt(1+heilTotal/100), scope:'heilung', id:'gesamtheilung'},
   ]);
+  const healMultToggled = neutralOr('heilung','kraft', fB.kraft) * neutralOr('heilung','kritwert', fB.krit) * neutralOr('heilung','gesamtheilung', 1+heilTotal/100);
+  const heilWertToggled = waffenschaden * healMultToggled * (P.faehigkeit/100);
 
   /* --- 4) Tank-Berechnung --- */
   const tp   = results['trefferpunkte'] && results['trefferpunkte'].E !== null ? results['trefferpunkte'].E : 0;
@@ -1725,57 +1765,110 @@ function renderUebersicht(){
   const ehp  = tp * (1+vert/100) / (1-sr/100);
   const tankRows = calcFactorRows([
     {label:statLabel('trefferpunkte'), value:formatWerte(tp), factor:'Basis'},
-    {label:statLabel('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100)},
-    {label:statLabel('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(1-sr/100)},
+    {label:statLabel('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100), scope:'tank', id:'verteidigung'},
+    {label:statLabel('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(1-sr/100), scope:'tank', id:'schadensreduzierung'},
   ]);
+  const vertFaktorToggled = neutralOr('tank','verteidigung', 1+vert/100);
+  const srFaktorToggled = neutralOr('tank','schadensreduzierung', 1-sr/100);
+  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
+
+  /* --- 5) Mini-Stat-Tabellen (links, nur beim jeweils offenen Bereich sichtbar) ---
+     Gleiche Zeilenanzahl/-reihenfolge wie die zugehörige Rechnung rechts, damit
+     beide Tabellen auf gleicher Höhe stehen. */
+  function miniStatRow(statId){
+    const stat = ALL_STATS.find(s=>s.id===statId);
+    const r = results[statId] || {};
+    const cap = stat && stat.type!=='derived' ? (getMaxPr(stat) ? getMaxPr(stat)*100 : null) : null;
+    const werte = (r.E !== null && r.E !== undefined && stat && stat.type!=='derived') ? formatWerte(r.E) : '&ndash;';
+    const pct = stat && stat.type==='derived'
+      ? (r.E !== null && r.E !== undefined ? fmt(r.E)+' %' : '&ndash;')
+      : (r.F !== null && r.F !== undefined ? fmt(r.F)+' %' : '&ndash;');
+    const capTxt = cap !== null ? fmt(cap)+' %' : '&ndash;';
+    return `<tr>
+      <td class="statname">${stat?stat.label:statId}</td>
+      <td style="text-align:right;">${(stat && (stat.pctOnly || stat.type==='derived')) ? '&ndash;' : werte}</td>
+      <td style="text-align:right;">${pct}</td>
+      <td style="text-align:right;" class="muted">${capTxt}</td>
+    </tr>`;
+  }
+  function miniStatsCard(title, color, statIds){
+    return `<div class="card">
+      <h2 style="font-size:0.95rem;"><span class="dot" style="background:${color}"></span>${title}</h2>
+      <table>
+        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
+        <tbody>${statIds.map(miniStatRow).join('')}</tbody>
+      </table>
+    </div>`;
+  }
+  // Offensive: exakt dieselben 6 Zeilen/Reihenfolge wie dmgRowDefs.
+  const offensivMini = miniStatsCard('Offensive Werte', 'var(--off)', ['kraft','zielgenauigkeit','kampfvorteil','kritwert','kritschaden','bonusschaden']);
+  // Heilung: 3 Zeilen wie healRows (Kritwert+Kritschaden zusammengefasst in einer Zeile).
+  const heilMiniRows = [
+    miniStatRow('kraft'),
+    (()=>{ const rw=results['kritwert']||{}, rs=results['kritschaden']||{};
+      return `<tr><td class="statname">Kritwert / Kritschaden</td><td style="text-align:right;">&ndash;</td>
+        <td style="text-align:right;">${fmt(rw.F)} % / ${fmt(rs.F)} %</td><td style="text-align:right;" class="muted">&ndash;</td></tr>`; })(),
+    (()=>{ const rh=results['gesamtheilung']||{};
+      return `<tr><td class="statname">${statLabel('gesamtheilung')}</td><td style="text-align:right;">&ndash;</td>
+        <td style="text-align:right;">${fmt(rh.E)} %</td><td style="text-align:right;" class="muted">&ndash;</td></tr>`; })(),
+  ].join('');
+  const heilMini = `<div class="card">
+    <h2 style="font-size:0.95rem;"><span class="dot" style="background:var(--sup)"></span>Werte für Heilung</h2>
+    <table>
+      <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
+      <tbody>${heilMiniRows}</tbody>
+    </table>
+  </div>`;
+  // Tank: 3 Zeilen wie tankRows.
+  const tankMini = miniStatsCard('Werte für Tank', 'var(--def)', ['trefferpunkte','verteidigung','schadensreduzierung']);
 
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
 
   el.innerHTML = `
-  <div class="rechner-grid" style="align-items:start;">
-    <div>
-      <div class="card">
-        <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
-        <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen rechts auf das Cap begrenzt.</p>
-        ${statsTables}
-      </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
+    <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen unten auf das Cap begrenzt.</p>
+    ${statsTables}
+  </div>
 
-      <div class="accordion" id="acc-dmg-gegner" style="margin-top:16px;">
-        <button type="button" onclick="toggleDmgAccordion('gegner')">
-          <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
-        </button>
-        <div class="body">
-          <p class="helptext">Fließen in die Schadens- und Tank-Berechnung rechts mit ein (Vorgaben = Excel-Werte).</p>
-          <div class="grunddaten-grid">
-            ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
-            ${paramInput('gegnerDeflect','Gegner: Deflect')}
-            ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
-            ${paramInput('gegnerAwareness','Gegner: Awareness')}
-          </div>
-        </div>
+  <div class="accordion" id="acc-dmg-gegner" style="margin-top:16px;">
+    <button type="button" onclick="toggleDmgAccordion('gegner')">
+      <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Fließen in die Schadens- und Tank-Berechnung unten mit ein (Vorgaben = Excel-Werte).</p>
+      <div class="grunddaten-grid">
+        ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
+        ${paramInput('gegnerDeflect','Gegner: Deflect')}
+        ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
+        ${paramInput('gegnerAwareness','Gegner: Awareness')}
       </div>
     </div>
+  </div>
 
+  <div class="rechner-grid" style="align-items:start; margin-top:16px;">
+    <div id="mini-schaden">${offensivMini}</div>
     <div>
       <div class="accordion" id="acc-dmg-schaden">
         <button type="button" onclick="toggleDmgAccordion('schaden')">
           <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
         </button>
         <div class="body">
-          <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte dafür stehen links unter den Gesamt-Stats. Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
-          <div class="grunddaten-grid" style="margin-bottom:14px;">
+          <div class="wide-table-scroll">
+          <table>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt % (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th><th style="text-align:center;">Aktiv</th></tr></thead>
+            <tbody>${dmgRows}</tbody>
+          </table>
+          </div>
+          <p class="helptext" style="margin-top:10px;">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte dafür stehen oben unter "Gegnerische Werte". Mit dem Button "Aktiv"/"Aus" pro Zeile kannst du einzelne Stats aus der Rechnung herausnehmen (z. B. um zu sehen, was ohne einen bestimmten Buff passiert).</p>
+          <div class="grunddaten-grid" style="margin:10px 0 14px 0;">
             ${paramInput('faehigkeit','Schaden der Fähigkeit')}
             ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
           </div>
           <p style="margin:0 0 10px 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
-          <div class="wide-table-scroll">
-          <table>
-            <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt % (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th></tr></thead>
-            <tbody>${dmgRows}</tbody>
-          </table>
-          </div>
-          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit (alle Werte aktiv): <strong>${formatWerte(totalDmg)}</strong></p>
+          <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
           <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
           <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
           &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>. Werte über dem Cap zählen nicht (deshalb "gecappt").<br>
@@ -1785,37 +1878,49 @@ function renderUebersicht(){
           &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;">
+  <div class="rechner-grid" style="align-items:start; margin-top:8px;">
+    <div id="mini-heilung">${heilMini}</div>
+    <div>
+      <div class="accordion" id="acc-dmg-heilung">
         <button type="button" onclick="toggleDmgAccordion('heilung')">
           <span><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</span><span class="chevron">&#9656;</span>
         </button>
         <div class="body">
           <table>
-            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
             <tbody>${healRows}</tbody>
           </table>
-          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilungs-Multiplikator: <strong>× ${fmt(healMult)}</strong> <span class="muted">&middot; Heilung der Fähigkeit (${fmt(P.faehigkeit)} %): <strong>${formatWerte(heilWert)}</strong></span></p>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit (alle Werte aktiv): <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
+          <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
           <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
           Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
           Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
-          "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen).</p>
+          "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen). Mit "Aktiv"/"Aus" kannst du auch hier einzelne Stats herausnehmen.</p>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;">
+  <div class="rechner-grid" style="align-items:start; margin-top:8px;">
+    <div id="mini-tank">${tankMini}</div>
+    <div>
+      <div class="accordion" id="acc-dmg-tank">
         <button type="button" onclick="toggleDmgAccordion('tank')">
           <span><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</span><span class="chevron">&#9656;</span>
         </button>
         <div class="body">
           <table>
-            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
             <tbody>${tankRows}</tbody>
           </table>
-          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (alle Werte aktiv): <strong>${formatWerte(ehp)}</strong></p>
+          <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
           <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
           Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
-          Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst.<br>
+          Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst. Trefferpunkte selbst sind die Basis und daher nicht ausschaltbar.<br>
           Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
         </div>
       </div>
@@ -1824,11 +1929,17 @@ function renderUebersicht(){
 
   // Auf-/zugeklappte Berechnungen bleiben über einen Rebuild hinweg erhalten (z. B. nach
   // Ändern eines Parameterfelds) - beim allerersten Aufbau ist nur "Schaden" offen.
+  // Die Mini-Stat-Tabelle links wird passend zum jeweils offenen Bereich ein-/ausgeblendet.
   if(wasFirstRender){
     document.getElementById('acc-dmg-schaden').classList.add('open');
   } else {
     prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
   }
+  ['schaden','heilung','tank'].forEach(key=>{
+    const acc = document.getElementById('acc-dmg-'+key);
+    const mini = document.getElementById('mini-'+key);
+    if(acc && mini) mini.style.display = acc.classList.contains('open') ? '' : 'none';
+  });
 
   // Eingabefelder der Schadensberechnung-Parameter: bei Änderung neu rechnen und mitspeichern.
   el.querySelectorAll('input[data-uparam]').forEach(inp=>{
@@ -1840,7 +1951,11 @@ function renderUebersicht(){
   });
 }
 function toggleDmgAccordion(key){
-  document.getElementById('acc-dmg-'+key).classList.toggle('open');
+  const acc = document.getElementById('acc-dmg-'+key);
+  if(!acc) return;
+  acc.classList.toggle('open');
+  const mini = document.getElementById('mini-'+key);
+  if(mini) mini.style.display = acc.classList.contains('open') ? '' : 'none';
 }
 
 /* ---------- Seiten-Navigation ---------- */
