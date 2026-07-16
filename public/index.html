@@ -74,8 +74,8 @@
   .legend-swatch{width:14px; height:14px; border-radius:3px; flex:none;}
   .legend-swatch.editable{background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit);}
   .legend-swatch.computed{background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft);}
-  .rings{display:flex; gap:28px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
-  .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:120px;}
+  .rings{display:flex; gap:24px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
+  .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px;}
   .ring-label{font-size:0.8rem; color:var(--text-dim);}
   .ring-val{font-size:1.1rem; font-weight:700;}
   table{width:100%; border-collapse:collapse; font-size:0.88rem;}
@@ -568,7 +568,8 @@ function defaultGrunddaten(){
 // Fähigkeitsschaden 800 %, Gegner mit 50 % Defensive, 50 % Deflect (Härte 90 %),
 // 0 % Awareness, und die "Was bringt +3 %?"-Spalte.
 function defaultUebersichtParams(){
-  return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0, deltaPct:3 };
+  return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0, deltaPct:3,
+    gegnerKraft:90, gegnerZielgenauigkeit:0, gegnerKampfvorteil:90, gegnerKritwert:50, gegnerKritschaden:90 };
 }
 let uebersichtParams = defaultUebersichtParams();
 // Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
@@ -1101,14 +1102,14 @@ function renderRings(results){
   });
   const el = document.getElementById('rings');
   el.innerHTML = ringPct.map(g=>{
-    const r=34, c=2*Math.PI*r, off = c - (g.val/100)*c;
+    const r=30, c=2*Math.PI*r, off = c - (g.val/100)*c;
     return `<div class="ring-box">
-      <svg width="84" height="84" viewBox="0 0 84 84">
-        <circle cx="42" cy="42" r="${r}" fill="none" stroke="#2c303b" stroke-width="8"/>
-        <circle cx="42" cy="42" r="${r}" fill="none" stroke="${g.color}" stroke-width="8"
+      <svg width="76" height="76" viewBox="0 0 76 76">
+        <circle cx="38" cy="38" r="${r}" fill="none" stroke="#2c303b" stroke-width="7"/>
+        <circle cx="38" cy="38" r="${r}" fill="none" stroke="${g.color}" stroke-width="7"
           stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"
-          transform="rotate(-90 42 42)"/>
-        <text x="42" y="47" text-anchor="middle" fill="var(--text)" font-size="17" font-weight="700">${g.val}%</text>
+          transform="rotate(-90 38 38)"/>
+        <text x="38" y="43" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700">${g.val}%</text>
       </svg>
       <div class="ring-label">${g.label} &Oslash; zum Max</div>
     </div>`;
@@ -1803,7 +1804,19 @@ function renderUebersicht(){
   const sr   = Math.min(cappedF(results,'schadensreduzierung'), 99);
   const kvm  = cappedF(results,'kritvermeidung');
   const rob  = cappedF(results,'robustheit');
-  const ehp  = tp * (1+vert/100) / (1-sr/100);
+  const wahr = cappedF(results,'wahrnehmung');
+
+  // Eingehender-Schaden-Multiplikator: wie stark der Gegner durch seine eigenen Offensiv-Werte
+  // zuschlägt (Kraft direkt, Kampfvorteil gegen deine Wahrnehmung, Krit gegen deine Krit-Vermeidung -
+  // exakt spiegelbildlich zur Schadensberechnung, nur jetzt greift der Gegner an). Zielgenauigkeit
+  // des Gegners wirkt gegen dein Deflect - das ist als eigener Stat im Rechner nicht erfasst, daher
+  // ohne Effekt (Feld bleibt trotzdem sichtbar/einstellbar für später).
+  const gegnerKraftF = 1 + P.gegnerKraft/100;
+  const gegnerKvF = 1 + (P.gegnerKampfvorteil - wahr)/100;
+  const gegnerKritF = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvm)/100;
+  const eingehenderSchadenMult = gegnerKraftF * gegnerKvF * gegnerKritF;
+
+  const ehp  = tp * (1+vert/100) / (1-sr/100) / eingehenderSchadenMult;
   const tankRowDefs = [
     {label:statLabel('trefferpunkte'), raw:'<span class="muted">&ndash;</span>', value:formatWerte(tp), factor:'Basis'},
     {label:statLabel('verteidigung'), raw:rawPctCell('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100), toggle:'verteidigung'},
@@ -1818,12 +1831,13 @@ function renderUebersicht(){
   </tr>`).join('');
   // "Veränderter Wert": Verteidigung/Schadensreduzierung bekommen bei aktivem Toggle
   // zusätzlich +X % (Vergleich %), wie bei Schaden/Heilung. Schadensreduzierung bleibt
-  // dabei auf 99 % gedeckelt, damit die Division nicht explodiert.
+  // dabei auf 99 % gedeckelt, damit die Division nicht explodiert. Die gegnerischen
+  // Offensiv-Werte bleiben beim "Veränderten Wert" unverändert (die kann man nicht "buffen").
   const pl = id => isActive('tank', id) ? P.deltaPct : 0;
   const vertFaktorToggled = 1 + frac('verteidigung', pl('verteidigung'));
   const srToggledPct = Math.min(rawF('schadensreduzierung') + pl('schadensreduzierung'), 99);
   const srFaktorToggled = 1 - srToggledPct/100;
-  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
+  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled / eingehenderSchadenMult;
 
   /* --- 4) Grafik: Schadenszugewinn pro +1 % je Stat, über den gesamten Wertebereich
      (nicht nur am aktuellen Wert) - zeigt den abnehmenden Grenznutzen als Kurve,
@@ -1876,8 +1890,8 @@ function renderUebersicht(){
     const yMin = 0;
     const xMax = Math.max(...chartStatDefs.map(s=>s.xMax));
 
-    const w = 800, h = 480;
-    const pad = {top:30, right:30, bottom:46, left:70};
+    const w = 880, h = 520;
+    const pad = {top:30, right:30, bottom:48, left:74};
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
     const xScale = x => pad.left + (x/xMax) * chartW;
@@ -1902,9 +1916,9 @@ function renderUebersicht(){
       <span style="font-size:0.85rem;color:var(--text);">${s.label}</span>
     </div>`).join('');
 
-    return `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;max-width:960px;">
+    return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:center;max-width:1100px;margin:0 auto;">
       <div style="min-width:160px;">${legend}</div>
-      <div style="flex:1;min-width:400px;max-width:780px;">
+      <div style="flex:1;min-width:440px;max-width:860px;">
         <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
           ${gridLines}
           <line x1="${pad.left}" y1="${(pad.top+chartH).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
@@ -1972,9 +1986,10 @@ function renderUebersicht(){
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Eingehender-Schaden-Multiplikator des Gegners: <strong>× ${fmt(eingehenderSchadenMult)}</strong> <span class="muted">(Kraft × Kampfvorteil vs. deine Wahrnehmung × Krit vs. deine Krit-Vermeidung)</span></p>
+      <p style="margin:0 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
-      <p class="helptext">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung). Zusätzlich gegen Kritischer Treffer: Krit-Vermeidung ${fmt(kvm)} % und Robustheit ${fmt(rob)} % (beides gegnerabhängig, nicht im Multiplikator enthalten).</p>
+      <p class="helptext">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung) ÷ Eingehender-Schaden-Multiplikator. Der Multiplikator bildet ab, wie hart der Gegner mit seinen eigenen Offensiv-Werten zuschlägt (siehe "Gegnerische Werte" unten) - Robustheit ${fmt(rob)} % senkt den gegnerischen Kritschaden zusätzlich, ist aber noch nicht im Multiplikator enthalten. Gegner-Zielgenauigkeit wirkt gegen dein Deflect, das der Rechner aktuell nicht als eigenen Stat führt, daher ohne Effekt.</p>
     </div>
   </div>
 
@@ -1983,13 +1998,21 @@ function renderUebersicht(){
       <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Fließen in Schaden und Tank oben mit ein.</p>
+      <p class="helptext">Defensive Gegner-Werte (wirken gegen deinen Schaden):</p>
       <div class="grunddaten-grid">
         ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
         ${paramInput('gegnerDeflect','Gegner: Deflect')}
         ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
         ${paramInput('gegnerAwareness','Gegner: Awareness')}
         ${paramInput('gegnerKritvermeidung','Gegner: Kritische Vermeidung')}
+      </div>
+      <p class="helptext" style="margin-top:14px;">Offensive Gegner-Werte (der Gegner greift dich an - fließt in die Tank-Berechnung ein):</p>
+      <div class="grunddaten-grid">
+        ${paramInput('gegnerKraft','Gegner: Kraft')}
+        ${paramInput('gegnerZielgenauigkeit','Gegner: Zielgenauigkeit')}
+        ${paramInput('gegnerKampfvorteil','Gegner: Kampfvorteil')}
+        ${paramInput('gegnerKritwert','Gegner: Kritischer Trefferwert')}
+        ${paramInput('gegnerKritschaden','Gegner: Kritischer Trefferschaden')}
       </div>
     </div>
   </div>
