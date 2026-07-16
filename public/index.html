@@ -1846,8 +1846,8 @@ function renderUebersicht(){
     const yMin = 0;
     const xMax = Math.max(...chartStatDefs.map(s=>s.xMax));
 
-    const w = 820, h = 380;
-    const pad = {top:30, right:30, bottom:44, left:64};
+    const w = 680, h = 260;
+    const pad = {top:20, right:20, bottom:34, left:52};
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
     const xScale = x => pad.left + (x/xMax) * chartW;
@@ -1857,29 +1857,29 @@ function renderUebersicht(){
     const yTicks = [];
     for(let t=0; t<=yMax+1e-9; t+=yStep) yTicks.push(t);
     const gridLines = yTicks.map(t=>`<line x1="${pad.left}" y1="${yScale(t).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${yScale(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
+      <text x="${pad.left-6}" y="${(yScale(t)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
 
     const lines = series.map(s=>{
       const d = s.pts.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ');
       const cx = xScale(s.curX).toFixed(1), cy = yScale(s.curY).toFixed(1);
-      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5"/>
-        <circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>
+        <circle cx="${cx}" cy="${cy}" r="3" fill="${s.color}" stroke="var(--bg)" stroke-width="1"/>`;
     }).join('');
 
     const xAxisLabel = 'Aktueller Stat-Wert (%)';
-    const legend = chartStatDefs.map(s=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-      <span style="width:16px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
-      <span style="font-size:0.85rem;color:var(--text);">${s.label}</span>
+    const legend = chartStatDefs.map(s=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+      <span style="width:12px;height:2px;background:${s.color};display:inline-block;border-radius:2px;"></span>
+      <span style="font-size:0.76rem;color:var(--text);">${s.label}</span>
     </div>`).join('');
 
-    return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
-      <div style="min-width:170px;">${legend}</div>
-      <div style="flex:1;min-width:320px;">
+    return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;max-width:560px;">
+      <div style="min-width:130px;">${legend}</div>
+      <div style="flex:1;min-width:220px;max-width:340px;">
         <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
           ${gridLines}
           <line x1="${pad.left}" y1="${(pad.top+chartH).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
           ${lines}
-          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-8}" text-anchor="middle" font-size="12" fill="var(--text-dim)">${xAxisLabel}</text>
+          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-6}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${xAxisLabel}</text>
         </svg>
       </div>
     </div>`;
@@ -1891,7 +1891,7 @@ function renderUebersicht(){
   el.innerHTML = `
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Fähigkeit &amp; Vergleich</h2>
-    <p class="helptext">Gilt für Schadens- <strong>und</strong> Heilungsberechnung, da eine Fähigkeit je nach Klasse Schaden oder Heilung macht.</p>
+    <p class="helptext">Gilt für Schaden <strong>und</strong> Heilung.</p>
     <div class="grunddaten-grid">
       ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
       ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
@@ -1910,18 +1910,11 @@ function renderUebersicht(){
         <tbody>${dmgRows}</tbody>
       </table>
       </div>
-      <p class="helptext" style="margin-top:10px;">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte dafür stehen unten unter "Gegnerische Werte", der Fähigkeitswert oben bei "Fähigkeit &amp; Vergleich". Der Button "Aktiv"/"Aus" pro Zeile bestimmt, ob die Vergleichs-% (+X%) für diesen Stat beim "Veränderten Wert" mit eingerechnet wird - Kritwert und Kritschaden lassen sich dabei unabhängig voneinander schalten.</p>
+      <p class="helptext" style="margin-top:10px;">"Aktiv"/"Aus" bestimmt, ob die Vergleichs-% (+X%) beim "Veränderten Wert" für diesen Stat mitgerechnet wird. Kritwert und Kritschaden sind einzeln schaltbar.</p>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
-      <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
-      <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
-      &bull; "Gesamt %" ist dein tatsächlicher Wert (ungecappt) - "Genutzt (gecappt)" ist das, was im Spiel wirklich zählt, wenn du über dem Cap bist.<br>
-      &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>.<br>
-      &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72) - beide sind einzeln schaltbar.<br>
-      &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus - Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − deine Zielgenauigkeit)), so wie im Neverwinter-Wiki dokumentiert (nicht mehr die frühere, zu ungenaue Subtraktions-Näherung). Je näher deine Zielgenauigkeit an die Deflect-Härte des Gegners kommt, desto weniger Schaden geht durchs Deflecten verloren; auch beim "Veränderten Wert" wird dieser volle Zusammenhang neu berechnet, nicht nur ein Wert ein-/ausgeschaltet.<br>
-      &bull; Quelle für diese und weitere Formeln: <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Neverwinter-Wiki (Combat)</a>.<br>
-      &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
-      &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
+      <p class="helptext"><strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
+      "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" zählt im Spiel. Krit = Kritwert × Kritschaden (Durchschnitt über viele Treffer). Zielgenauigkeit: Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.</p>
     </div>
   </div>
 
@@ -1936,10 +1929,7 @@ function renderUebersicht(){
       </table>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
-      <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
-      Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
-      Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
-      "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen); "Genutzt (gecappt)" zeigt hier keinen zusätzlichen Cap, da sie bereits im Rechner auf 120 % begrenzt wird. Kritwert und Kritschaden sind unabhängig voneinander schaltbar, und "Vergleich %" (oben bei "Fähigkeit &amp; Vergleich") zeigt auch hier, was +X % bringen würde.</p>
+      <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
     </div>
   </div>
 
@@ -1954,10 +1944,7 @@ function renderUebersicht(){
       </table>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
-      <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
-      Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
-      Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst. Trefferpunkte selbst sind die Basis und daher nicht schaltbar.<br>
-      Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
+      <p class="helptext">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung). Zusätzlich gegen Kritischer Treffer: Krit-Vermeidung ${fmt(kvm)} % und Robustheit ${fmt(rob)} % (beides gegnerabhängig, nicht im Multiplikator enthalten).</p>
     </div>
   </div>
 
@@ -1966,7 +1953,7 @@ function renderUebersicht(){
       <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Fließen in die Schadens- und Tank-Berechnung oben mit ein (Vorgaben = Excel-Werte).</p>
+      <p class="helptext">Fließen in Schaden und Tank oben mit ein.</p>
       <div class="grunddaten-grid">
         ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
         ${paramInput('gegnerDeflect','Gegner: Deflect')}
@@ -1978,7 +1965,7 @@ function renderUebersicht(){
 
   <div class="card" style="margin-top:16px;">
     <h2><span class="dot" style="background:var(--off)"></span>Schadenszugewinn pro Prozent</h2>
-    <p class="helptext">Zeigt für jeden Stat, wie viel Gesamtschaden +1 Prozentpunkt bringt - über den gesamten möglichen Wertebereich hinweg (nicht nur bei deinem aktuellen Wert). Die Kurven fallen typischerweise ab, weil jeder Stat einem Cap entgegenläuft (abnehmender Grenznutzen); der große Punkt markiert deinen aktuellen Wert. Alle anderen Stats bleiben beim Durchrechnen auf ihrem echten aktuellen Wert stehen.</p>
+    <p class="helptext">Schadenszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
     ${renderImpactChart()}
   </div>`;
 
