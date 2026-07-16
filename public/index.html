@@ -109,6 +109,8 @@
   }
   .toggle-active-btn.on{color:#fff; background:var(--sup); border-color:var(--sup);}
   .toggle-active-btn.off{color:#fff; background:var(--off); border-color:var(--off);}
+  .chart-line{transition:stroke-width .15s ease, opacity .15s ease;}
+  .chart-hit{cursor:pointer;}
   .muted{color:var(--text-dim);}
   .accordion{border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;}
   .accordion > button{
@@ -1839,47 +1841,28 @@ function renderUebersicht(){
   const srFaktorToggled = 1 - srToggledPct/100;
   const ehpToggled = tp * vertFaktorToggled / srFaktorToggled / eingehenderSchadenMult;
 
-  /* --- 4) Grafik: Schadenszugewinn pro +1 % je Stat, über den gesamten Wertebereich
-     (nicht nur am aktuellen Wert) - zeigt den abnehmenden Grenznutzen als Kurve,
-     alle anderen Stats bleiben dabei auf ihrem aktuellen echten Wert stehen. --- */
-  const chartStatDefs = [
-    {id:'kraft', label:'Kraft', color:'#4285F4', xMax:130},
-    {id:'zielgenauigkeit', label:'Zielgenauigkeit', color:'#E91E8C', xMax:100},
-    {id:'kampfvorteil', label:'Kampfvorteil', color:'#FBBC04', xMax:130},
-    {id:'kritwert', label:'Kritischer Trefferwert', color:'#34A853', xMax:100},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'#E8710A', xMax:130},
-  ];
-  function renderImpactChart(){
-    const actualRaw = {
-      kraft: rawF('kraft'), zielgenauigkeit: rawF('zielgenauigkeit'), kampfvorteil: rawF('kampfvorteil'),
-      kritwert: rawF('kritwert'), kritschaden: rawF('kritschaden'),
-    };
-    const capFrac = (id, val) => { const c = capOf(id); return (c!==null ? Math.min(val, c) : val) / 100; };
-    function totalGiven(overrideId, x){
-      const raw = Object.assign({}, actualRaw, {[overrideId]: x});
-      const kraftF = 1 + capFrac('kraft', raw.kraft);
-      const zgF = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - capFrac('zielgenauigkeit', raw.zielgenauigkeit)));
-      const kvF = 1 + (capFrac('kampfvorteil', raw.kampfvorteil) - P.gegnerAwareness/100);
-      const kritF = 1 + capFrac('kritwert', raw.kritwert) * (capFrac('kritschaden', raw.kritschaden) - P.gegnerKritvermeidung/100);
-      return waffenschaden * kraftF * zgF * kvF * kritF / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fB.bonus;
-    }
+  /* --- 4) Grafiken: Schadenszugewinn/Heilungszugewinn/Tank-Zugewinn pro +1 % je Stat, über
+     den gesamten Wertebereich (nicht nur am aktuellen Wert) - zeigt den abnehmenden Grenznutzen
+     als Kurve, alle anderen Stats bleiben dabei auf ihrem aktuellen echten Wert stehen. --- */
+  // Generische Grenznutzen-Grafik: statDefs = [{id,label,color,xMax,curX}], totalGivenFn(overrideId,x) liefert
+  // den Gesamtwert (Schaden/Heilung/EHP), wenn genau dieser eine Stat hypothetisch den Wert x hätte.
+  // Jede Linie bekommt eine unsichtbare, breitere "Hit"-Linie darunter für einen angenehmen Hover-Bereich;
+  // beim Hovern wird die getroffene Linie hervorgehoben und alle anderen abgedunkelt (siehe attachChartHover).
+  function buildImpactChart(chartId, statDefs, totalGivenFn){
     const N = 40;
-    const series = chartStatDefs.map(s=>{
+    const series = statDefs.map(s=>{
       const pts = [];
       for(let i=0;i<=N;i++){
         const x = (s.xMax/N)*i;
-        // Wichtig: gegen den Gesamtschaden AN DIESER STELLE normalisieren (nicht gegen den
-        // festen aktuellen Gesamtschaden) - sonst verschwindet der abnehmende Grenznutzen,
-        // weil der absolute Zuwachs pro Prozentpunkt bei Stats wie Kraft konstant ist, der
-        // relative Zuwachs aber sinkt, je größer der Gesamtschaden an dieser Stelle bereits ist.
-        const baseHere = totalGiven(s.id, x);
-        const gain = baseHere ? (totalGiven(s.id, x+1) - baseHere) / baseHere * 100 : 0;
+        // Wichtig: gegen den Wert AN DIESER STELLE normalisieren (nicht gegen einen festen aktuellen
+        // Wert) - sonst verschwindet der abnehmende Grenznutzen bei linearen Stats wie Kraft.
+        const baseHere = totalGivenFn(s.id, x);
+        const gain = baseHere ? (totalGivenFn(s.id, x+1) - baseHere) / baseHere * 100 : 0;
         pts.push({x, y:gain});
       }
-      // Punkt beim aktuellen echten Wert des Stats markieren.
-      const curX = Math.min(actualRaw[s.id], s.xMax);
-      const curBase = totalGiven(s.id, curX);
-      const curY = curBase ? (totalGiven(s.id, curX+1) - curBase) / curBase * 100 : 0;
+      const curX = Math.min(s.curX, s.xMax);
+      const curBase = totalGivenFn(s.id, curX);
+      const curY = curBase ? (totalGivenFn(s.id, curX+1) - curBase) / curBase * 100 : 0;
       return {...s, pts, curX, curY};
     });
 
@@ -1888,10 +1871,10 @@ function renderUebersicht(){
     yMax = Math.ceil((yMax*1.1) / 0.1) * 0.1;
     if(yMax <= 0) yMax = 0.1;
     const yMin = 0;
-    const xMax = Math.max(...chartStatDefs.map(s=>s.xMax));
+    const xMax = Math.max(...statDefs.map(s=>s.xMax));
 
-    const w = 880, h = 520;
-    const pad = {top:30, right:30, bottom:48, left:74};
+    const w = 760, h = 400;
+    const pad = {top:26, right:26, bottom:44, left:68};
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
     const xScale = x => pad.left + (x/xMax) * chartW;
@@ -1901,33 +1884,90 @@ function renderUebersicht(){
     const yTicks = [];
     for(let t=0; t<=yMax+1e-9; t+=yStep) yTicks.push(t);
     const gridLines = yTicks.map(t=>`<line x1="${pad.left}" y1="${yScale(t).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${yScale(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="12" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
+      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
 
     const lines = series.map(s=>{
       const d = s.pts.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ');
       const cx = xScale(s.curX).toFixed(1), cy = yScale(s.curY).toFixed(1);
-      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5"/>
-        <circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+      return `<g class="chart-series">
+        <path class="chart-hit" d="${d}" fill="none" stroke="transparent" stroke-width="14"/>
+        <path class="chart-line" data-base-width="2.5" d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5"/>
+        <circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>
+      </g>`;
     }).join('');
 
     const xAxisLabel = 'Aktueller Stat-Wert (%)';
-    const legend = chartStatDefs.map(s=>`<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;">
+    const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
       <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
-      <span style="font-size:0.85rem;color:var(--text);">${s.label}</span>
+      <span style="font-size:0.83rem;color:var(--text);">${s.label}</span>
     </div>`).join('');
 
-    return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:center;max-width:1100px;margin:0 auto;">
-      <div style="min-width:160px;">${legend}</div>
-      <div style="flex:1;min-width:440px;max-width:860px;">
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+    return `<div class="impact-chart-wrap" id="chart-${chartId}" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;justify-content:center;max-width:960px;margin:0 auto;">
+      <div style="min-width:150px;">${legend}</div>
+      <div style="flex:1;min-width:380px;max-width:740px;">
+        <svg class="impact-chart-svg" viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
           ${gridLines}
           <line x1="${pad.left}" y1="${(pad.top+chartH).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
           ${lines}
-          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-8}" text-anchor="middle" font-size="12" fill="var(--text-dim)">${xAxisLabel}</text>
+          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-6}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${xAxisLabel}</text>
         </svg>
       </div>
     </div>`;
   }
+
+  // Schaden-Grafik
+  const dmgChartDefs = [
+    {id:'kraft', label:'Kraft', color:'#4285F4', xMax:130, curX: rawF('kraft')},
+    {id:'zielgenauigkeit', label:'Zielgenauigkeit', color:'#E91E8C', xMax:100, curX: rawF('zielgenauigkeit')},
+    {id:'kampfvorteil', label:'Kampfvorteil', color:'#FBBC04', xMax:130, curX: rawF('kampfvorteil')},
+    {id:'kritwert', label:'Kritischer Trefferwert', color:'#34A853', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'#E8710A', xMax:130, curX: rawF('kritschaden')},
+  ];
+  const dmgCapFrac = (id, val) => { const c = capOf(id); return (c!==null ? Math.min(val, c) : val) / 100; };
+  function dmgTotalGiven(overrideId, x){
+    const raw = {
+      kraft: rawF('kraft'), zielgenauigkeit: rawF('zielgenauigkeit'), kampfvorteil: rawF('kampfvorteil'),
+      kritwert: rawF('kritwert'), kritschaden: rawF('kritschaden'),
+    };
+    raw[overrideId] = x;
+    const kraftF = 1 + dmgCapFrac('kraft', raw.kraft);
+    const zgF = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - dmgCapFrac('zielgenauigkeit', raw.zielgenauigkeit)));
+    const kvF = 1 + (dmgCapFrac('kampfvorteil', raw.kampfvorteil) - P.gegnerAwareness/100);
+    const kritF = 1 + dmgCapFrac('kritwert', raw.kritwert) * (dmgCapFrac('kritschaden', raw.kritschaden) - P.gegnerKritvermeidung/100);
+    return waffenschaden * kraftF * zgF * kvF * kritF / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fB.bonus;
+  }
+
+  // Heilung-Grafik
+  const healChartDefs = [
+    {id:'kraft', label:'Kraft', color:'#4285F4', xMax:130, curX: rawF('kraft')},
+    {id:'kritwert', label:'Kritischer Trefferwert', color:'#34A853', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'#E8710A', xMax:130, curX: rawF('kritschaden')},
+    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', color:'#9C6ADE', xMax:150, curX: heilTotal},
+  ];
+  function healTotalGiven(overrideId, x){
+    const kraftRaw = overrideId==='kraft' ? x : rawF('kraft');
+    const kritwertRaw = overrideId==='kritwert' ? x : rawF('kritwert');
+    const kritschadenRaw = overrideId==='kritschaden' ? x : rawF('kritschaden');
+    const heilRaw = overrideId==='gesamtheilung' ? x : heilTotal;
+    const kraftF = 1 + dmgCapFrac('kraft', kraftRaw);
+    const kritF = 1 + dmgCapFrac('kritwert', kritwertRaw) * dmgCapFrac('kritschaden', kritschadenRaw);
+    const heilF = 1 + heilRaw/100;
+    return waffenschaden * kraftF * kritF * heilF * (P.faehigkeit/100);
+  }
+
+  // Tank-Grafik
+  const tankChartDefs = [
+    {id:'verteidigung', label:'Verteidigung', color:'#4285F4', xMax:130, curX: rawF('verteidigung')},
+    {id:'schadensreduzierung', label:'Schadensreduzierung', color:'#E8710A', xMax:99, curX: Math.min(rawF('schadensreduzierung'),99)},
+  ];
+  function tankTotalGiven(overrideId, x){
+    const vertRaw = overrideId==='verteidigung' ? x : rawF('verteidigung');
+    const srRaw = overrideId==='schadensreduzierung' ? Math.min(x,99) : Math.min(rawF('schadensreduzierung'),99);
+    const vertF = 1 + dmgCapFrac('verteidigung', vertRaw);
+    const srF = 1 - srRaw/100;
+    return tp * vertF / srF / eingehenderSchadenMult;
+  }
+
 
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
@@ -1959,6 +1999,9 @@ function renderUebersicht(){
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
       <p class="helptext"><strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
       "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" zählt im Spiel. Krit = Kritwert × (Kritschaden − Gegner-Kritvermeidung). Zielgenauigkeit: Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Schadenszugewinn pro Prozent</h3>
+      <p class="helptext" style="margin-top:0;">Schadenszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      ${buildImpactChart('dmg', dmgChartDefs, dmgTotalGiven)}
     </div>
   </div>
 
@@ -1974,6 +2017,9 @@ function renderUebersicht(){
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
       <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Heilungszugewinn pro Prozent</h3>
+      <p class="helptext" style="margin-top:0;">Heilungszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      ${buildImpactChart('heal', healChartDefs, healTotalGiven)}
     </div>
   </div>
 
@@ -1990,6 +2036,9 @@ function renderUebersicht(){
       <p style="margin:0 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
       <p class="helptext">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung) ÷ Eingehender-Schaden-Multiplikator. Der Multiplikator bildet ab, wie hart der Gegner mit seinen eigenen Offensiv-Werten zuschlägt (siehe "Gegnerische Werte" unten) - Robustheit ${fmt(rob)} % senkt den gegnerischen Kritschaden zusätzlich, ist aber noch nicht im Multiplikator enthalten. Gegner-Zielgenauigkeit wirkt gegen dein Deflect, das der Rechner aktuell nicht als eigenen Stat führt, daher ohne Effekt.</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Tank-Zugewinn pro Prozent</h3>
+      <p class="helptext" style="margin-top:0;">Zuwachs an effektiven Trefferpunkten pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      ${buildImpactChart('tank', tankChartDefs, tankTotalGiven)}
     </div>
   </div>
 
@@ -2015,12 +2064,6 @@ function renderUebersicht(){
         ${paramInput('gegnerKritschaden','Gegner: Kritischer Trefferschaden')}
       </div>
     </div>
-  </div>
-
-  <div class="card" style="margin-top:16px;">
-    <h2><span class="dot" style="background:var(--off)"></span>Schadenszugewinn pro Prozent</h2>
-    <p class="helptext">Schadenszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
-    ${renderImpactChart()}
   </div>`;
 
   // Auf-/zugeklappte Berechnungen bleiben über einen Rebuild hinweg erhalten (z. B. nach
@@ -2039,6 +2082,38 @@ function renderUebersicht(){
       queueSave();
       renderUebersicht();
     });
+  });
+
+  // Hover-Hervorhebung für alle drei Grenznutzen-Grafiken: beim Überfahren einer Linie
+  // (bzw. Klick auf die Legende, für Touch-Geräte) wird sie hervorgehoben, die anderen abgedunkelt.
+  el.querySelectorAll('.impact-chart-wrap').forEach(wrap=>attachChartHover(wrap));
+}
+function attachChartHover(wrap){
+  const groups = Array.from(wrap.querySelectorAll('.chart-series'));
+  if(!groups.length) return;
+  const highlight = idx => {
+    groups.forEach((g,i)=>{
+      const line = g.querySelector('.chart-line');
+      if(i===idx){ line.setAttribute('stroke-width', '4.5'); line.style.opacity = '1'; }
+      else { line.setAttribute('stroke-width', line.dataset.baseWidth); line.style.opacity = '0.2'; }
+    });
+  };
+  const reset = () => {
+    groups.forEach(g=>{
+      const line = g.querySelector('.chart-line');
+      line.setAttribute('stroke-width', line.dataset.baseWidth);
+      line.style.opacity = '1';
+    });
+  };
+  groups.forEach((g,i)=>{
+    const hit = g.querySelector('.chart-hit');
+    hit.addEventListener('mouseenter', ()=>highlight(i));
+    hit.addEventListener('mouseleave', reset);
+  });
+  wrap.querySelectorAll('.chart-legend-item').forEach(item=>{
+    const idx = Number(item.dataset.idx);
+    item.addEventListener('mouseenter', ()=>highlight(idx));
+    item.addEventListener('mouseleave', reset);
   });
 }
 function toggleDmgAccordion(key){
