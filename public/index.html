@@ -1648,8 +1648,10 @@ function renderUebersicht(){
   if(!el) return;
   const results = computeAll();
 
-  /* --- 1) Gesamt-Stats Tabelle --- */
-  const statsTables = STAT_GROUPS.map(g=>{
+  /* --- 1) Gesamt-Stats Tabelle: eine Tabelle mit auf-/zuklappbaren Untergruppen
+     (Offensive/Defensive/Unterstützung), die je nach offener Berechnung automatisch
+     aufklappen (Schaden->Offensive, Heilung->Offensive+Unterstützung, Tank->Defensive). --- */
+  const statsGroupBodies = STAT_GROUPS.map(g=>{
     const rows = g.stats.map(stat=>{
       const r = results[stat.id] || {};
       const cap = stat.type==='derived' ? null : (getMaxPr(stat) ? getMaxPr(stat)*100 : null);
@@ -1659,19 +1661,24 @@ function renderUebersicht(){
         : (r.F !== null && r.F !== undefined ? fmt(r.F)+' %' : (stat.type==='werteOnly' ? '&ndash;' : '&ndash;'));
       const capTxt = cap !== null ? fmt(cap)+' %' : '&ndash;';
       const over = (cap !== null && r.F !== null && r.F > cap) ? ' <span class="muted">(über Cap)</span>' : '';
-      return `<tr>
+      return `<tr class="subgroup-row">
         <td class="statname">${stat.label}</td>
         <td style="text-align:right;">${stat.type==='derived' || stat.pctOnly ? '&ndash;' : werte}</td>
         <td style="text-align:right;">${pct}${over}</td>
         <td style="text-align:right;" class="muted">${capTxt}</td>
       </tr>`;
     }).join('');
-    return `<h3 style="font-size:0.9rem;margin:16px 0 6px 0;"><span class="dot" style="background:${g.color}"></span> ${g.label}</h3>
-      <table>
-        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+    return `<tbody class="stat-subgroup" id="srcgrp-gesamt-${g.id}" data-group="${g.id}">
+      <tr class="subgroup-header" onclick="toggleSrcSubgroup('gesamt','${g.id}')">
+        <td colspan="4"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+      </tr>
+      ${rows}
+    </tbody>`;
   }).join('');
+  const statsTables = `<table>
+    <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
+    ${statsGroupBodies}
+  </table>`;
 
   /* --- 2) Schadensberechnung (exakt wie im Excel-Blatt "DMG Berechnung") --- */
   const P = uebersichtParams;
@@ -1772,63 +1779,13 @@ function renderUebersicht(){
   const srFaktorToggled = neutralOr('tank','schadensreduzierung', 1-sr/100);
   const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
 
-  /* --- 5) Mini-Stat-Tabellen (links, nur beim jeweils offenen Bereich sichtbar) ---
-     Gleiche Zeilenanzahl/-reihenfolge wie die zugehörige Rechnung rechts, damit
-     beide Tabellen auf gleicher Höhe stehen. */
-  function miniStatRow(statId){
-    const stat = ALL_STATS.find(s=>s.id===statId);
-    const r = results[statId] || {};
-    const cap = stat && stat.type!=='derived' ? (getMaxPr(stat) ? getMaxPr(stat)*100 : null) : null;
-    const werte = (r.E !== null && r.E !== undefined && stat && stat.type!=='derived') ? formatWerte(r.E) : '&ndash;';
-    const pct = stat && stat.type==='derived'
-      ? (r.E !== null && r.E !== undefined ? fmt(r.E)+' %' : '&ndash;')
-      : (r.F !== null && r.F !== undefined ? fmt(r.F)+' %' : '&ndash;');
-    const capTxt = cap !== null ? fmt(cap)+' %' : '&ndash;';
-    return `<tr>
-      <td class="statname">${stat?stat.label:statId}</td>
-      <td style="text-align:right;">${(stat && (stat.pctOnly || stat.type==='derived')) ? '&ndash;' : werte}</td>
-      <td style="text-align:right;">${pct}</td>
-      <td style="text-align:right;" class="muted">${capTxt}</td>
-    </tr>`;
-  }
-  function miniStatsCard(title, color, statIds){
-    return `<div class="card">
-      <h2 style="font-size:0.95rem;"><span class="dot" style="background:${color}"></span>${title}</h2>
-      <table>
-        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
-        <tbody>${statIds.map(miniStatRow).join('')}</tbody>
-      </table>
-    </div>`;
-  }
-  // Offensive: exakt dieselben 6 Zeilen/Reihenfolge wie dmgRowDefs.
-  const offensivMini = miniStatsCard('Offensive Werte', 'var(--off)', ['kraft','zielgenauigkeit','kampfvorteil','kritwert','kritschaden','bonusschaden']);
-  // Heilung: 3 Zeilen wie healRows (Kritwert+Kritschaden zusammengefasst in einer Zeile).
-  const heilMiniRows = [
-    miniStatRow('kraft'),
-    (()=>{ const rw=results['kritwert']||{}, rs=results['kritschaden']||{};
-      return `<tr><td class="statname">Kritwert / Kritschaden</td><td style="text-align:right;">&ndash;</td>
-        <td style="text-align:right;">${fmt(rw.F)} % / ${fmt(rs.F)} %</td><td style="text-align:right;" class="muted">&ndash;</td></tr>`; })(),
-    (()=>{ const rh=results['gesamtheilung']||{};
-      return `<tr><td class="statname">${statLabel('gesamtheilung')}</td><td style="text-align:right;">&ndash;</td>
-        <td style="text-align:right;">${fmt(rh.E)} %</td><td style="text-align:right;" class="muted">&ndash;</td></tr>`; })(),
-  ].join('');
-  const heilMini = `<div class="card">
-    <h2 style="font-size:0.95rem;"><span class="dot" style="background:var(--sup)"></span>Werte für Heilung</h2>
-    <table>
-      <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
-      <tbody>${heilMiniRows}</tbody>
-    </table>
-  </div>`;
-  // Tank: 3 Zeilen wie tankRows.
-  const tankMini = miniStatsCard('Werte für Tank', 'var(--def)', ['trefferpunkte','verteidigung','schadensreduzierung']);
-
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
 
   el.innerHTML = `
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
-    <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen unten auf das Cap begrenzt.</p>
+    <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen unten auf das Cap begrenzt. Die Gruppen (Offensive/Defensive/Unterstützung) klappen automatisch passend zur gerade geöffneten Berechnung auf.</p>
     ${statsTables}
   </div>
 
@@ -1848,7 +1805,6 @@ function renderUebersicht(){
   </div>
 
   <div class="rechner-grid" style="align-items:start; margin-top:16px;">
-    <div id="mini-schaden">${offensivMini}</div>
     <div>
       <div class="accordion" id="acc-dmg-schaden">
         <button type="button" onclick="toggleDmgAccordion('schaden')">
@@ -1878,13 +1834,8 @@ function renderUebersicht(){
           &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="rechner-grid" style="align-items:start; margin-top:8px;">
-    <div id="mini-heilung">${heilMini}</div>
-    <div>
-      <div class="accordion" id="acc-dmg-heilung">
+      <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;">
         <button type="button" onclick="toggleDmgAccordion('heilung')">
           <span><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</span><span class="chevron">&#9656;</span>
         </button>
@@ -1901,13 +1852,8 @@ function renderUebersicht(){
           "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen). Mit "Aktiv"/"Aus" kannst du auch hier einzelne Stats herausnehmen.</p>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="rechner-grid" style="align-items:start; margin-top:8px;">
-    <div id="mini-tank">${tankMini}</div>
-    <div>
-      <div class="accordion" id="acc-dmg-tank">
+      <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;">
         <button type="button" onclick="toggleDmgAccordion('tank')">
           <span><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</span><span class="chevron">&#9656;</span>
         </button>
@@ -1929,17 +1875,15 @@ function renderUebersicht(){
 
   // Auf-/zugeklappte Berechnungen bleiben über einen Rebuild hinweg erhalten (z. B. nach
   // Ändern eines Parameterfelds) - beim allerersten Aufbau ist nur "Schaden" offen.
-  // Die Mini-Stat-Tabelle links wird passend zum jeweils offenen Bereich ein-/ausgeblendet.
   if(wasFirstRender){
     document.getElementById('acc-dmg-schaden').classList.add('open');
   } else {
     prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
   }
-  ['schaden','heilung','tank'].forEach(key=>{
-    const acc = document.getElementById('acc-dmg-'+key);
-    const mini = document.getElementById('mini-'+key);
-    if(acc && mini) mini.style.display = acc.classList.contains('open') ? '' : 'none';
-  });
+  // Gesamt-Stats-Untergruppen (Offensive/Defensive/Unterstützung) klappen passend zur
+  // gerade geöffneten Berechnung auf: Schaden->Offensive, Heilung->Offensive+Unterstützung,
+  // Tank->Defensive. Mehrere Berechnungen können gleichzeitig offen sein.
+  syncGesamtStatsSubgroups();
 
   // Eingabefelder der Schadensberechnung-Parameter: bei Änderung neu rechnen und mitspeichern.
   el.querySelectorAll('input[data-uparam]').forEach(inp=>{
@@ -1950,12 +1894,22 @@ function renderUebersicht(){
     });
   });
 }
+function syncGesamtStatsSubgroups(){
+  const isOpen = key => { const a=document.getElementById('acc-dmg-'+key); return a && a.classList.contains('open'); };
+  const wanted = new Set();
+  if(isOpen('schaden')) wanted.add('offensive');
+  if(isOpen('heilung')){ wanted.add('offensive'); wanted.add('support'); }
+  if(isOpen('tank')) wanted.add('defensive');
+  ['offensive','defensive','support'].forEach(gid=>{
+    const el = document.getElementById('srcgrp-gesamt-'+gid);
+    if(el) el.classList.toggle('open', wanted.has(gid));
+  });
+}
 function toggleDmgAccordion(key){
   const acc = document.getElementById('acc-dmg-'+key);
   if(!acc) return;
   acc.classList.toggle('open');
-  const mini = document.getElementById('mini-'+key);
-  if(mini) mini.style.display = acc.classList.contains('open') ? '' : 'none';
+  syncGesamtStatsSubgroups();
 }
 
 /* ---------- Seiten-Navigation ---------- */
