@@ -1756,7 +1756,11 @@ function renderUebersicht(){
 
   /* --- 2) Heilungsberechnung --- */
   const heilTotal = results['gesamtheilung'] && results['gesamtheilung'].E !== null ? results['gesamtheilung'].E : 0;
-  const healMult = fB.kraft * fB.krit * (1+heilTotal/100);
+  // Kritischer Trefferschaden zählt bei Heilung nur zur Hälfte (offizielle Anpassung seit Mod 19:
+  // "the critical severity on healing has been reduced to 50%, down from 100%" - bestätigt auch von
+  // Obikin89s Guide: "Critical Severity multiplies healing by (1 + Critical Severity / 2)").
+  const healKritF = 1 + frac('kritwert') * (frac('kritschaden')/2);
+  const healMult = fB.kraft * healKritF * (1+heilTotal/100);
   const heilWert = waffenschaden * healMult * (P.faehigkeit/100);
   // "Heilung bei +X %": wie bei der Schadensberechnung - zeigt, wie viel mehr Heilung ein
   // Stat mit +X Prozentpunkten bringen würde (Vergleich % ist auch für den Heiler relevant).
@@ -1769,7 +1773,7 @@ function renderUebersicht(){
     };
     return {
       kraft: 1 + frac('kraft', pl('kraft')),
-      krit:  1 + frac('kritwert', pl('kritwert')) * frac('kritschaden', pl('kritschaden')),
+      krit:  1 + frac('kritwert', pl('kritwert')) * (frac('kritschaden', pl('kritschaden'))/2),
       heil:  1 + (heilTotal + pl('gesamtheilung'))/100,
     };
   }
@@ -1785,7 +1789,7 @@ function renderUebersicht(){
   };
   const healRowDefs = [
     {id:'kraft', label:statLabel('kraft'), value:fmt(frac('kraft')*100)+' %', raw:rawPctCell('kraft'), factor:'× '+fmt(fB.kraft), toggle:'kraft'},
-    {id:'kritwert', label:statLabel('kritwert'), value:fmt(frac('kritwert')*100)+' %', raw:rawPctCell('kritwert'), factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>', toggle:'kritwert'},
+    {id:'kritwert', label:statLabel('kritwert'), value:fmt(frac('kritwert')*100)+' %', raw:rawPctCell('kritwert'), factor:'× '+fmt(healKritF)+' <span class="muted">(Wert × Schaden/2)</span>', toggle:'kritwert'},
     {id:'kritschaden', label:statLabel('kritschaden'), value:fmt(frac('kritschaden')*100)+' %', raw:rawPctCell('kritschaden'), factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>', toggle:'kritschaden'},
     {id:'gesamtheilung', label:statLabel('gesamtheilung'), value:fmt(heilTotal)+' %', raw:'<span class="muted">&ndash;</span>', factor:'× '+fmt(1+heilTotal/100), toggle:'gesamtheilung'},
   ];
@@ -1818,7 +1822,13 @@ function renderUebersicht(){
   const gegnerKritF = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvm)/100;
   const eingehenderSchadenMult = gegnerKraftF * gegnerKvF * gegnerKritF;
 
-  const ehp  = tp * (1+vert/100) / (1-sr/100) / eingehenderSchadenMult;
+  const ehp  = tp * (1+vert/100) / (1-sr/100);
+  // Zusätzliche, klar getrennte Kennzahl: wie viel du gegen GENAU DIESEN Gegner (mit seinen
+  // Offensiv-Werten) effektiv aushältst. Das ist bewusst eine eigene Zahl und nicht in die
+  // "Effektive Trefferpunkte" eingerechnet, da eHP in der Community als reine, vom Gegner
+  // unabhängige Verteidigungs-Kennzahl verstanden wird (vgl. Obikin89: "the amount of
+  // unmitigated raw damage you can take before falling down" - unabhängig von Krit/CA des Gegners).
+  const geschuetzterSchaden = ehp / eingehenderSchadenMult;
   const tankRowDefs = [
     {label:statLabel('trefferpunkte'), raw:'<span class="muted">&ndash;</span>', value:formatWerte(tp), factor:'Basis'},
     {label:statLabel('verteidigung'), raw:rawPctCell('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100), toggle:'verteidigung'},
@@ -1839,7 +1849,8 @@ function renderUebersicht(){
   const vertFaktorToggled = 1 + frac('verteidigung', pl('verteidigung'));
   const srToggledPct = Math.min(rawF('schadensreduzierung') + pl('schadensreduzierung'), 99);
   const srFaktorToggled = 1 - srToggledPct/100;
-  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled / eingehenderSchadenMult;
+  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
+  const geschuetzterSchadenToggled = ehpToggled / eingehenderSchadenMult;
 
   /* --- 4) Grafiken: Schadenszugewinn/Heilungszugewinn/Tank-Zugewinn pro +1 % je Stat, über
      den gesamten Wertebereich (nicht nur am aktuellen Wert) - zeigt den abnehmenden Grenznutzen
@@ -1950,7 +1961,7 @@ function renderUebersicht(){
     const kritschadenRaw = overrideId==='kritschaden' ? x : rawF('kritschaden');
     const heilRaw = overrideId==='gesamtheilung' ? x : heilTotal;
     const kraftF = 1 + dmgCapFrac('kraft', kraftRaw);
-    const kritF = 1 + dmgCapFrac('kritwert', kritwertRaw) * dmgCapFrac('kritschaden', kritschadenRaw);
+    const kritF = 1 + dmgCapFrac('kritwert', kritwertRaw) * (dmgCapFrac('kritschaden', kritschadenRaw)/2);
     const heilF = 1 + heilRaw/100;
     return waffenschaden * kraftF * kritF * heilF * (P.faehigkeit/100);
   }
@@ -2016,7 +2027,7 @@ function renderUebersicht(){
       </table>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
-      <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
+      <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden ÷ 2) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Kritischer Trefferschaden zählt bei Heilung nur zur Hälfte (offizielle Änderung seit Mod 19, <a href="https://neverwinter.obikin89.com/stats" target="_blank" rel="noopener" style="color:var(--gold);">Quelle</a>). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Heilungszugewinn pro Prozent</h3>
       <p class="helptext" style="margin-top:0;">Heilungszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
       ${buildImpactChart('heal', healChartDefs, healTotalGiven)}
@@ -2032,10 +2043,12 @@ function renderUebersicht(){
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Eingehender-Schaden-Multiplikator des Gegners: <strong>× ${fmt(eingehenderSchadenMult)}</strong> <span class="muted">(Kraft × Kampfvorteil vs. deine Wahrnehmung × Krit vs. deine Krit-Vermeidung)</span></p>
-      <p style="margin:0 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong> <span class="muted">&middot; unabhängig vom Gegner</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
-      <p class="helptext">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung) ÷ Eingehender-Schaden-Multiplikator. Der Multiplikator bildet ab, wie hart der Gegner mit seinen eigenen Offensiv-Werten zuschlägt (siehe "Gegnerische Werte" unten) - Robustheit ${fmt(rob)} % senkt den gegnerischen Kritschaden zusätzlich, ist aber noch nicht im Multiplikator enthalten. Gegner-Zielgenauigkeit wirkt gegen dein Deflect, das der Rechner aktuell nicht als eigenen Stat führt, daher ohne Effekt.</p>
+      <p class="helptext" style="margin-bottom:12px;">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung). eHP ist bewusst unabhängig vom Gegner - so definiert es auch <a href="https://neverwinter.obikin89.com/stats/calculator" target="_blank" rel="noopener" style="color:var(--gold);">Obikin89s Rechner</a>: "der ungemilderte Rohschaden, den du aushältst, bevor du zusammenbrichst".</p>
+      <p style="margin:0 0 4px 0;font-size:1.05rem;">Geschätzter Schutz gegen diesen Gegner: <strong>${formatWerte(geschuetzterSchaden)}</strong> <span class="muted">&middot; = eHP ÷ ${fmt(eingehenderSchadenMult)} (Eingehender-Schaden-Multiplikator des Gegners)</span></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert: <strong class="computed">${formatWerte(geschuetzterSchadenToggled)}</strong></p>
+      <p class="helptext">Der Multiplikator (Kraft × Kampfvorteil vs. deine Wahrnehmung × Krit vs. deine Krit-Vermeidung) bildet ab, wie hart <em>dieser konkrete</em> Gegner zuschlägt (siehe "Gegnerische Werte" unten) - eine separate, praktische Zahl zusätzlich zur klassischen eHP. Robustheit ${fmt(rob)} % senkt den gegnerischen Kritschaden zusätzlich, ist aber noch nicht im Multiplikator enthalten. Gegner-Zielgenauigkeit wirkt gegen dein Deflect, das der Rechner aktuell nicht als eigenen Stat führt, daher ohne Effekt.</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Tank-Zugewinn pro Prozent</h3>
       <p class="helptext" style="margin-top:0;">Zuwachs an effektiven Trefferpunkten pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
       ${buildImpactChart('tank', tankChartDefs, tankTotalGiven)}
