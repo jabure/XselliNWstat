@@ -47,12 +47,22 @@
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none;}
   .grunddaten-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
   label{display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:4px;}
-  input[type=number], input[type=text], select, textarea{
+  input[type=number], input[type=text], input[type=password], select, textarea{
     width:100%; background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit); color:var(--text);
     border-radius:6px; padding:8px 10px; font-size:0.92rem; font-family:inherit;
     font-variant-numeric:tabular-nums;
   }
   select{border-left:3px solid var(--edit);}
+  /* Browser-Autofill (gespeicherte Logins) überschreibt sonst die Feldfarben mit
+     Weiß/Hellblau - so behalten Benutzername UND Passwort exakt dasselbe grüne Aussehen. */
+  input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus{
+    -webkit-box-shadow:0 0 0 1000px var(--edit-bg) inset;
+    -webkit-text-fill-color:var(--text);
+    caret-color:var(--text);
+    border:1px solid #2f5b4c; border-left:3px solid var(--edit);
+  }
+  /* Das "Auge"-Symbol von Edge im Passwortfeld an das dunkle Design anpassen */
+  input[type=password]::-ms-reveal{filter:invert(0.8);}
   input:focus, select:focus, textarea:focus{outline:2px solid var(--gold); outline-offset:1px;}
   .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:0.8rem; color:var(--text-dim);}
   .legend-item{display:flex; align-items:center; gap:7px;}
@@ -234,6 +244,7 @@
 
   <div class="page-nav">
     <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
+    <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button">Übersicht</button>
     <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;">Presets</button>
     <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;">Formeln</button>
     <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;">Benutzer</button>
@@ -302,6 +313,11 @@
   </div>
 </div>
 
+<!-- ===================== Seite: Übersicht ===================== -->
+<div id="pageUebersicht" style="display:none;">
+  <div id="uebersichtContent"></div>
+</div>
+
 <div id="pagePresets" style="display:none;">
   <div class="notice">Änderungen auf dieser Seite gelten für <strong>alle</strong>, die diese Seite öffnen &ndash; nicht nur für dich.</div>
 
@@ -310,7 +326,7 @@
       <span><span class="dot" style="background:var(--sup)"></span>Gefährten</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt.</p>
+      <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt. Im Feld "Sonstige Info" kannst du eine Notiz hinterlegen (z. B. Proc-Bedingung) - sie beeinflusst keine Stats und wird im Rechner unter dem Gefährten-Slot angezeigt.</p>
       <div id="companionEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
 
@@ -534,12 +550,20 @@ let authToken = null;
 function defaultGrunddaten(){
   return { itemlevel:0, klasse:'', vorbildpfad:'', klassentyp:'' };
 }
+// Parameter für die Übersicht-Seite - Vorgaben exakt wie im Excel-Blatt "DMG Berechnung":
+// Fähigkeitsschaden 800 %, Gegner mit 50 % Defensive, 50 % Deflect (Härte 90 %),
+// 0 % Awareness, und die "Was bringt +3 %?"-Spalte.
+function defaultUebersichtParams(){
+  return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, deltaPct:3 };
+}
+let uebersichtParams = defaultUebersichtParams();
 function getCharDataBundle(){
-  return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset };
+  return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset, uebersichtParams };
 }
 function applyCharDataBundle(bundle){
   bundle = bundle || {};
   grunddaten = bundle.grunddaten || defaultGrunddaten();
+  uebersichtParams = Object.assign(defaultUebersichtParams(), bundle.uebersichtParams || {});
   baseInputs = bundle.baseInputs || {};
   sourceInputs = bundle.sourceInputs || {};
   slotSelections = bundle.slotSelections || {};
@@ -768,6 +792,7 @@ function applySlotSelection(src, name, db){
   const contrib = (name && name !== 'Leer' && db[name]) ? db[name] : {};
   const bucket = {};
   for(const statId in contrib){
+    if(statId.startsWith('_')) continue; // z. B. _info: nur Text, kein Stat
     bucket[statId] = { werte: contrib[statId].werte||0, prozent: contrib[statId].prozent||0 };
   }
   sourceInputs[src] = bucket;
@@ -1176,13 +1201,16 @@ function summarizeContrib(name, db){
   const contrib = (name && name !== 'Leer' && db[name]) ? db[name] : {};
   const parts = [];
   for(const statId in contrib){
+    if(statId.startsWith('_')) continue; // _info wird unten separat angezeigt
     const stat = ALL_STATS.find(s=>s.id===statId);
     const label = stat ? stat.label : statId;
     const {werte, prozent} = contrib[statId];
     if(werte) parts.push(`${label} +${formatWerte(werte)}`);
     if(prozent) parts.push(`${label} +${prozent}%`);
   }
-  return parts.length ? parts.join(', ') : '–';
+  let out = parts.length ? parts.join(', ') : '–';
+  if(contrib._info) out += `<br><em class="muted">${contrib._info}</em>`;
+  return out;
 }
 
 function slugSrc(src){ return src.replace(/[^a-zA-Z0-9]/g,'_'); }
@@ -1563,6 +1591,206 @@ function refresh(rebuildInputs){
   if(rebuildInputs) renderSourceAccordions();
 }
 
+/* ---------- Seite: Übersicht (Gesamt-Stats + Schaden/Heilung/Tank) ---------- */
+// Für die Rechnungen wird das berechnete % (F) verwendet. Liegt es über dem Cap,
+// wird es auf das Cap begrenzt - genau wie im Spiel.
+function cappedF(results, statId){
+  const r = results[statId];
+  if(!r || r.F === null || r.F === undefined) return 0;
+  const cap = r.maxPr ? r.maxPr*100 : null;
+  return cap !== null ? Math.min(r.F, cap) : r.F;
+}
+function statLabel(statId){
+  const s = ALL_STATS.find(x=>x.id===statId);
+  return s ? s.label : statId;
+}
+function calcFactorRows(rows){
+  return rows.map(r=>`<tr>
+    <td class="statname">${r.label}</td>
+    <td style="text-align:right;">${r.value}</td>
+    <td style="text-align:right;" class="muted">${r.factor}</td>
+  </tr>`).join('');
+}
+function renderUebersicht(){
+  const el = document.getElementById('uebersichtContent');
+  if(!el) return;
+  const results = computeAll();
+
+  /* --- 1) Gesamt-Stats Tabelle --- */
+  const statsTables = STAT_GROUPS.map(g=>{
+    const rows = g.stats.map(stat=>{
+      const r = results[stat.id] || {};
+      const cap = stat.type==='derived' ? null : (getMaxPr(stat) ? getMaxPr(stat)*100 : null);
+      const werte = (r.E !== null && r.E !== undefined && stat.type!=='derived') ? formatWerte(r.E) : (stat.type==='derived' ? '&ndash;' : '&ndash;');
+      const pct = stat.type==='derived'
+        ? (r.E !== null && r.E !== undefined ? fmt(r.E)+' %' : '&ndash;')
+        : (r.F !== null && r.F !== undefined ? fmt(r.F)+' %' : (stat.type==='werteOnly' ? '&ndash;' : '&ndash;'));
+      const capTxt = cap !== null ? fmt(cap)+' %' : '&ndash;';
+      const over = (cap !== null && r.F !== null && r.F > cap) ? ' <span class="muted">(über Cap)</span>' : '';
+      return `<tr>
+        <td class="statname">${stat.label}</td>
+        <td style="text-align:right;">${stat.type==='derived' || stat.pctOnly ? '&ndash;' : werte}</td>
+        <td style="text-align:right;">${pct}${over}</td>
+        <td style="text-align:right;" class="muted">${capTxt}</td>
+      </tr>`;
+    }).join('');
+    return `<h3 style="font-size:0.9rem;margin:16px 0 6px 0;"><span class="dot" style="background:${g.color}"></span> ${g.label}</h3>
+      <table>
+        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt Werte</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Cap</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }).join('');
+
+  /* --- 2) Schadensberechnung (exakt wie im Excel-Blatt "DMG Berechnung") --- */
+  const P = uebersichtParams;
+  const itemlevel = Number(grunddaten.itemlevel)||0;
+  const klassenFaktor = grunddaten.klassentyp==='DPS' ? 1.2 : (grunddaten.klassentyp==='Heiler' ? 1.1 : 1.0);
+  const waffenschaden = itemlevel/10 * klassenFaktor;
+
+  // Roh-% (F) und Cap pro Stat; das "+X %" wird VOR dem Cap addiert - wer schon
+  // am Cap ist, bekommt durch +X % also nichts mehr dazu (genau wie im Excel).
+  const rawF = statId => { const r = results[statId]; return (r && r.F!==null && r.F!==undefined) ? r.F : 0; };
+  const capOf = statId => { const s = ALL_STATS.find(x=>x.id===statId); const m = s ? getMaxPr(s) : null; return m ? m*100 : null; };
+  const frac = (statId, plus) => {
+    const cap = capOf(statId);
+    const val = rawF(statId) + (plus||0);
+    return (cap!==null ? Math.min(val, cap) : val) / 100;
+  };
+
+  // Die Schadensfaktoren aus dem Excel. plusStat: dieser eine Stat bekommt +X %.
+  function dmgFaktoren(plusStat){
+    const pl = id => (plusStat===id ? P.deltaPct : 0);
+    return {
+      kraft: 1 + frac('kraft', pl('kraft')),
+      zg:    1 - (P.gegnerDeflect/100) * Math.max(0, P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit'))),
+      kv:    1 + (frac('kampfvorteil', pl('kampfvorteil')) - P.gegnerAwareness/100),
+      krit:  1 + frac('kritwert', pl('kritwert')) * frac('kritschaden', pl('kritschaden')),
+      bonus: 1 + frac('bonusschaden', pl('bonusschaden')),
+    };
+  }
+  function dmgTotal(plusStat){
+    const f = dmgFaktoren(plusStat);
+    return waffenschaden * f.kraft * f.zg * f.kv * f.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * f.bonus;
+  }
+  const fB = dmgFaktoren(null);
+  const totalDmg = dmgTotal(null);
+  const plusCell = statId => {
+    if(!totalDmg) return '<span class="muted">&ndash;</span>';
+    const d = dmgTotal(statId)/totalDmg - 1;
+    const cls = d > 0.00005 ? 'delta-pos' : 'muted';
+    return `<span class="${cls}">${d>0?'+':''}${fmt(d*100)} %</span>`;
+  };
+  const dmgRowDefs = [
+    {id:'kraft', factor:'× '+fmt(fB.kraft)},
+    {id:'zielgenauigkeit', factor:'× '+fmt(fB.zg)},
+    {id:'kampfvorteil', factor:'× '+fmt(fB.kv)},
+    {id:'kritwert', factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>'},
+    {id:'kritschaden', factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>'},
+    {id:'bonusschaden', factor:'× '+fmt(fB.bonus)},
+  ];
+  const dmgRows = dmgRowDefs.map(r=>`<tr>
+    <td class="statname">${statLabel(r.id)}</td>
+    <td style="text-align:right;">${fmt(frac(r.id)*100)} %</td>
+    <td style="text-align:right;">${r.factor}</td>
+    <td style="text-align:right;">${plusCell(r.id)}</td>
+  </tr>`).join('');
+  const paramInput = (key, label) => `<div>
+    <label>${label}</label>
+    <span class="pct-wrap"><input type="number" step="0.5" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]}"><span class="pct-suffix">%</span></span>
+  </div>`;
+
+  /* --- 3) Heilungsberechnung --- */
+  const heilTotal = results['gesamtheilung'] && results['gesamtheilung'].E !== null ? results['gesamtheilung'].E : 0;
+  const healMult = fB.kraft * fB.krit * (1+heilTotal/100);
+  const heilWert = waffenschaden * healMult * (P.faehigkeit/100);
+  const healRows = calcFactorRows([
+    {label:statLabel('kraft'), value:fmt(frac('kraft')*100)+' %', factor:'× '+fmt(fB.kraft)},
+    {label:'Krit (Wert × Schaden)', value:fmt(frac('kritwert')*100)+' % × '+fmt(frac('kritschaden')*100)+' %', factor:'× '+fmt(fB.krit)},
+    {label:statLabel('gesamtheilung'), value:fmt(heilTotal)+' %', factor:'× '+fmt(1+heilTotal/100)},
+  ]);
+
+  /* --- 4) Tank-Berechnung --- */
+  const tp   = results['trefferpunkte'] && results['trefferpunkte'].E !== null ? results['trefferpunkte'].E : 0;
+  const vert = cappedF(results,'verteidigung');
+  const sr   = Math.min(cappedF(results,'schadensreduzierung'), 99);
+  const kvm  = cappedF(results,'kritvermeidung');
+  const rob  = cappedF(results,'robustheit');
+  const ehp  = tp * (1+vert/100) / (1-sr/100);
+  const tankRows = calcFactorRows([
+    {label:statLabel('trefferpunkte'), value:formatWerte(tp), factor:'Basis'},
+    {label:statLabel('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100)},
+    {label:statLabel('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(1-sr/100)},
+  ]);
+
+  el.innerHTML = `
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
+    <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden unten in den Rechnungen auf das Cap begrenzt.</p>
+    ${statsTables}
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2><span class="dot" style="background:var(--off)"></span>Schadensberechnung</h2>
+    <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
+    <div class="grunddaten-grid" style="margin-bottom:14px;">
+      ${paramInput('faehigkeit','Schaden der Fähigkeit')}
+      ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
+      ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
+      ${paramInput('gegnerDeflect','Gegner: Deflect')}
+      ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
+      ${paramInput('gegnerAwareness','Gegner: Awareness')}
+    </div>
+    <p style="margin:0 0 10px 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
+    <table>
+      <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt % (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th></tr></thead>
+      <tbody>${dmgRows}</tbody>
+    </table>
+    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
+    <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
+    <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
+    &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>. Werte über dem Cap zählen nicht (deshalb "gecappt").<br>
+    &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72).<br>
+    &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1).<br>
+    &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
+    &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</h2>
+    <table>
+      <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+      <tbody>${healRows}</tbody>
+    </table>
+    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilungs-Multiplikator: <strong>× ${fmt(healMult)}</strong> <span class="muted">&middot; Heilung der Fähigkeit (${fmt(P.faehigkeit)} %): <strong>${formatWerte(heilWert)}</strong></span></p>
+    <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
+    Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
+    Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
+    "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen).</p>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</h2>
+    <table>
+      <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+      <tbody>${tankRows}</tbody>
+    </table>
+    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+    <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
+    Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
+    Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst.<br>
+    Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
+  </div>`;
+
+  // Eingabefelder der Übersicht-Parameter: bei Änderung neu rechnen und mitspeichern.
+  el.querySelectorAll('input[data-uparam]').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      uebersichtParams[e.target.dataset.uparam] = Number(e.target.value)||0;
+      queueSave();
+      renderUebersicht();
+    });
+  });
+}
+
 /* ---------- Seiten-Navigation ---------- */
 const ROLE_RANK = { user:0, moderator:1, coadmin:2, admin:3 };
 function hasRole(minRole){
@@ -1570,12 +1798,12 @@ function hasRole(minRole){
   return (ROLE_RANK[currentRole] ?? 0) >= ROLE_RANK[minRole];
 }
 // Welche Rolle braucht man mindestens, um eine Seite zu sehen?
-const PAGE_MIN_ROLE = { rechner:'user', presets:'moderator', formeln:'coadmin', users:'admin' };
-const PAGE_IDS = ['rechner','presets','formeln','users'];
+const PAGE_MIN_ROLE = { rechner:'user', uebersicht:'user', presets:'moderator', formeln:'coadmin', users:'admin' };
+const PAGE_IDS = ['rechner','uebersicht','presets','formeln','users'];
 
 function updateAdminTabVisibility(){
   PAGE_IDS.forEach(p=>{
-    if(p==='rechner') return;
+    if(PAGE_MIN_ROLE[p]==='user') return; // Rechner & Übersicht sind für alle sichtbar
     const tab = document.getElementById('tab-'+p);
     if(tab) tab.style.display = hasRole(PAGE_MIN_ROLE[p]) ? '' : 'none';
   });
@@ -1587,7 +1815,7 @@ function updateAdminTabVisibility(){
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function showPage(name){
-  if(!hasRole(PAGE_MIN_ROLE[name])){
+  if(PAGE_MIN_ROLE[name] !== 'user' && !hasRole(PAGE_MIN_ROLE[name])){
     document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+PAGE_MIN_ROLE[name]+'".';
     return;
   }
@@ -1595,6 +1823,9 @@ function showPage(name){
     document.getElementById('page'+capitalize(p)).style.display = p===name ? '' : 'none';
     document.getElementById('tab-'+p).classList.toggle('active', p===name);
   });
+  if(name==='uebersicht'){
+    renderUebersicht();
+  }
   if(name==='presets'){
     fillPresetFields();
   }
@@ -1723,8 +1954,14 @@ function addStatRowTo(btn){
   card.querySelector('.stat-rows').appendChild(row);
   attachWerteFormatting(row);
 }
-function entryCardHtml(name, statsObj, extraHtml){
-  const rows = Object.keys(statsObj||{}).map(id=>statRowHtml(id, statsObj[id].werte, statsObj[id].prozent)).join('');
+function entryCardHtml(name, statsObj, extraHtml, withInfo){
+  // Schlüssel mit "_" am Anfang (z. B. _info) sind keine Stats und werden hier übersprungen.
+  const rows = Object.keys(statsObj||{}).filter(id=>!id.startsWith('_')).map(id=>statRowHtml(id, statsObj[id].werte, statsObj[id].prozent)).join('');
+  const infoVal = (statsObj && statsObj._info) ? String(statsObj._info) : '';
+  const infoHtml = withInfo ? `<div style="margin-top:8px;">
+      <label>Sonstige Info (nur Text, beeinflusst keine Stats)</label>
+      <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz ...">
+    </div>` : '';
   return `<div class="entry-card">
     <div class="entry-head">
       <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben...">
@@ -1732,18 +1969,21 @@ function entryCardHtml(name, statsObj, extraHtml){
     </div>
     <div class="stat-rows">${rows}</div>
     <button type="button" class="action small" onclick="addStatRowTo(this)">+ Stat</button>
+    ${infoHtml}
     ${extraHtml||''}
   </div>`;
 }
 function renderEntryEditor(containerId, db){
   const el = document.getElementById(containerId);
-  el.innerHTML = Object.keys(db).map(name=>entryCardHtml(name, db[name])).join('');
+  const withInfo = containerId === 'companionEditor';
+  el.innerHTML = Object.keys(db).map(name=>entryCardHtml(name, db[name], '', withInfo)).join('');
   attachWerteFormatting(el);
 }
 function addEntryCard(containerId){
   const el = document.getElementById(containerId);
+  const withInfo = containerId === 'companionEditor';
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = entryCardHtml('', {});
+  wrapper.innerHTML = entryCardHtml('', {}, '', withInfo);
   const card = wrapper.firstElementChild;
   el.appendChild(card);
   attachWerteFormatting(card);
@@ -1762,6 +2002,8 @@ function collectEntryEditor(containerId){
       const prozent = Number(row.querySelector('.stat-prozent').value)||0;
       if(werte || prozent) stats[statId] = {werte, prozent};
     });
+    const infoInput = card.querySelector('.entry-info');
+    if(infoInput && infoInput.value.trim()) stats._info = infoInput.value.trim();
     result[name] = stats;
   });
   return result;

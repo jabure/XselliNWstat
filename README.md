@@ -64,33 +64,33 @@ Dann brauchst du zusätzlich noch:
 - Ein bisschen Sorgfalt beim offenen Port (Firewall, evtl. Rate-Limiting
   gegen Login-Versuche) – dafür kann ich dir bei Bedarf noch was ergänzen.
 
-## Von hier auf deinen eigenen Git-Server bringen
+## GitHub als einzige Quelle der Wahrheit
 
-Du hast zwei Dateien bekommen: `xselli-server.bundle` (komplette Git-Historie)
-und `xselli-server.tar.gz` (nur die Dateien, ohne Git). Für automatisierte
-Updates brauchst du die `.bundle`-Datei und ein eigenes Git-Repo (z. B. auf
-GitHub, GitLab oder einem selbst gehosteten Gitea/Forgejo).
+Dieses Projekt liegt auf GitHub (`jabure/XselliNWstat`) - das ist die einzige
+verbindliche Historie. Updates kommen als `.bundle`-Datei, die **direkt auf
+dieser GitHub-Historie aufbaut** (kein eigenständiges/unabhängiges Repo), damit
+`git pull`/`git fetch` daraus immer sauber funktioniert, ohne `unrelated
+histories`-Fehler.
 
-**Einmalig einrichten:**
-1. Leeres, privates Repo bei GitHub/GitLab/Gitea anlegen (z. B. `xselli-stats-rechner`).
-2. Auf einem Rechner mit Git (z. B. deinem PC oder direkt dem Server):
-   ```
-   git clone xselli-server.bundle xselli-server
-   cd xselli-server
-   git remote add origin <URL-deines-leeren-Repos>
-   git push -u origin master
-   ```
-3. Auf deinem Server das Repo von dort klonen:
-   ```
-   git clone <URL-deines-Repos> xselli-server
-   cd xselli-server
-   cp .env.example .env   # und JWT_SECRET darin anpassen
-   docker compose up -d --build
-   ```
+**Einmalig einrichten (auf deinem Server):**
+```
+git clone https://github.com/jabure/XselliNWstat.git xselli-server
+cd xselli-server
+cp .env.example .env   # und JWT_SECRET darin anpassen
+docker compose up -d --build
+```
 
-Ab jetzt reicht es, Änderungen in dein Repo zu pushen (z. B. wenn ich dir hier
-eine aktualisierte `index.html` gebe) - dein Server holt sie sich über den
-Cronjob unten von selbst.
+**Ein Update aus einer neuen Bundle-Datei einspielen** (z. B.
+`xselli-server-updateXX.bundle`), auf einem Rechner mit Git und Zugriff auf
+dein GitHub-Repo:
+```
+git fetch /pfad/zur/xselli-server-updateXX.bundle main
+git checkout FETCH_HEAD -- .
+git commit -am "Update XX"
+git push origin main
+```
+Dein Server zieht sich die Änderung danach automatisch über den Cronjob
+unten von GitHub.
 
 ## Automatisierte Updates per Git
 
