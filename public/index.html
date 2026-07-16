@@ -244,7 +244,7 @@
 
   <div class="page-nav">
     <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
-    <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button">Übersicht</button>
+    <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button">Schadensberechnung</button>
     <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;">Presets</button>
     <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;">Formeln</button>
     <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;">Benutzer</button>
@@ -313,7 +313,7 @@
   </div>
 </div>
 
-<!-- ===================== Seite: Übersicht ===================== -->
+<!-- ===================== Seite: Schadensberechnung (Gesamt-Stats + Schaden/Heilung/Tank) ===================== -->
 <div id="pageUebersicht" style="display:none;">
   <div id="uebersichtContent"></div>
 </div>
@@ -1722,66 +1722,97 @@ function renderUebersicht(){
     {label:statLabel('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(1-sr/100)},
   ]);
 
+  const wasFirstRender = el.children.length === 0;
+  const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
+
   el.innerHTML = `
-  <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
-    <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden unten in den Rechnungen auf das Cap begrenzt.</p>
-    ${statsTables}
-  </div>
-
-  <div class="card" style="margin-top:16px;">
-    <h2><span class="dot" style="background:var(--off)"></span>Schadensberechnung</h2>
-    <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
-    <div class="grunddaten-grid" style="margin-bottom:14px;">
-      ${paramInput('faehigkeit','Schaden der Fähigkeit')}
-      ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
-      ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
-      ${paramInput('gegnerDeflect','Gegner: Deflect')}
-      ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
-      ${paramInput('gegnerAwareness','Gegner: Awareness')}
+  <div class="rechner-grid" style="align-items:start;">
+    <div>
+      <div class="card">
+        <h2><span class="dot" style="background:var(--gold)"></span>Gesamt-Stats</h2>
+        <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen rechts auf das Cap begrenzt.</p>
+        ${statsTables}
+      </div>
     </div>
-    <p style="margin:0 0 10px 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
-    <table>
-      <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt % (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th></tr></thead>
-      <tbody>${dmgRows}</tbody>
-    </table>
-    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
-    <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
-    <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
-    &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>. Werte über dem Cap zählen nicht (deshalb "gecappt").<br>
-    &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72).<br>
-    &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1).<br>
-    &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
-    &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
-  </div>
 
-  <div class="card" style="margin-top:16px;">
-    <h2><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</h2>
-    <table>
-      <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
-      <tbody>${healRows}</tbody>
-    </table>
-    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilungs-Multiplikator: <strong>× ${fmt(healMult)}</strong> <span class="muted">&middot; Heilung der Fähigkeit (${fmt(P.faehigkeit)} %): <strong>${formatWerte(heilWert)}</strong></span></p>
-    <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
-    Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
-    Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
-    "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen).</p>
-  </div>
+    <div>
+      <div class="accordion" id="acc-dmg-schaden">
+        <button type="button" onclick="toggleDmgAccordion('schaden')">
+          <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
+        </button>
+        <div class="body">
+          <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
+          <div class="grunddaten-grid" style="margin-bottom:14px;">
+            ${paramInput('faehigkeit','Schaden der Fähigkeit')}
+            ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
+            ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
+            ${paramInput('gegnerDeflect','Gegner: Deflect')}
+            ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
+            ${paramInput('gegnerAwareness','Gegner: Awareness')}
+          </div>
+          <p style="margin:0 0 10px 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
+          <div class="wide-table-scroll">
+          <table>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt % (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th></tr></thead>
+            <tbody>${dmgRows}</tbody>
+          </table>
+          </div>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
+          <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
+          <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
+          &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>. Werte über dem Cap zählen nicht (deshalb "gecappt").<br>
+          &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72).<br>
+          &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1).<br>
+          &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
+          &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
+        </div>
+      </div>
 
-  <div class="card" style="margin-top:16px;">
-    <h2><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</h2>
-    <table>
-      <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
-      <tbody>${tankRows}</tbody>
-    </table>
-    <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
-    <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
-    Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
-    Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst.<br>
-    Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
+      <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;">
+        <button type="button" onclick="toggleDmgAccordion('heilung')">
+          <span><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</span><span class="chevron">&#9656;</span>
+        </button>
+        <div class="body">
+          <table>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+            <tbody>${healRows}</tbody>
+          </table>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilungs-Multiplikator: <strong>× ${fmt(healMult)}</strong> <span class="muted">&middot; Heilung der Fähigkeit (${fmt(P.faehigkeit)} %): <strong>${formatWerte(heilWert)}</strong></span></p>
+          <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
+          Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
+          Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
+          "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen).</p>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;">
+        <button type="button" onclick="toggleDmgAccordion('tank')">
+          <span><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</span><span class="chevron">&#9656;</span>
+        </button>
+        <div class="body">
+          <table>
+            <thead><tr><th>Stat</th><th style="text-align:right;">Dein Wert</th><th style="text-align:right;">Faktor</th></tr></thead>
+            <tbody>${tankRows}</tbody>
+          </table>
+          <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+          <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
+          Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
+          Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst.<br>
+          Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
+        </div>
+      </div>
+    </div>
   </div>`;
 
-  // Eingabefelder der Übersicht-Parameter: bei Änderung neu rechnen und mitspeichern.
+  // Auf-/zugeklappte Berechnungen bleiben über einen Rebuild hinweg erhalten (z. B. nach
+  // Ändern eines Parameterfelds) - beim allerersten Aufbau ist nur "Schaden" offen.
+  if(wasFirstRender){
+    document.getElementById('acc-dmg-schaden').classList.add('open');
+  } else {
+    prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
+  }
+
+  // Eingabefelder der Schadensberechnung-Parameter: bei Änderung neu rechnen und mitspeichern.
   el.querySelectorAll('input[data-uparam]').forEach(inp=>{
     inp.addEventListener('change', e=>{
       uebersichtParams[e.target.dataset.uparam] = Number(e.target.value)||0;
@@ -1789,6 +1820,9 @@ function renderUebersicht(){
       renderUebersicht();
     });
   });
+}
+function toggleDmgAccordion(key){
+  document.getElementById('acc-dmg-'+key).classList.toggle('open');
 }
 
 /* ---------- Seiten-Navigation ---------- */
