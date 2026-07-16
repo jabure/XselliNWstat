@@ -567,7 +567,8 @@ function defaultUebersichtParams(){
 }
 let uebersichtParams = defaultUebersichtParams();
 // Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
-// damit lässt sich z. B. simulieren "was wäre ohne diesen Buff/Stat". Fehlt ein Eintrag, gilt er als aktiv.
+// damit lässt sich z. B. simulieren "was würde es bringen, wenn dieser Stat +X% mehr hätte,
+// zusätzlich zu allen anderen aktiven Stats gleichzeitig". Fehlt ein Eintrag, gilt er als aktiv.
 function defaultCalcActive(){ return { schaden:{}, heilung:{}, tank:{} }; }
 let calcActive = defaultCalcActive();
 function isActive(scope, statId){
@@ -581,7 +582,7 @@ function toggleCalcActive(scope, statId){
 }
 function activeToggleBtn(scope, statId){
   const active = isActive(scope, statId);
-  return `<button type="button" class="toggle-active-btn ${active?'on':'off'}" onclick="toggleCalcActive('${scope}','${statId}')" title="${active?'Wird eingerechnet - klicken zum Ausschließen':'Ausgeschlossen - klicken zum Einrechnen'}">${active?'Aktiv':'Aus'}</button>`;
+  return `<button type="button" class="toggle-active-btn ${active?'on':'off'}" onclick="toggleCalcActive('${scope}','${statId}')" title="${active?'Die Vergleichs-% (+X%) wird für diesen Stat beim \u0022Veränderten Wert\u0022 mit eingerechnet - klicken zum Ausschließen':'Wird beim \u0022Veränderten Wert\u0022 NICHT mit eingerechnet - klicken zum Einschließen'}">${active?'Aktiv':'Aus'}</button>`;
 }
 function getCharDataBundle(){
   return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset, uebersichtParams, calcActive };
@@ -1664,9 +1665,15 @@ function renderUebersicht(){
     return fmt(raw) + ' %' + over;
   };
 
-  // Die Schadensfaktoren aus dem Excel. plusStat: dieser eine Stat bekommt +X %.
-  function dmgFaktoren(plusStat){
-    const pl = id => (plusStat===id ? P.deltaPct : 0);
+  // Die Schadensfaktoren aus dem Excel. plusStat: dieser eine Stat bekommt +amount %
+  // (amount default = Vergleichs-% aus den Einstellungen; für die Grafik am Ende wird
+  // fest +1% verwendet, damit die Balken unabhängig vom eingestellten Vergleichswert sind).
+  function dmgFaktoren(plusStat, amount){
+    const amt = amount!==undefined ? amount : P.deltaPct;
+    const pl = id => {
+      const on = (typeof plusStat === 'function') ? plusStat(id) : (plusStat===id);
+      return on ? amt : 0;
+    };
     return {
       kraft: 1 + frac('kraft', pl('kraft')),
       zg:    1 - (P.gegnerDeflect/100) * Math.max(0, P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit'))),
@@ -1675,8 +1682,8 @@ function renderUebersicht(){
       bonus: 1 + frac('bonusschaden', pl('bonusschaden')),
     };
   }
-  function dmgTotal(plusStat){
-    const f = dmgFaktoren(plusStat);
+  function dmgTotal(plusStat, amount){
+    const f = dmgFaktoren(plusStat, amount);
     return waffenschaden * f.kraft * f.zg * f.kv * f.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * f.bonus;
   }
   const fB = dmgFaktoren(null);
@@ -1692,7 +1699,7 @@ function renderUebersicht(){
     {id:'zielgenauigkeit', factor:'× '+fmt(fB.zg), toggle:'zielgenauigkeit'},
     {id:'kampfvorteil', factor:'× '+fmt(fB.kv), toggle:'kampfvorteil'},
     {id:'kritwert', factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>', toggle:'kritwert'},
-    {id:'kritschaden', factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>'},
+    {id:'kritschaden', factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>', toggle:'kritschaden'},
     {id:'bonusschaden', factor:'× '+fmt(fB.bonus), toggle:'bonusschaden'},
   ];
   const dmgRows = dmgRowDefs.map(r=>`<tr>
@@ -1708,17 +1715,11 @@ function renderUebersicht(){
     <span class="pct-wrap"><input type="number" step="0.5" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]}"><span class="pct-suffix">%</span></span>
   </div>`;
 
-  // "Veränderter Wert": Gesamtschaden neu gerechnet, aber ausgeschaltete Stats zählen mit Faktor 1
-  // (= gar kein Einfluss) statt ihrem echten Faktor - so lässt sich z. B. simulieren "ohne Bonus Schaden".
-  const neutralOr = (scope, id, val) => isActive(scope, id) ? val : 1;
-  const fT = {
-    kraft: neutralOr('schaden','kraft', fB.kraft),
-    zg:    neutralOr('schaden','zielgenauigkeit', fB.zg),
-    kv:    neutralOr('schaden','kampfvorteil', fB.kv),
-    krit:  neutralOr('schaden','kritwert', fB.krit),
-    bonus: neutralOr('schaden','bonusschaden', fB.bonus),
-  };
-  const totalDmgToggled = waffenschaden * fT.kraft * fT.zg * fT.kv * fT.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fT.bonus;
+  // "Veränderter Wert": Gesamtschaden neu gerechnet, wobei bei jedem "Aktiv"-Stat die
+  // Vergleichs-% (+X%) zusätzlich mit eingerechnet wird - alle aktiven Stats gleichzeitig.
+  // Kritwert und Kritschaden lassen sich dabei unabhängig voneinander an-/abschalten.
+  const dmgFaktorenToggled = dmgFaktoren((id)=>isActive('schaden', id));
+  const totalDmgToggled = dmgTotal((id)=>isActive('schaden', id));
 
   /* --- 2) Heilungsberechnung --- */
   const heilTotal = results['gesamtheilung'] && results['gesamtheilung'].E !== null ? results['gesamtheilung'].E : 0;
@@ -1726,16 +1727,21 @@ function renderUebersicht(){
   const heilWert = waffenschaden * healMult * (P.faehigkeit/100);
   // "Heilung bei +X %": wie bei der Schadensberechnung - zeigt, wie viel mehr Heilung ein
   // Stat mit +X Prozentpunkten bringen würde (Vergleich % ist auch für den Heiler relevant).
-  function healFaktoren(plusStat){
-    const pl = id => (plusStat===id ? P.deltaPct : 0);
+  // plusStat kann wie bei dmgFaktoren ein einzelner Stat-Name oder eine Prädikat-Funktion sein.
+  function healFaktoren(plusStat, amount){
+    const amt = amount!==undefined ? amount : P.deltaPct;
+    const pl = id => {
+      const on = (typeof plusStat === 'function') ? plusStat(id) : (plusStat===id);
+      return on ? amt : 0;
+    };
     return {
       kraft: 1 + frac('kraft', pl('kraft')),
       krit:  1 + frac('kritwert', pl('kritwert')) * frac('kritschaden', pl('kritschaden')),
       heil:  1 + (heilTotal + pl('gesamtheilung'))/100,
     };
   }
-  function healTotalCalc(plusStat){
-    const f = healFaktoren(plusStat);
+  function healTotalCalc(plusStat, amount){
+    const f = healFaktoren(plusStat, amount);
     return waffenschaden * f.kraft * f.krit * f.heil * (P.faehigkeit/100);
   }
   const healPlusCell = statId => {
@@ -1746,7 +1752,8 @@ function renderUebersicht(){
   };
   const healRowDefs = [
     {id:'kraft', label:statLabel('kraft'), value:fmt(frac('kraft')*100)+' %', raw:rawPctCell('kraft'), factor:'× '+fmt(fB.kraft), toggle:'kraft'},
-    {id:'kritwert', label:'Kritwert × Kritschaden', value:fmt(frac('kritwert')*100)+' % × '+fmt(frac('kritschaden')*100)+' %', raw:rawPctCell('kritwert')+' / '+rawPctCell('kritschaden'), factor:'× '+fmt(fB.krit), toggle:'kritwert'},
+    {id:'kritwert', label:statLabel('kritwert'), value:fmt(frac('kritwert')*100)+' %', raw:rawPctCell('kritwert'), factor:'× '+fmt(fB.krit)+' <span class="muted">(Wert × Schaden)</span>', toggle:'kritwert'},
+    {id:'kritschaden', label:statLabel('kritschaden'), value:fmt(frac('kritschaden')*100)+' %', raw:rawPctCell('kritschaden'), factor:'<span class="muted">&#8593; im Krit-Faktor enthalten</span>', toggle:'kritschaden'},
     {id:'gesamtheilung', label:statLabel('gesamtheilung'), value:fmt(heilTotal)+' %', raw:'<span class="muted">&ndash;</span>', factor:'× '+fmt(1+heilTotal/100), toggle:'gesamtheilung'},
   ];
   const healRows = healRowDefs.map(r=>`<tr>
@@ -1757,8 +1764,8 @@ function renderUebersicht(){
     <td style="text-align:right;">${healPlusCell(r.id)}</td>
     <td style="text-align:center;">${r.toggle ? activeToggleBtn('heilung', r.toggle) : '<span class="muted">&ndash;</span>'}</td>
   </tr>`).join('');
-  const healMultToggled = neutralOr('heilung','kraft', fB.kraft) * neutralOr('heilung','kritwert', fB.krit) * neutralOr('heilung','gesamtheilung', 1+heilTotal/100);
-  const heilWertToggled = waffenschaden * healMultToggled * (P.faehigkeit/100);
+  // "Veränderter Wert": wie bei Schaden - alle aktiven Stats bekommen gleichzeitig +X %.
+  const heilWertToggled = healTotalCalc((id)=>isActive('heilung', id));
 
   /* --- 3) Tank-Berechnung --- */
   const tp   = results['trefferpunkte'] && results['trefferpunkte'].E !== null ? results['trefferpunkte'].E : 0;
@@ -1779,41 +1786,60 @@ function renderUebersicht(){
     <td style="text-align:right;">${r.factor}</td>
     <td style="text-align:center;">${r.toggle ? activeToggleBtn('tank', r.toggle) : '<span class="muted">&ndash;</span>'}</td>
   </tr>`).join('');
-  const vertFaktorToggled = neutralOr('tank','verteidigung', 1+vert/100);
-  const srFaktorToggled = neutralOr('tank','schadensreduzierung', 1-sr/100);
+  // "Veränderter Wert": Verteidigung/Schadensreduzierung bekommen bei aktivem Toggle
+  // zusätzlich +X % (Vergleich %), wie bei Schaden/Heilung. Schadensreduzierung bleibt
+  // dabei auf 99 % gedeckelt, damit die Division nicht explodiert.
+  const pl = id => isActive('tank', id) ? P.deltaPct : 0;
+  const vertFaktorToggled = 1 + frac('verteidigung', pl('verteidigung'));
+  const srToggledPct = Math.min(rawF('schadensreduzierung') + pl('schadensreduzierung'), 99);
+  const srFaktorToggled = 1 - srToggledPct/100;
   const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
+
+  /* --- 4) Grafik: Nutzen pro +1 % je Stat im Schaden (unabhängig vom eingestellten
+     Vergleichswert oben - immer genau +1 Prozentpunkt, damit die Balken vergleichbar sind). --- */
+  const impactStats = [
+    {id:'kraft', color:'var(--off)'},
+    {id:'zielgenauigkeit', color:'var(--off)'},
+    {id:'kampfvorteil', color:'var(--off)'},
+    {id:'kritwert', color:'var(--off)'},
+    {id:'kritschaden', color:'var(--off)'},
+    {id:'bonusschaden', color:'var(--off)'},
+  ].map(s => ({...s, label:statLabel(s.id), pct: totalDmg ? (dmgTotal(s.id, 1)/totalDmg - 1)*100 : 0}));
+  function renderImpactChart(){
+    const maxVal = Math.max(0.01, ...impactStats.map(s=>Math.abs(s.pct)));
+    const w = 700, h = 260;
+    const pad = {top:24, right:20, bottom:56, left:20};
+    const chartW = w - pad.left - pad.right;
+    const chartH = h - pad.top - pad.bottom;
+    const gap = 18;
+    const barW = (chartW - gap*(impactStats.length-1)) / impactStats.length;
+    const baseline = pad.top + chartH;
+    const bars = impactStats.map((s,i)=>{
+      const barH = Math.max(1, (Math.abs(s.pct)/maxVal) * chartH);
+      const x = pad.left + i*(barW+gap);
+      const y = baseline - barH;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${s.color}" rx="4" opacity="0.85"/>
+        <text x="${(x+barW/2).toFixed(1)}" y="${(y-8).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">${fmt(s.pct)}%</text>
+        <text x="${(x+barW/2).toFixed(1)}" y="${(baseline+18).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-dim)">${s.label}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+      <line x1="${pad.left}" y1="${baseline.toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${baseline.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+      ${bars}
+    </svg>`;
+  }
 
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
 
   el.innerHTML = `
-  <div class="accordion" id="acc-dmg-gegner">
-    <button type="button" onclick="toggleDmgAccordion('gegner')">
-      <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
-    </button>
-    <div class="body">
-      <p class="helptext">Fließen in die Schadens- und Tank-Berechnung unten mit ein (Vorgaben = Excel-Werte).</p>
-      <div class="grunddaten-grid">
-        ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
-        ${paramInput('gegnerDeflect','Gegner: Deflect')}
-        ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
-        ${paramInput('gegnerAwareness','Gegner: Awareness')}
-      </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Fähigkeit &amp; Vergleich</h2>
+    <p class="helptext">Gilt für Schadens- <strong>und</strong> Heilungsberechnung, da eine Fähigkeit je nach Klasse Schaden oder Heilung macht.</p>
+    <div class="grunddaten-grid">
+      ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
+      ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
     </div>
-  </div>
-
-  <div class="accordion" id="acc-dmg-faehigkeit" style="margin-top:8px;">
-    <button type="button" onclick="toggleDmgAccordion('faehigkeit')">
-      <span><span class="dot" style="background:var(--gold)"></span>Fähigkeit &amp; Vergleich</span><span class="chevron">&#9656;</span>
-    </button>
-    <div class="body">
-      <p class="helptext">Gilt für Schadens- <strong>und</strong> Heilungsberechnung, da eine Fähigkeit je nach Klasse Schaden oder Heilung macht.</p>
-      <div class="grunddaten-grid">
-        ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
-        ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
-      </div>
-      <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
-    </div>
+    <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
   </div>
 
   <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;">
@@ -1827,15 +1853,15 @@ function renderUebersicht(){
         <tbody>${dmgRows}</tbody>
       </table>
       </div>
-      <p class="helptext" style="margin-top:10px;">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte und der Fähigkeitswert dafür stehen oben unter "Gegnerische Werte" bzw. "Fähigkeit &amp; Vergleich". Mit dem Button "Aktiv"/"Aus" pro Zeile kannst du einzelne Stats aus der Rechnung herausnehmen (z. B. um zu sehen, was ohne einen bestimmten Buff passiert).</p>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit (alle Werte aktiv): <strong>${formatWerte(totalDmg)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
+      <p class="helptext" style="margin-top:10px;">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte dafür stehen unten unter "Gegnerische Werte", der Fähigkeitswert oben bei "Fähigkeit &amp; Vergleich". Der Button "Aktiv"/"Aus" pro Zeile bestimmt, ob die Vergleichs-% (+X%) für diesen Stat beim "Veränderten Wert" mit eingerechnet wird - Kritwert und Kritschaden lassen sich dabei unabhängig voneinander schalten.</p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
       <p class="helptext">So wird gerechnet (Formel aus der Excel):<br>
       <strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
       &bull; "Gesamt %" ist dein tatsächlicher Wert (ungecappt) - "Genutzt (gecappt)" ist das, was im Spiel wirklich zählt, wenn du über dem Cap bist.<br>
       &bull; Jeder Stat wird zum Faktor (1 + Prozent), alle Faktoren werden <strong>multipliziert</strong>.<br>
-      &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72).<br>
-      &bull; Zielgenauigkeit gleicht das Deflecten des Gegners aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1).<br>
+      &bull; Krit zählt als Durchschnitt über viele Treffer: Kritwert × Kritschaden (z. B. 90 % Chance × 80 % Kritschaden = im Schnitt ×1,72) - beide sind einzeln schaltbar.<br>
+      &bull; Zielgenauigkeit gleicht das Deflecten des Gegners korrekt aus: Faktor = 1 − Deflect × (Deflect-Härte − deine Zielgenauigkeit). Mit 90 % Zielgenauigkeit ist der Malus komplett weg (Faktor 1); auch beim "Veränderten Wert" wird dieser volle Zusammenhang neu berechnet, nicht nur ein Wert ein-/ausgeschaltet.<br>
       &bull; Kampfvorteil wird um die Awareness des Gegners verringert; die Verteidigung des Gegners teilt am Ende den ganzen Schaden.<br>
       &bull; Die Spalte "Schaden bei +${fmt(P.deltaPct)} %" zeigt, wie viel <strong>mehr Gesamtschaden</strong> du bekämst, wenn genau dieser eine Stat +${fmt(P.deltaPct)} Prozentpunkte hätte - der beste Stat zum Verbessern ist der mit der höchsten Zahl. Wer schon am Cap ist, bringt +0 %.</p>
     </div>
@@ -1850,12 +1876,12 @@ function renderUebersicht(){
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Heilung bei +${fmt(P.deltaPct)} %</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${healRows}</tbody>
       </table>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit (alle Werte aktiv): <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
       <p class="helptext">So wird gerechnet: Wie beim Schaden werden die Faktoren multipliziert - aber <strong>ohne</strong> Gegner-Werte, denn Heilung hängt nicht vom Gegner ab (deshalb auch keine Zielgenauigkeit und kein Kampfvorteil).<br>
       Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden) × Fähigkeit × (1 + Gesamte Gewirkte Heilung).<br>
       Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2 - das steckt schon im Waffenschaden oben drin.<br>
-      "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen); "Genutzt (gecappt)" zeigt hier keinen zusätzlichen Cap, da sie bereits im Rechner auf 120 % begrenzt wird. Mit "Aktiv"/"Aus" kannst du auch hier einzelne Stats herausnehmen, und "Vergleich %" (oben bei "Fähigkeit &amp; Vergleich") zeigt auch hier, was +X % bringen würde.</p>
+      "Gesamte Gewirkte Heilung" ist der bereits berechnete Wert aus dem Rechner (Gewirkte Heilung, begrenzt auf 120 %, plus Zusatzquellen); "Genutzt (gecappt)" zeigt hier keinen zusätzlichen Cap, da sie bereits im Rechner auf 120 % begrenzt wird. Kritwert und Kritschaden sind unabhängig voneinander schaltbar, und "Vergleich %" (oben bei "Fähigkeit &amp; Vergleich") zeigt auch hier, was +X % bringen würde.</p>
     </div>
   </div>
 
@@ -1868,13 +1894,34 @@ function renderUebersicht(){
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (alle Werte aktiv): <strong>${formatWerte(ehp)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (mit deiner Auswahl oben): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte: <strong>${formatWerte(ehp)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
       <p class="helptext">So wird gerechnet: Deine Verteidigung wirkt genauso wie die Gegner-Verteidigung in der Schadensrechnung - eingehender Schaden wird durch (1 + Verteidigung) <strong>geteilt</strong>. Schadensreduzierung senkt den Rest direkt um ihren Prozentwert.<br>
       Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung).<br>
-      Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst. Trefferpunkte selbst sind die Basis und daher nicht ausschaltbar.<br>
+      Das Ergebnis zeigt, wie viel "rohen" Schaden du ungefähr aushältst, bevor du umfällst. Trefferpunkte selbst sind die Basis und daher nicht schaltbar.<br>
       Zusätzlich gegen kritische Treffer: Krit-Vermeidung ${fmt(kvm)} % (senkt die Kritchance des Gegners) und Robustheit ${fmt(rob)} % (senkt den Kritschaden des Gegners). Beides hängt vom Gegner ab und ist deshalb nicht im Multiplikator drin.</p>
     </div>
+  </div>
+
+  <div class="accordion" id="acc-dmg-gegner" style="margin-top:8px;">
+    <button type="button" onclick="toggleDmgAccordion('gegner')">
+      <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Fließen in die Schadens- und Tank-Berechnung oben mit ein (Vorgaben = Excel-Werte).</p>
+      <div class="grunddaten-grid">
+        ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
+        ${paramInput('gegnerDeflect','Gegner: Deflect')}
+        ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
+        ${paramInput('gegnerAwareness','Gegner: Awareness')}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2><span class="dot" style="background:var(--off)"></span>Wie stark wirkt sich +1 % aus?</h2>
+    <p class="helptext">Zeigt, wie viel mehr Gesamtschaden jeder Stat bei genau +1 Prozentpunkt bringt (unabhängig vom Vergleichswert oben) - so siehst du auf einen Blick, welcher Stat sich gerade am meisten lohnt.</p>
+    ${renderImpactChart()}
   </div>`;
 
   // Auf-/zugeklappte Berechnungen bleiben über einen Rebuild hinweg erhalten (z. B. nach
@@ -1885,7 +1932,7 @@ function renderUebersicht(){
     prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
   }
 
-  // Eingabefelder der Parameter (Gegner / Fähigkeit / Vergleich): bei Änderung neu
+  // Eingabefelder der Parameter (Fähigkeit / Vergleich / Gegner): bei Änderung neu
   // rechnen und mitspeichern.
   el.querySelectorAll('input[data-uparam]').forEach(inp=>{
     inp.addEventListener('change', e=>{
