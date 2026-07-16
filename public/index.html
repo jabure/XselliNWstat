@@ -74,8 +74,8 @@
   .legend-swatch{width:14px; height:14px; border-radius:3px; flex:none;}
   .legend-swatch.editable{background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit);}
   .legend-swatch.computed{background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft);}
-  .rings{display:flex; gap:22px; flex-wrap:wrap; margin-top:6px;}
-  .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px;}
+  .rings{display:flex; gap:28px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
+  .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:120px;}
   .ring-label{font-size:0.8rem; color:var(--text-dim);}
   .ring-val{font-size:1.1rem; font-weight:700;}
   table{width:100%; border-collapse:collapse; font-size:0.88rem;}
@@ -1070,28 +1070,45 @@ function fmt(n){
   return (Math.round(n*100)/100).toLocaleString('de-DE');
 }
 
+// Welche Stats fließen in welchen Ring ein, mit Gewichtung (Standard = 1).
+// Bewusst unabhängig von der STAT_GROUPS-Einteilung, da z. B. Kraft (Offensive-Gruppe)
+// auch für den Heilung-Ring zählt.
+const RING_DEFS = [
+  { label:'Offensive', color:'var(--off)', stats:[
+    {id:'kraft'}, {id:'zielgenauigkeit'}, {id:'kampfvorteil'}, {id:'kritwert'}, {id:'kritschaden'},
+  ]},
+  { label:'Defensive', color:'var(--def)', stats:[
+    {id:'verteidigung'}, {id:'wahrnehmung'}, {id:'kritvermeidung'}, {id:'robustheit', weight:0.5},
+  ]},
+  { label:'Heilung', color:'var(--sup)', stats:[
+    {id:'kraft'}, {id:'kritwert'}, {id:'kritschaden'}, {id:'gewheilung'},
+  ]},
+];
 function renderRings(results){
-  const groupAvgPct = STAT_GROUPS.map(g=>{
-    const withPct = g.stats.filter(s=>s.type==='softcap'||s.type==='simple');
-    if(withPct.length===0) return {label:g.label, color:g.color, val:0};
-    let sum=0, count=0;
-    for(const s of withPct){
-      const r = results[s.id];
-      const maxPr = getMaxPr(s) || (r.maxPr) || 1;
-      if(r.F !== null && maxPr){ sum += Math.min(r.F/(maxPr*100),1); count++; }
-    }
-    return {label:g.label, color:g.color, val: count? Math.round((sum/count)*100):0};
+  const ringPct = RING_DEFS.map(rd=>{
+    let sum=0, wsum=0;
+    rd.stats.forEach(({id, weight})=>{
+      const w = weight===undefined ? 1 : weight;
+      const stat = ALL_STATS.find(s=>s.id===id);
+      const r = results[id];
+      const maxPr = stat ? getMaxPr(stat) : null;
+      if(stat && r && r.F !== null && r.F !== undefined && maxPr){
+        sum += Math.min(r.F/(maxPr*100), 1) * w;
+        wsum += w;
+      }
+    });
+    return {label:rd.label, color:rd.color, val: wsum ? Math.round((sum/wsum)*100) : 0};
   });
   const el = document.getElementById('rings');
-  el.innerHTML = groupAvgPct.map(g=>{
-    const r=28, c=2*Math.PI*r, off = c - (g.val/100)*c;
+  el.innerHTML = ringPct.map(g=>{
+    const r=34, c=2*Math.PI*r, off = c - (g.val/100)*c;
     return `<div class="ring-box">
-      <svg width="70" height="70" viewBox="0 0 70 70">
-        <circle cx="35" cy="35" r="${r}" fill="none" stroke="#2c303b" stroke-width="7"/>
-        <circle cx="35" cy="35" r="${r}" fill="none" stroke="${g.color}" stroke-width="7"
+      <svg width="84" height="84" viewBox="0 0 84 84">
+        <circle cx="42" cy="42" r="${r}" fill="none" stroke="#2c303b" stroke-width="8"/>
+        <circle cx="42" cy="42" r="${r}" fill="none" stroke="${g.color}" stroke-width="8"
           stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"
-          transform="rotate(-90 35 35)"/>
-        <text x="35" y="40" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700">${g.val}%</text>
+          transform="rotate(-90 42 42)"/>
+        <text x="42" y="47" text-anchor="middle" fill="var(--text)" font-size="17" font-weight="700">${g.val}%</text>
       </svg>
       <div class="ring-label">${g.label} &Oslash; zum Max</div>
     </div>`;
