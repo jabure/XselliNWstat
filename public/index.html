@@ -568,7 +568,7 @@ function defaultGrunddaten(){
 // Fähigkeitsschaden 800 %, Gegner mit 50 % Defensive, 50 % Deflect (Härte 90 %),
 // 0 % Awareness, und die "Was bringt +3 %?"-Spalte.
 function defaultUebersichtParams(){
-  return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, deltaPct:3 };
+  return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0, deltaPct:3 };
 }
 let uebersichtParams = defaultUebersichtParams();
 // Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
@@ -1691,7 +1691,7 @@ function renderUebersicht(){
       kraft: 1 + frac('kraft', pl('kraft')),
       zg:    1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit')))),
       kv:    1 + (frac('kampfvorteil', pl('kampfvorteil')) - P.gegnerAwareness/100),
-      krit:  1 + frac('kritwert', pl('kritwert')) * frac('kritschaden', pl('kritschaden')),
+      krit:  1 + frac('kritwert', pl('kritwert')) * (frac('kritschaden', pl('kritschaden')) - P.gegnerKritvermeidung/100),
       bonus: 1 + frac('bonusschaden', pl('bonusschaden')),
     };
   }
@@ -1829,7 +1829,7 @@ function renderUebersicht(){
       const kraftF = 1 + capFrac('kraft', raw.kraft);
       const zgF = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - capFrac('zielgenauigkeit', raw.zielgenauigkeit)));
       const kvF = 1 + (capFrac('kampfvorteil', raw.kampfvorteil) - P.gegnerAwareness/100);
-      const kritF = 1 + capFrac('kritwert', raw.kritwert) * capFrac('kritschaden', raw.kritschaden);
+      const kritF = 1 + capFrac('kritwert', raw.kritwert) * (capFrac('kritschaden', raw.kritschaden) - P.gegnerKritvermeidung/100);
       return waffenschaden * kraftF * zgF * kvF * kritF / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * fB.bonus;
     }
     const N = 40;
@@ -1859,8 +1859,8 @@ function renderUebersicht(){
     const yMin = 0;
     const xMax = Math.max(...chartStatDefs.map(s=>s.xMax));
 
-    const w = 680, h = 260;
-    const pad = {top:20, right:20, bottom:34, left:52};
+    const w = 800, h = 480;
+    const pad = {top:30, right:30, bottom:46, left:70};
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
     const xScale = x => pad.left + (x/xMax) * chartW;
@@ -1870,29 +1870,29 @@ function renderUebersicht(){
     const yTicks = [];
     for(let t=0; t<=yMax+1e-9; t+=yStep) yTicks.push(t);
     const gridLines = yTicks.map(t=>`<line x1="${pad.left}" y1="${yScale(t).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${yScale(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${pad.left-6}" y="${(yScale(t)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
+      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="12" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
 
     const lines = series.map(s=>{
       const d = s.pts.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ');
       const cx = xScale(s.curX).toFixed(1), cy = yScale(s.curY).toFixed(1);
-      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>
-        <circle cx="${cx}" cy="${cy}" r="3" fill="${s.color}" stroke="var(--bg)" stroke-width="1"/>`;
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5"/>
+        <circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>`;
     }).join('');
 
     const xAxisLabel = 'Aktueller Stat-Wert (%)';
-    const legend = chartStatDefs.map(s=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-      <span style="width:12px;height:2px;background:${s.color};display:inline-block;border-radius:2px;"></span>
-      <span style="font-size:0.76rem;color:var(--text);">${s.label}</span>
+    const legend = chartStatDefs.map(s=>`<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;">
+      <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
+      <span style="font-size:0.85rem;color:var(--text);">${s.label}</span>
     </div>`).join('');
 
-    return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;max-width:560px;">
-      <div style="min-width:130px;">${legend}</div>
-      <div style="flex:1;min-width:220px;max-width:340px;">
+    return `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;max-width:960px;">
+      <div style="min-width:160px;">${legend}</div>
+      <div style="flex:1;min-width:400px;max-width:780px;">
         <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
           ${gridLines}
           <line x1="${pad.left}" y1="${(pad.top+chartH).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
           ${lines}
-          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-6}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${xAxisLabel}</text>
+          <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-8}" text-anchor="middle" font-size="12" fill="var(--text-dim)">${xAxisLabel}</text>
         </svg>
       </div>
     </div>`;
@@ -1927,7 +1927,7 @@ function renderUebersicht(){
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
       <p class="helptext"><strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
-      "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" zählt im Spiel. Krit = Kritwert × Kritschaden (Durchschnitt über viele Treffer). Zielgenauigkeit: Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.</p>
+      "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" zählt im Spiel. Krit = Kritwert × (Kritschaden − Gegner-Kritvermeidung). Zielgenauigkeit: Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.</p>
     </div>
   </div>
 
@@ -1972,6 +1972,7 @@ function renderUebersicht(){
         ${paramInput('gegnerDeflect','Gegner: Deflect')}
         ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
         ${paramInput('gegnerAwareness','Gegner: Awareness')}
+        ${paramInput('gegnerKritvermeidung','Gegner: Kritische Vermeidung')}
       </div>
     </div>
   </div>
