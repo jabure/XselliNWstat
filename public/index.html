@@ -53,6 +53,11 @@
     font-variant-numeric:tabular-nums;
   }
   select{border-left:3px solid var(--edit);}
+  /* Ausgefüllte Ausrüstungs-/Buff-Food-Felder farblich hervorheben, damit auf einen
+     Blick klar ist, wo schon etwas eingetragen wurde. */
+  input.has-value{
+    background:rgba(200,149,46,0.12); border-color:var(--gold-soft); border-left-color:var(--gold);
+  }
   /* Browser-Autofill (gespeicherte Logins) überschreibt sonst die Feldfarben mit
      Weiß/Hellblau - so behalten Benutzername UND Passwort exakt dasselbe grüne Aussehen. */
   input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus{
@@ -1212,8 +1217,10 @@ function renderManualTable(cat){
       const showWerte = !stat.pctOnly;
       const cells = cat.sources.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
+        const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1311,8 +1318,10 @@ function renderGefaehrtenWerteTable(){
       const showWerte = !stat.pctOnly;
       const cells = slots.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
+        const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1397,8 +1406,10 @@ function renderReittierWerteTable(){
       const showWerte = !stat.pctOnly;
       const cells = slots.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
+        const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1449,6 +1460,7 @@ function renderFoodWerteTable(cat){
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${fs.key.replace('Buff Food – ','')}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
+      <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, foodDb)}</div>
     </div>`;
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
@@ -1516,6 +1528,7 @@ function renderSourceAccordions(){
       const src = e.target.dataset.src, statId = e.target.dataset.stat, field = e.target.dataset.field;
       const val = e.target.value === '' ? 0 : (field === 'werte' ? parseWerte(e.target.value) : Number(e.target.value));
       getSourceVal(src, statId)[field] = val;
+      e.target.classList.toggle('has-value', val !== 0);
       queueSave();
       refresh(false);
     });
