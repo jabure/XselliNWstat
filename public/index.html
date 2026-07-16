@@ -1804,35 +1804,35 @@ function renderUebersicht(){
   // "Veränderter Wert": wie bei Schaden - alle aktiven Stats bekommen gleichzeitig +X %.
   const heilWertToggled = healTotalCalc((id)=>isActive('heilung', id));
 
-  /* --- 3) Tank-Berechnung --- */
+  /* --- 3) Tank-Berechnung (exakt wie im Excel-Blatt nachgebaut, EU-EZ-Bereich) --- */
   const tp   = results['trefferpunkte'] && results['trefferpunkte'].E !== null ? results['trefferpunkte'].E : 0;
   const vert = cappedF(results,'verteidigung');
-  const sr   = Math.min(cappedF(results,'schadensreduzierung'), 99);
+  const wahr = cappedF(results,'wahrnehmung');
   const kvm  = cappedF(results,'kritvermeidung');
   const rob  = cappedF(results,'robustheit');
-  const wahr = cappedF(results,'wahrnehmung');
+  const robS = cappedF(results,'robustheitstaerke');
+  const sr   = Math.min(cappedF(results,'schadensreduzierung'), 99);
 
-  // Eingehender-Schaden-Multiplikator: wie stark der Gegner durch seine eigenen Offensiv-Werte
-  // zuschlägt (Kraft direkt, Kampfvorteil gegen deine Wahrnehmung, Krit gegen deine Krit-Vermeidung -
-  // exakt spiegelbildlich zur Schadensberechnung, nur jetzt greift der Gegner an). Zielgenauigkeit
-  // des Gegners wirkt gegen dein Deflect - das ist als eigener Stat im Rechner nicht erfasst, daher
-  // ohne Effekt (Feld bleibt trotzdem sichtbar/einstellbar für später).
-  const gegnerKraftF = 1 + P.gegnerKraft/100;
-  const gegnerKvF = 1 + (P.gegnerKampfvorteil - wahr)/100;
-  const gegnerKritF = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvm)/100;
-  const eingehenderSchadenMult = gegnerKraftF * gegnerKvF * gegnerKritF;
+  // Jeder Faktor ist der Anteil des Schadens, der noch durchkommt (kleiner = besser geschützt).
+  // Wahrnehmung und Krit-Vermeidung wirken gegen die Standard-PvE-Gegnerwerte 90 % Kampfvorteil /
+  // 50 % Krit-Chance / 90 % Kritschaden - das sind exakt die "Gegner: ..."-Vorgaben unter
+  // "Gegnerische Werte" unten (Standard 90/50/90, dort änderbar für einen härteren Gegner).
+  // Robustheit + Robustheitstärke wirken wie eine eigene Deflect-Chance/-Stärke (analog zu
+  // Ausweichen): gewichteter Durchschnitt aus "getroffen" und "abgemildert".
+  const vertF = 1 / (1 + vert/100);
+  const wahrF = 1 + (P.gegnerKampfvorteil - wahr)/100;
+  const kvmF  = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvm)/100;
+  const robF  = 1 + (rob/100) * ((1/(1+robS/100)) - 1);
+  const srF   = 1 - sr/100;
 
-  const ehp  = tp * (1+vert/100) / (1-sr/100);
-  // Zusätzliche, klar getrennte Kennzahl: wie viel du gegen GENAU DIESEN Gegner (mit seinen
-  // Offensiv-Werten) effektiv aushältst. Das ist bewusst eine eigene Zahl und nicht in die
-  // "Effektive Trefferpunkte" eingerechnet, da eHP in der Community als reine, vom Gegner
-  // unabhängige Verteidigungs-Kennzahl verstanden wird (vgl. Obikin89: "the amount of
-  // unmitigated raw damage you can take before falling down" - unabhängig von Krit/CA des Gegners).
-  const geschuetzterSchaden = ehp / eingehenderSchadenMult;
+  const ehp = tp / (vertF * wahrF * kvmF * robF * srF);
   const tankRowDefs = [
     {label:statLabel('trefferpunkte'), raw:'<span class="muted">&ndash;</span>', value:formatWerte(tp), factor:'Basis'},
-    {label:statLabel('verteidigung'), raw:rawPctCell('verteidigung'), value:fmt(vert)+' %', factor:'× '+fmt(1+vert/100), toggle:'verteidigung'},
-    {label:statLabel('schadensreduzierung'), raw:rawPctCell('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(1-sr/100), toggle:'schadensreduzierung'},
+    {label:statLabel('verteidigung'), raw:rawPctCell('verteidigung'), value:fmt(vert)+' %', factor:'÷ '+fmt(1+vert/100), toggle:'verteidigung'},
+    {label:statLabel('wahrnehmung'), raw:rawPctCell('wahrnehmung'), value:fmt(wahr)+' %', factor:'÷ '+fmt(wahrF), toggle:'wahrnehmung'},
+    {label:statLabel('kritvermeidung'), raw:rawPctCell('kritvermeidung'), value:fmt(kvm)+' %', factor:'÷ '+fmt(kvmF), toggle:'kritvermeidung'},
+    {label:statLabel('robustheit')+' × '+statLabel('robustheitstaerke'), raw:rawPctCell('robustheit')+' / '+rawPctCell('robustheitstaerke'), value:fmt(rob)+' % / '+fmt(robS)+' %', factor:'÷ '+fmt(robF), toggle:'robustheit'},
+    {label:statLabel('schadensreduzierung'), raw:rawPctCell('schadensreduzierung'), value:fmt(sr)+' %', factor:'÷ '+fmt(srF), toggle:'schadensreduzierung'},
   ];
   const tankRows = tankRowDefs.map(r=>`<tr>
     <td class="statname">${r.label}</td>
@@ -1841,16 +1841,19 @@ function renderUebersicht(){
     <td style="text-align:right;">${r.factor}</td>
     <td style="text-align:center;">${r.toggle ? activeToggleBtn('tank', r.toggle) : '<span class="muted">&ndash;</span>'}</td>
   </tr>`).join('');
-  // "Veränderter Wert": Verteidigung/Schadensreduzierung bekommen bei aktivem Toggle
-  // zusätzlich +X % (Vergleich %), wie bei Schaden/Heilung. Schadensreduzierung bleibt
-  // dabei auf 99 % gedeckelt, damit die Division nicht explodiert. Die gegnerischen
-  // Offensiv-Werte bleiben beim "Veränderten Wert" unverändert (die kann man nicht "buffen").
+  // "Veränderter Wert": jeder Stat bekommt bei aktivem Toggle zusätzlich +X % (Vergleich %),
+  // wie bei Schaden/Heilung. Schadensreduzierung bleibt auf 99 % gedeckelt.
   const pl = id => isActive('tank', id) ? P.deltaPct : 0;
-  const vertFaktorToggled = 1 + frac('verteidigung', pl('verteidigung'));
+  const vertFaktorToggled = 1 / (1 + frac('verteidigung', pl('verteidigung')));
+  const wahrToggledPct = Math.min(rawF('wahrnehmung') + pl('wahrnehmung'), 90);
+  const wahrFaktorToggled = 1 + (P.gegnerKampfvorteil - wahrToggledPct)/100;
+  const kvmToggledPct = Math.min(rawF('kritvermeidung') + pl('kritvermeidung'), 90);
+  const kvmFaktorToggled = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvmToggledPct)/100;
+  const robToggledPct = Math.min(rawF('robustheit') + pl('robustheit'), 90);
+  const robFaktorToggled = 1 + (robToggledPct/100) * ((1/(1+robS/100)) - 1);
   const srToggledPct = Math.min(rawF('schadensreduzierung') + pl('schadensreduzierung'), 99);
   const srFaktorToggled = 1 - srToggledPct/100;
-  const ehpToggled = tp * vertFaktorToggled / srFaktorToggled;
-  const geschuetzterSchadenToggled = ehpToggled / eingehenderSchadenMult;
+  const ehpToggled = tp / (vertFaktorToggled * wahrFaktorToggled * kvmFaktorToggled * robFaktorToggled * srFaktorToggled);
 
   /* --- 4) Grafiken: Schadenszugewinn/Heilungszugewinn/Tank-Zugewinn pro +1 % je Stat, über
      den gesamten Wertebereich (nicht nur am aktuellen Wert) - zeigt den abnehmenden Grenznutzen
@@ -1969,14 +1972,25 @@ function renderUebersicht(){
   // Tank-Grafik
   const tankChartDefs = [
     {id:'verteidigung', label:'Verteidigung', color:'#4285F4', xMax:130, curX: rawF('verteidigung')},
+    {id:'wahrnehmung', label:'Wahrnehmung', color:'#E91E8C', xMax:100, curX: rawF('wahrnehmung')},
+    {id:'kritvermeidung', label:'Krit-Vermeidung', color:'#34A853', xMax:100, curX: rawF('kritvermeidung')},
+    {id:'robustheit', label:'Robustheit', color:'#9C6ADE', xMax:100, curX: rawF('robustheit')},
+    {id:'robustheitstaerke', label:'Robustheitstärke', color:'#FBBC04', xMax:130, curX: rawF('robustheitstaerke')},
     {id:'schadensreduzierung', label:'Schadensreduzierung', color:'#E8710A', xMax:99, curX: Math.min(rawF('schadensreduzierung'),99)},
   ];
   function tankTotalGiven(overrideId, x){
     const vertRaw = overrideId==='verteidigung' ? x : rawF('verteidigung');
-    const srRaw = overrideId==='schadensreduzierung' ? Math.min(x,99) : Math.min(rawF('schadensreduzierung'),99);
-    const vertF = 1 + dmgCapFrac('verteidigung', vertRaw);
-    const srF = 1 - srRaw/100;
-    return tp * vertF / srF / eingehenderSchadenMult;
+    const wahrRaw = overrideId==='wahrnehmung' ? x : wahr;
+    const kvmRaw = overrideId==='kritvermeidung' ? x : kvm;
+    const robRaw = overrideId==='robustheit' ? x : rob;
+    const robSRaw = overrideId==='robustheitstaerke' ? x : robS;
+    const srRaw = overrideId==='schadensreduzierung' ? Math.min(x,99) : sr;
+    const vertF_ = 1 / (1 + dmgCapFrac('verteidigung', vertRaw));
+    const wahrF_ = 1 + (P.gegnerKampfvorteil - Math.min(wahrRaw,90))/100;
+    const kvmF_  = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - Math.min(kvmRaw,90))/100;
+    const robF_  = 1 + (Math.min(robRaw,90)/100) * ((1/(1+Math.min(robSRaw,120)/100)) - 1);
+    const srF_   = 1 - srRaw/100;
+    return tp / (vertF_ * wahrF_ * kvmF_ * robF_ * srF_);
   }
 
 
@@ -2043,12 +2057,15 @@ function renderUebersicht(){
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong> <span class="muted">&middot; unabhängig vom Gegner</span></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
-      <p class="helptext" style="margin-bottom:12px;">Formel: Trefferpunkte × (1 + Verteidigung) ÷ (1 − Schadensreduzierung). eHP ist bewusst unabhängig vom Gegner - so definiert es auch <a href="https://neverwinter.obikin89.com/stats/calculator" target="_blank" rel="noopener" style="color:var(--gold);">Obikin89s Rechner</a>: "der ungemilderte Rohschaden, den du aushältst, bevor du zusammenbrichst".</p>
-      <p style="margin:0 0 4px 0;font-size:1.05rem;">Geschätzter Schutz gegen diesen Gegner: <strong>${formatWerte(geschuetzterSchaden)}</strong> <span class="muted">&middot; = eHP ÷ ${fmt(eingehenderSchadenMult)} (Eingehender-Schaden-Multiplikator des Gegners)</span></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert: <strong class="computed">${formatWerte(geschuetzterSchadenToggled)}</strong></p>
-      <p class="helptext">Der Multiplikator (Kraft × Kampfvorteil vs. deine Wahrnehmung × Krit vs. deine Krit-Vermeidung) bildet ab, wie hart <em>dieser konkrete</em> Gegner zuschlägt (siehe "Gegnerische Werte" unten) - eine separate, praktische Zahl zusätzlich zur klassischen eHP. Robustheit ${fmt(rob)} % senkt den gegnerischen Kritschaden zusätzlich, ist aber noch nicht im Multiplikator enthalten. Gegner-Zielgenauigkeit wirkt gegen dein Deflect, das der Rechner aktuell nicht als eigenen Stat führt, daher ohne Effekt.</p>
+      <p class="helptext">Formel: Trefferpunkte ÷ (Verteidigung × Wahrnehmung × Krit-Vermeidung × Robustheit×-stärke × Schadensreduzierung) - 1:1 wie im Excel-Blatt nachgebaut.<br>
+      &bull; Verteidigung: ÷ (1 + Verteidigung).<br>
+      &bull; Wahrnehmung wirkt gegen "Gegner: Kampfvorteil" (Standard 90 %, wie ein PvE-Gegner) - ÷ (1 + (Gegner-Kampfvorteil − Wahrnehmung)).<br>
+      &bull; Krit-Vermeidung wirkt gegen "Gegner: Kritischer Trefferwert" × "Gegner: Kritischer Trefferschaden" (Standard 50 %/90 %) - ÷ (1 + Gegner-Kritwert × (Gegner-Kritschaden − Krit-Vermeidung)).<br>
+      &bull; Robustheit + Robustheitstärke wirken zusammen wie eine eigene Deflect-Chance/-Stärke: ÷ (1 + Robustheit × (1/(1+Robustheitstärke) − 1)).<br>
+      &bull; Schadensreduzierung: ÷ (1 − Schadensreduzierung).<br>
+      Die Standardwerte 90/50/90 unter "Gegnerische Werte" entsprechen den PvE-Standardwerten (Gegner: 90 % Kampfvorteil, 50 % Krit-Chance, 90 % Kritschaden) - für einen härteren Gegner dort anpassen.</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Tank-Zugewinn pro Prozent</h3>
       <p class="helptext" style="margin-top:0;">Zuwachs an effektiven Trefferpunkten pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
       ${buildImpactChart('tank', tankChartDefs, tankTotalGiven)}
