@@ -116,6 +116,7 @@
   .maxpr-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:16px;}
   .maxpr-item label{margin-bottom:2px;}
   .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:50;}
+  #modalBg{z-index:60;}
   .modal-bg.show{display:flex;}
   .modal{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:360px;}
   .modal p{margin:0 0 16px 0;}
@@ -226,7 +227,9 @@
     <button type="button" class="account-btn" onclick="openAccountPanel()">&#128100; <span id="accountLabel">Gast (nicht gespeichert)</span></button>
   </div>
   <h1>Xselli's Stats-Rechner</h1>
-  <p class="subtitle">Neverwinter Online &middot; Charakter-Stats selbst eintragen statt Sheet kopieren</p>
+  <p class="subtitle">Trage deine aktuellen Werte aus Neverwinter in die grün markierten Felder ein. Der Rechner zeigt dir anschließend deine Gesamtwerte inklusive zusätzlicher Buffs an.<br>
+  Wichtig: Trage nur Werte ein, die zusätzlich aktiviert werden (z. B. Procs beim Angreifen oder Schaden verursachen). Bereits dauerhaft aktive Boni sowie der aktive Gefährte werden nicht eingetragen.<br>
+  Für Gefährten und Reittiere stehen Presets zur Verfügung. Änderungswünsche oder Feedback sind jederzeit willkommen – der Rechner befindet sich aktuell noch in der Beta.</p>
   <p class="version-tag" id="versionTag"></p>
 
   <div class="page-nav">
@@ -2038,7 +2041,7 @@ async function init(){
 
   try{
     const v = await apiRequest('/api/version');
-    document.getElementById('versionTag').textContent = 'Version ' + v.version;
+    document.getElementById('versionTag').textContent = 'Version ' + v.version + ' (Beta)';
   }catch(e){ /* Version nicht so wichtig, dass es die Seite blockieren sollte */ }
 
   try{
