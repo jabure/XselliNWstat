@@ -93,10 +93,10 @@
     display:flex; justify-content:space-between; align-items:center;
   }
   .accordion > button:hover{background:#2a2e3a;}
-  .accordion .body{padding:12px 14px; display:none; background:var(--panel);}
-  .accordion.open .body{display:block;}
+  .accordion > .body{padding:12px 14px; display:none; background:var(--panel);}
+  .accordion.open > .body{display:block;}
   .chevron{transition:transform .15s ease;}
-  .accordion.open .chevron{transform:rotate(90deg);}
+  .accordion.open > button .chevron{transform:rotate(90deg);}
   .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;}
   button.action{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
@@ -204,9 +204,10 @@
   #accountModalBody label{margin-top:10px;}
   .login-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .login-grid label{margin-top:0;}
-  .rechner-grid{display:grid; grid-template-columns:1fr 1.3fr; gap:20px; align-items:start;}
+  .rechner-grid{display:grid; grid-template-columns:minmax(700px, 1fr) minmax(480px, 1.3fr); gap:20px; align-items:start;}
   .rechner-col-left, .rechner-col-right{min-width:0;}
-  @media (max-width: 980px){
+  #statGroups .card{overflow-x:auto;}
+  @media (max-width: 1350px){
     .rechner-grid{grid-template-columns:1fr;}
   }
   .cat-badge{
@@ -247,13 +248,14 @@
         <div class="grunddaten-grid">
           <div>
             <label for="itemlevel">Gegenstandsstufe</label>
-            <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="123.397">
+            <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="" placeholder="z. B. 123.397">
           </div>
           <div>
             <label for="klasse">Klasse</label>
             <select id="klasse">
+              <option value="" selected>– wählen –</option>
               <option>Barbar</option><option>Barde</option><option>Kleriker</option>
-              <option selected>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
+              <option>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
               <option>Schurke</option><option>Hexenmeister</option><option>Magier</option>
             </select>
           </div>
@@ -452,7 +454,7 @@ const DEFAULT_FOOD_DB = {
   'orkanelexir': { kritwert:{werte:2000,prozent:0}, kritschaden:{werte:0,prozent:5} },
   'Geschenkelexir des Sonnenherren': { zielgenauigkeit:{werte:2000,prozent:0}, kampfvorteil:{werte:0,prozent:5} },
   'Flaktok der Potenz Rang 3 +1': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
-  'wut der flamme': { bonusschaden:{werte:5,prozent:0} },
+  'wut der flamme': { bonusschaden:{werte:0,prozent:5} },
   'präzision des Teufel': { zielgenauigkeit:{werte:0,prozent:5}, kritwert:{werte:0,prozent:5} },
   'taktiker der schwetrtküste': { kraft:{werte:0,prozent:5}, kampfvorteil:{werte:0,prozent:5} },
 };
@@ -520,7 +522,7 @@ let pendingDeleteChar = null;
 let authToken = null;
 
 function defaultGrunddaten(){
-  return { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
+  return { itemlevel:0, klasse:'', vorbildpfad:'', klassentyp:'' };
 }
 function getCharDataBundle(){
   return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset };
@@ -697,7 +699,7 @@ function confirmDeleteCharacter(name){
   document.getElementById('modalBg').classList.add('show');
 }
 function fullUiRefreshAfterProfileSwitch(){
-  document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+  document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
   document.getElementById('klasse').value = grunddaten.klasse;
   populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
   refresh(true);
@@ -730,7 +732,7 @@ const STAT_GROUPS = [
     {id:'kampfvorteil', label:'Kampfvorteil', type:'softcap', maxPr:1.20},
     {id:'kritwert', label:'Kritischer Trefferwert', type:'softcap', maxPr:0.90},
     {id:'kritschaden', label:'Kritischer Trefferschaden', type:'softcap', maxPr:1.20},
-    {id:'bonusschaden', label:'Bonus Schaden %', type:'simple', maxPr:null},
+    {id:'bonusschaden', label:'Bonus Schaden %', type:'simple', pctOnly:true, maxPr:null},
   ]},
   { id:'defensive', label:'Defensive', color:'var(--def)', stats:[
     {id:'verteidigung', label:'Verteidigung', type:'softcap', maxPr:1.20},
@@ -800,7 +802,7 @@ const DEFAULT_FORMULAS = {
 
 let formulas = {...DEFAULT_FORMULAS};
 let maxPrOverrides = {}; // statId -> number (fraction, e.g. 1.2)
-let grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
+let grunddaten = { itemlevel:0, klasse:'', vorbildpfad:'', klassentyp:'' };
 let baseInputs = {};   // statId -> {H, I}
 let sourceInputs = {}; // sourceKey -> statId -> {werte, prozent}
 
@@ -823,7 +825,10 @@ function parseWerte(str){
 function attachWerteFormatting(root){
   root.querySelectorAll('input.werte-in').forEach(inp=>{
     inp.addEventListener('focus', e=>{ e.target.value = e.target.value.replace(/[^\d-]/g,''); });
-    inp.addEventListener('blur', e=>{ e.target.value = formatWerte(parseWerte(e.target.value)); });
+    inp.addEventListener('blur', e=>{
+      const n = parseWerte(e.target.value);
+      e.target.value = n ? formatWerte(n) : '';
+    });
   });
 }
 
@@ -1008,6 +1013,16 @@ function buildStatGroupsDOM(){
           <td class="muted" id="note-${stat.id}">gedeckelt bei 120 + Zusatz</td>
         </tr>`;
       }
+      if(stat.pctOnly){
+        return `<tr class="subgroup-row">
+          <td class="statname">${stat.label}</td>
+          <td class="muted">&ndash;</td>
+          <td class="muted">&ndash;</td>
+          <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" value="${getBase(stat.id).I}"><span class="pct-suffix">%</span></span></td>
+          <td class="computed-stack"><span class="computed" id="F-${stat.id}"></span></td>
+          <td class="muted">&ndash;</td>
+        </tr>`;
+      }
       return `<tr class="subgroup-row">
         <td class="statname">${stat.label}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
@@ -1082,9 +1097,10 @@ function renderManualTable(cat){
     if(groupStats.length===0) return '';
     const rows = groupStats.map(stat=>{
       const showPct = stat.type !== 'werteOnly';
+      const showWerte = !stat.pctOnly;
       const cells = cat.sources.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
@@ -1177,9 +1193,10 @@ function renderGefaehrtenWerteTable(){
     if(groupStats.length===0) return '';
     const rows = groupStats.map(stat=>{
       const showPct = stat.type !== 'werteOnly';
+      const showWerte = !stat.pctOnly;
       const cells = slots.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
@@ -1262,9 +1279,10 @@ function renderReittierWerteTable(){
     if(groupStats.length===0) return '';
     const rows = groupStats.map(stat=>{
       const showPct = stat.type !== 'werteOnly';
+      const showWerte = !stat.pctOnly;
       const cells = slots.map((src,i)=>{
         const v = getSourceVal(src, stat.id);
-        return `<td class="${i>0?'slot-sep':''}"><input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"></td>
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
@@ -1354,7 +1372,7 @@ function catBadgeText(cat){
 function renderSourceAccordions(){
   const el = document.getElementById('sourceAccordions');
   const isFirstBuild = el.children.length === 0;
-  const prevOpenCats = Array.from(el.querySelectorAll(':scope > .accordion.open')).map(a=>a.id);
+  const prevOpenCats = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
   const prevOpenSubgroups = Array.from(el.querySelectorAll('.stat-subgroup.open')).map(a=>a.id);
 
   el.innerHTML = SOURCE_CATEGORIES.map(cat=>{
@@ -1833,8 +1851,8 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
   if(pendingAction === 'werte' || pendingAction === 'alles'){ baseInputs = {}; }
   if(pendingAction === 'ausruestung' || pendingAction === 'alles'){ sourceInputs = {}; slotSelections = {}; raptorCount = 0; gefaehrtenMode = 'presets'; reittierMode = 'presets'; gefaehrtenActivePreset = 'Manuell'; reittierActivePreset = 'Manuell'; }
   if(pendingAction === 'alles'){
-    grunddaten = { itemlevel:123397, klasse:'Kämpfer', vorbildpfad:'Schwertmeister (DPS)', klassentyp:'DPS' };
-    document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+    grunddaten = { itemlevel:0, klasse:'', vorbildpfad:'', klassentyp:'' };
+    document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
     document.getElementById('klasse').value = grunddaten.klasse;
     populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
   }
@@ -1847,10 +1865,16 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
 function populateVorbildpfad(klasse, selected){
   const sel = document.getElementById('vorbildpfad');
   const pfade = KLASSEN_PFADE[klasse] || [];
+  if(!pfade.length){
+    sel.innerHTML = '<option value="">– erst Klasse wählen –</option>';
+    grunddaten.vorbildpfad = '';
+    updateKlassentyp();
+    return;
+  }
   sel.innerHTML = pfade.map(p=>`<option value="${p}">${p}</option>`).join('');
   if(selected && pfade.includes(selected)){
     sel.value = selected;
-  } else if(pfade.length){
+  } else {
     sel.value = pfade[0];
     grunddaten.vorbildpfad = pfade[0];
   }
@@ -1860,7 +1884,7 @@ function populateVorbildpfad(klasse, selected){
 // Klassentyp (Tank/Heiler/DPS) wird direkt aus dem Namen des Vorbildpfads abgeleitet,
 // z.B. "Schwertmeister (DPS)" -> DPS. Pfade ohne Klammerzusatz (Waldläufer/Schurke/Magier) sind reine DPS-Pfade.
 function klassentypFromPfad(pfad){
-  if(!pfad) return 'DPS';
+  if(!pfad) return '–';
   if(pfad.includes('(Tank)')) return 'Tank';
   if(pfad.includes('(Heiler)')) return 'Heiler';
   return 'DPS';
@@ -1938,7 +1962,7 @@ async function init(){
     }
   }
 
-  document.getElementById('itemlevel').value = formatWerte(grunddaten.itemlevel);
+  document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
   document.getElementById('klasse').value = grunddaten.klasse;
   populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
   updateAccountLabel();
