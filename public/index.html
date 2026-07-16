@@ -2356,29 +2356,75 @@ function collectEntryEditor(containerId){
 // Buff Food: wie oben, plus Checkboxen für die Food-Slots, in denen das Essen wählbar sein soll.
 function renderFoodEditor(){
   const el = document.getElementById('foodEditor');
-  el.innerHTML = Object.keys(foodDb).map(name=>{
+  const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
+  const wasFirstRender = el.children.length === 0;
+
+  // Jedes Essen wird der ERSTEN Kategorie zugeordnet, in der es aktuell angehakt ist (Anzeige-Gruppierung;
+  // die Checkboxen selbst erlauben weiterhin, ein Essen mehreren Kategorien gleichzeitig zuzuweisen).
+  const grouped = FOOD_SLOTS.map(fs => ({fs, items: []}));
+  const unassigned = [];
+  Object.keys(foodDb).forEach(name=>{
+    const idx = FOOD_SLOTS.findIndex(fs => fs.items.includes(name));
+    if(idx >= 0) grouped[idx].items.push(name);
+    else unassigned.push(name);
+  });
+
+  function cardFor(name){
     const checks = FOOD_SLOTS.map((fs,i)=>{
       const checked = fs.items.includes(name);
       return `<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}" ${checked?'checked':''}> ${fs.key.replace('Buff Food – ','')}</label>`;
     }).join('');
     return entryCardHtml(name, foodDb[name], `<div class="slot-check-row">${checks}</div>`);
+  }
+
+  const groupsHtml = grouped.map((g,gi)=>{
+    const cardsHtml = g.items.length ? g.items.map(cardFor).join('') : '<p class="helptext" style="margin:0;">Noch kein Essen in dieser Kategorie.</p>';
+    return `<div class="accordion" id="acc-foodgroup-${gi}" style="margin-top:8px;">
+      <button type="button" onclick="toggleFoodGroup('${gi}')">
+        <span>${g.fs.key.replace('Buff Food – ','')} <span class="muted">(${g.items.length})</span></span><span class="chevron">&#9656;</span>
+      </button>
+      <div class="body">${cardsHtml}</div>
+    </div>`;
   }).join('');
+  const unassignedHtml = `<div class="accordion" id="acc-foodgroup-unassigned" style="margin-top:8px;">
+    <button type="button" onclick="toggleFoodGroup('unassigned')">
+      <span>Ohne Kategorie <span class="muted">(${unassigned.length})</span></span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">${unassigned.length ? unassigned.map(cardFor).join('') : '<p class="helptext" style="margin:0;">Kein zugeordnungsfreies Essen.</p>'}</div>
+  </div>`;
+
+  el.innerHTML = groupsHtml + unassignedHtml;
+
+  if(wasFirstRender){
+    const el0 = document.getElementById('acc-foodgroup-0');
+    if(el0) el0.classList.add('open');
+  } else {
+    prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
+  }
   attachWerteFormatting(el);
 }
+function toggleFoodGroup(id){
+  const e = document.getElementById('acc-foodgroup-'+id);
+  if(e) e.classList.toggle('open');
+}
 function addFoodEntryCard(){
-  const el = document.getElementById('foodEditor');
+  const group = document.getElementById('acc-foodgroup-unassigned');
+  group.classList.add('open');
+  const body = group.querySelector('.body');
+  const emptyMsg = body.querySelector(':scope > p.helptext');
+  if(emptyMsg) emptyMsg.remove();
   const checks = FOOD_SLOTS.map((fs,i)=>`<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}"> ${fs.key.replace('Buff Food – ','')}</label>`).join('');
   const wrapper = document.createElement('div');
   wrapper.innerHTML = entryCardHtml('', {}, `<div class="slot-check-row">${checks}</div>`);
   const card = wrapper.firstElementChild;
-  el.appendChild(card);
+  body.appendChild(card);
   attachWerteFormatting(card);
 }
 function collectFoodEditor(){
   const el = document.getElementById('foodEditor');
   const result = {};
   const slotItems = FOOD_SLOTS.map(()=>[]);
-  el.querySelectorAll(':scope > .entry-card').forEach(card=>{
+  el.querySelectorAll('.entry-card').forEach(card=>{
     const name = card.querySelector('.entry-name').value.trim();
     if(!name) return;
     const stats = {};
