@@ -95,6 +95,9 @@
   .computed-stack{display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; align-items:center;}
   .delta-pos{color:var(--sup); font-weight:600;}
   .delta-neg{color:var(--off); font-weight:600;}
+  .delta-ok{color:var(--sup); font-weight:600;}
+  .delta-under{color:var(--off); font-weight:600;}
+  .delta-over{color:var(--gold); font-weight:700;}
   .muted{color:var(--text-dim);}
   .accordion{border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;}
   .accordion > button{
@@ -1153,15 +1156,19 @@ function updateStatGroups(results){
     if(eCell) eCell.textContent = fmt(r.E);
     if(stat.type==='werteOnly' || stat.type==='derived') continue;
     const fCell = document.getElementById(`F-${stat.id}`);
-    if(fCell){
-      let txt = fmt(r.F) + '%';
-      if(r.wehrBonus){ txt += ` (${r.wehrBonus>=0?'+':''}${fmt(r.wehrBonus)}% Wehrhaftigkeit)`; }
-      fCell.textContent = txt;
-    }
+    // Wehrhaftigkeit-Umverteilung ist bereits in r.F eingerechnet (siehe computeAll) -
+    // hier wird nur noch der fertige Gesamtwert gezeigt, kein separater Hinweis daneben.
+    if(fCell) fCell.textContent = fmt(r.F) + '%';
     const dCell = document.getElementById(`delta-${stat.id}`);
     if(dCell && stat.type==='softcap' && r.delta !== null){
       dCell.textContent = fmt(r.delta) + '%';
-      dCell.className = r.delta >= 0 ? 'delta-pos' : 'delta-neg';
+      // Ampel mit 1%-Toleranzband ums Cap: Delta = Max% - Aktuelle%.
+      // Delta > 1%  -> noch deutlich unter Cap = zu wenig (rot)
+      // Delta < -1% -> über Cap verschwendet = zu viel (orange)
+      // dazwischen  -> passt (grün)
+      if(r.delta > 1) dCell.className = 'delta-under';
+      else if(r.delta < -1) dCell.className = 'delta-over';
+      else dCell.className = 'delta-ok';
     }
   }
 }
@@ -1733,6 +1740,21 @@ function renderUebersicht(){
         <p class="helptext">Alle Werte deines aktuellen Charakters zusammengezählt: Grundwerte + Ausrüstung + Gefährten + Buff Food + Reittier Buffs. "Gesamt %" ist das berechnete Prozent (F) aus dem Rechner. Werte über dem Cap bringen im Spiel nichts extra - sie werden in den Rechnungen rechts auf das Cap begrenzt.</p>
         ${statsTables}
       </div>
+
+      <div class="accordion" id="acc-dmg-gegner" style="margin-top:16px;">
+        <button type="button" onclick="toggleDmgAccordion('gegner')">
+          <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
+        </button>
+        <div class="body">
+          <p class="helptext">Fließen in die Schadens- und Tank-Berechnung rechts mit ein (Vorgaben = Excel-Werte).</p>
+          <div class="grunddaten-grid">
+            ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
+            ${paramInput('gegnerDeflect','Gegner: Deflect')}
+            ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
+            ${paramInput('gegnerAwareness','Gegner: Awareness')}
+          </div>
+        </div>
+      </div>
     </div>
 
     <div>
@@ -1741,14 +1763,10 @@ function renderUebersicht(){
           <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
         </button>
         <div class="body">
-          <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
+          <p class="helptext">Rechnung wie im Excel-Blatt "DMG Berechnung". Die gegnerischen Werte dafür stehen links unter den Gesamt-Stats. Die Felder unten kannst du anpassen (Vorgaben = Excel-Werte); sie werden mit deinem Charakter gespeichert.</p>
           <div class="grunddaten-grid" style="margin-bottom:14px;">
             ${paramInput('faehigkeit','Schaden der Fähigkeit')}
             ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
-            ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
-            ${paramInput('gegnerDeflect','Gegner: Deflect')}
-            ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
-            ${paramInput('gegnerAwareness','Gegner: Awareness')}
           </div>
           <p style="margin:0 0 10px 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
           <div class="wide-table-scroll">
