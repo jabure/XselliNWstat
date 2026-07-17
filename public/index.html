@@ -760,7 +760,7 @@ async function renderAccountPanel(){
 
   const incomingHtml = incomingTransfers.length ? `
     <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid #2f5b4c; border-radius:8px;">
-      <label style="font-size:0.8rem;">Charakter-Angebote an dich</label>
+      <label style="font-size:0.8rem;">Charakter-Kopien, die dir angeboten wurden</label>
       ${incomingTransfers.map(t=>`<div class="char-item" style="padding:6px 10px;">
         <span style="flex:1;">${t.charName} <span class="muted">&middot; von ${t.from}</span></span>
         <button type="button" class="action gold small" onclick="acceptTransfer('${t.charName.replace(/'/g,"\\'")}')">Annehmen</button>
@@ -770,7 +770,7 @@ async function renderAccountPanel(){
 
   const list = chars.length ? chars.map((c, i)=>{
     const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
-    const statusNote = c.pendingTransferTo ? ` <span class="muted">&middot; wird gesendet an: ${c.pendingTransferTo}</span>` : '';
+    const statusNote = c.pendingTransferTo ? ` <span class="muted">&middot; Kopie wird gesendet an: ${c.pendingTransferTo}</span>` : '';
     return `<div>
       <div class="char-item">
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
@@ -796,7 +796,7 @@ async function renderAccountPanel(){
     <h3>Angemeldet als ${currentUser}</h3>
     ${incomingHtml}
     <div class="char-list">${list}</div>
-    <p class="helptext" style="margin-top:4px;">Über "Senden" kannst du einen eigenen Charakter komplett an einen anderen (bereits registrierten) Benutzer übergeben - der muss die Übergabe erst annehmen, bevor der Besitzer wirklich wechselt. Bis dahin kannst du das Senden auch wieder abbrechen.</p>
+    <p class="helptext" style="margin-top:4px;">Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.</p>
     <div class="login-grid" style="margin-top:12px;">
       <div>
         <label>Neuer Charakter</label>
@@ -837,7 +837,7 @@ function toggleSendByIndex(i){
   panel.style.display = 'block';
   panel.innerHTML = `
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
-      <label style="font-size:0.8rem;">Charakter an einen anderen Benutzer senden</label>
+      <label style="font-size:0.8rem;">Kopie an einen anderen Benutzer senden</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
         <input type="text" id="send-input-${i}" placeholder="Benutzername" style="flex:1;">
         <button type="button" class="action gold small" onclick="sendCharacterByIndex(${i})">Senden</button>

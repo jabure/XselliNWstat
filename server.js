@@ -278,7 +278,9 @@ app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
 /* ---------- Charakter-Übergabe: Senden/Annehmen/Ablehnen/Abbrechen ----------
    Nur der Besitzer darf einen Charakter senden oder eine offene Übergabe abbrechen.
    Nur der Empfänger darf eine an ihn gerichtete Übergabe annehmen oder ablehnen.
-   Erst durch "Annehmen" wechselt der Besitzer wirklich (Datei, Benutzerliste). */
+   Es wird dabei immer eine KOPIE übergeben - der Absender behält sein Original,
+   der Empfänger bekommt bei "Annehmen" einen neuen, eigenen Charakter mit denselben
+   Daten (unter einem automatisch angepassten, eindeutigen Namen). */
 app.get('/api/transfers', authMiddleware, (req, res) => {
   const transfers = readJson(TRANSFERS_FILE, {});
   const incoming = [];
@@ -331,17 +333,21 @@ app.post('/api/transfers/:name/accept', authMiddleware, (req, res) => {
     setTransfer(req.params.name, null);
     return res.status(404).json({ error: 'Absender oder Empfänger existiert nicht mehr' });
   }
-  // Datei auf den neuen Besitzer umbenennen, Benutzerlisten aktualisieren.
-  const oldFile = charFile(t.from, req.params.name);
-  const newFile = charFile(req.username, req.params.name);
-  try{ fs.renameSync(oldFile, newFile); }
-  catch(e){ writeJson(newFile, readJson(oldFile, {})); }
-  fromUser.characters = (fromUser.characters || []).filter(c => c !== req.params.name);
+  // Es wird eine KOPIE angelegt - der Absender behält sein Original unverändert.
+  // Da Charakternamen global eindeutig sein müssen, bekommt die Kopie automatisch
+  // einen neuen, freien Namen.
   if(!toUser.characters) toUser.characters = [];
-  if(!toUser.characters.includes(req.params.name)) toUser.characters.push(req.params.name);
+  const base = `${req.params.name} (von ${t.from})`;
+  let target = base, i = 2;
+  while(toUser.characters.includes(target) || isCharNameTakenByOther(target, req.username)){
+    target = `${base} ${i++}`;
+  }
+  const data = readJson(charFile(t.from, req.params.name), {});
+  toUser.characters.push(target);
   writeJson(USERS_FILE, users);
+  writeJson(charFile(req.username, target), data);
   setTransfer(req.params.name, null);
-  res.json({ ok: true });
+  res.json({ ok: true, name: target });
 });
 app.post('/api/transfers/:name/decline', authMiddleware, (req, res) => {
   const t = getTransfer(req.params.name);

@@ -126,16 +126,15 @@ du selbst am Server etwas eintippen musst.
 - Bei sehr vielen gleichzeitigen Schreibvorgängen auf denselben Charakter
   könnten sich Speicherungen theoretisch überschreiben (unwahrscheinlich bei
   einer Gilde, da jeder nur seinen eigenen Charakter speichert).
-- **Charaktere an andere Benutzer senden:** Über den Account-Bereich kann
-  jeder Benutzer bei seinen eigenen Charakteren auf "Senden" klicken und
-  einen anderen, bereits registrierten Benutzernamen als Empfänger angeben.
-  Der Charakter wechselt dabei **nicht sofort** den Besitzer - der Empfänger
-  sieht die Anfrage oben im Account-Bereich und muss sie erst annehmen oder
-  ablehnen. Erst nach "Annehmen" gehört der Charakter dem Empfänger, und der
-  ursprüngliche Besitzer hat keinen Zugriff mehr darauf. Solange die Übergabe
-  noch offen ist, kann der Absender sie über "Senden abbrechen" auch wieder
-  zurückziehen. Es gibt bewusst **keine dauerhaft geteilte Bearbeitung mit
-  mehreren Besitzern** (keine Live-Synchronisation möglich, daher wenig
-  sinnvoll) - stattdessen ist es ein einfacher, eindeutiger Besitzerwechsel.
-  Der Empfänger muss bereits ein Konto haben; man kann nicht per E-Mail o. Ä.
+- **Charaktere an andere Benutzer senden (als Kopie):** Über den Account-
+  Bereich kann jeder Benutzer bei seinen eigenen Charakteren auf "Senden"
+  klicken und einen anderen, bereits registrierten Benutzernamen als
+  Empfänger angeben. Es wird dabei **immer eine Kopie** übertragen - das
+  eigene Original bleibt unverändert erhalten. Der Empfänger sieht die
+  Anfrage oben im Account-Bereich und muss sie erst annehmen oder ablehnen;
+  erst nach "Annehmen" bekommt er einen eigenen, neuen Charakter mit denselben
+  Daten (automatisch umbenannt, z. B. "Name (von Absender)", da Namen global
+  eindeutig sein müssen). Solange die Anfrage noch offen ist, kann der
+  Absender sie über "Senden abbrechen" auch wieder zurückziehen. Der
+  Empfänger muss bereits ein Konto haben; man kann nicht per E-Mail o. Ä.
   zur Registrierung einladen.
