@@ -68,6 +68,10 @@
   }
   /* Das "Auge"-Symbol von Edge im Passwortfeld an das dunkle Design anpassen */
   input[type=password]::-ms-reveal{filter:invert(0.8);}
+  /* Leere Felder zeigen ein dezentes, hellgraues "0" als Platzhalter statt einer echten,
+     fest eingetragenen 0 - so ist auf einen Blick klar, was tatsächlich befüllt wurde. */
+  input::placeholder{color:#6b6f7a; opacity:1;}
+  input::-webkit-input-placeholder{color:#6b6f7a; opacity:1;}
   input:focus, select:focus, textarea:focus{outline:2px solid var(--gold); outline-offset:1px;}
   .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:0.8rem; color:var(--text-dim);}
   .legend-item{display:flex; align-items:center; gap:7px;}
@@ -101,8 +105,8 @@
   .delta-pos{color:var(--sup); font-weight:600;}
   .delta-neg{color:var(--off); font-weight:600;}
   .delta-ok{color:var(--sup); font-weight:600;}
-  .delta-under{color:var(--off); font-weight:600;}
-  .delta-over{color:var(--gold); font-weight:700;}
+  .delta-toolittle{color:var(--gold); font-weight:700;}
+  .delta-toomuch{color:var(--off); font-weight:600;}
   .toggle-active-btn{
     padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; cursor:pointer;
     border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
@@ -856,7 +860,8 @@ const STAT_GROUPS = [
     {id:'kritvermeidung', label:'Krit-Vermeidung', type:'softcap', maxPr:0.90},
     {id:'robustheit', label:'Robustheit', type:'softcap', maxPr:0.90},
     {id:'robustheitstaerke', label:'Robustheitstärke', type:'softcap', maxPr:1.20},
-    {id:'trefferpunkte', label:'Trefferpunkte', type:'werteOnly', maxPr:null},
+    {id:'trefferpunkte', label:'Trefferpunkte', type:'werteProzent', maxPr:null},
+    {id:'ausdauerzugewinn', label:'Ausdauerzugewinn', type:'werteOnly', maxPr:null},
     {id:'schadensreduzierung', label:'Schadensreduzierung', type:'simple', maxPr:null},
   ]},
   { id:'support', label:'Unterstützung', color:'var(--sup)', stats:[
@@ -913,7 +918,7 @@ const DEFAULT_FORMULAS = {
   softcap: 'max(0, min(maxPr == 1.2 ? 60 : 50, (rating - (itemlevel - 50000)) / 1000))',
   fPercent: 'I - softcap(H, maxPr, itemlevel) + softcap(E, maxPr, itemlevel) + sourcesProzent',
   fSimple: 'I + sourcesProzent',
-  delta: 'maxPr * 100 - F',
+  delta: 'F - maxPr * 100',
 };
 
 let formulas = {...DEFAULT_FORMULAS};
@@ -935,6 +940,17 @@ function parseWerte(str){
   const digits = String(str).replace(/[^\d-]/g,'');
   if(digits === '' || digits === '-') return 0;
   return Number(digits);
+}
+// Für Eingabefelder: bei 0 (=noch nichts eingetragen) bleibt "value" leer und das Feld zeigt
+// stattdessen über "placeholder" ein dezentes, hellgraues "0" - statt einer echten, fest
+// eingetragenen 0. So ist auf einen Blick klar, was tatsächlich befüllt wurde.
+function werteValueAttr(n){
+  const num = Number(n)||0;
+  return num ? `value="${formatWerte(num)}"` : `value="" placeholder="0"`;
+}
+function pctValueAttr(n){
+  const num = Number(n)||0;
+  return num ? `value="${num}"` : `value="" placeholder="0"`;
 }
 // Beim Fokussieren: unformatiert (nur Ziffern) zeigen, damit man normal weitertippen kann.
 // Beim Verlassen des Feldes: wieder mit 1000er-Punkt formatieren.
@@ -1015,6 +1031,12 @@ function computeAll(){
     let E = null, F = null, delta = null, error = null;
     try{
       E = math.evaluate(formulas.eTotal, {H, sourcesWerte});
+      // Werte+Prozent-Stats (aktuell nur Trefferpunkte): zusätzlich zur Ausrüstung/Boni-Werte-Summe
+      // kann Ausrüstung/Boni auch einen %-Bonus geben (z. B. "+5% Trefferpunkte"), der multiplikativ
+      // auf die Werte-Summe wirkt.
+      if(stat.type === 'werteProzent'){
+        E = E * (1 + sourcesProzent/100);
+      }
     }catch(e){ error = 'E: ' + e.message; E = H + sourcesWerte; }
 
     if(stat.type === 'softcap'){
@@ -1126,14 +1148,15 @@ function buildStatGroupsDOM(){
   const bodyHtml = STAT_GROUPS.map(g=>{
     const rows = g.stats.map(stat=>{
       const maxPr = getMaxPr(stat);
-      if(stat.type==='werteOnly'){
+      if(stat.type==='werteOnly' || stat.type==='werteProzent'){
+        const note = stat.type==='werteProzent' ? 'Werte + % aus Ausrüstung/Boni' : '&ndash;';
         return `<tr class="subgroup-row">
           <td class="statname">${stat.label}</td>
           <td class="muted">&ndash;</td>
-          <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
+          <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
           <td class="muted">&ndash;</td>
           <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span></td>
-          <td class="muted" id="note-${stat.id}">&ndash;</td>
+          <td class="muted" id="note-${stat.id}">${note}</td>
         </tr>`;
       }
       if(stat.type==='derived'){
@@ -1151,7 +1174,7 @@ function buildStatGroupsDOM(){
           <td class="statname">${stat.label}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
-          <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" value="${getBase(stat.id).I}"><span class="pct-suffix">%</span></span></td>
+          <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
           <td class="computed-stack"><span class="computed" id="F-${stat.id}"></span></td>
           <td class="muted">&ndash;</td>
         </tr>`;
@@ -1159,8 +1182,8 @@ function buildStatGroupsDOM(){
       return `<tr class="subgroup-row">
         <td class="statname">${stat.label}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
-        <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" value="${formatWerte(getBase(stat.id).H)}"></td>
-        <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" value="${getBase(stat.id).I}"><span class="pct-suffix">%</span></span></td>
+        <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
+        <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
         <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span><span class="computed" id="F-${stat.id}"></span></td>
         <td id="delta-${stat.id}" class="muted">&ndash;</td>
       </tr>`;
@@ -1203,22 +1226,32 @@ function updateStatGroups(results){
   for(const stat of ALL_STATS){
     const r = results[stat.id];
     const eCell = document.getElementById(`E-${stat.id}`);
-    if(eCell) eCell.textContent = fmt(r.E);
-    if(stat.type==='werteOnly' || stat.type==='derived') continue;
+    if(stat.type==='werteOnly' || stat.type==='derived'){
+      if(eCell) eCell.textContent = fmt(r.E);
+      continue;
+    }
     const fCell = document.getElementById(`F-${stat.id}`);
     // Wehrhaftigkeit-Umverteilung ist bereits in r.F eingerechnet (siehe computeAll) -
     // hier wird nur noch der fertige Gesamtwert gezeigt, kein separater Hinweis daneben.
     if(fCell) fCell.textContent = fmt(r.F) + '%';
+    if(eCell) eCell.textContent = fmt(r.E);
     const dCell = document.getElementById(`delta-${stat.id}`);
     if(dCell && stat.type==='softcap' && r.delta !== null){
-      dCell.textContent = fmt(r.delta) + '%';
-      // Ampel mit 1%-Toleranzband ums Cap: Delta = Max% - Aktuelle%.
-      // Delta > 1%  -> noch deutlich unter Cap = zu wenig (rot)
-      // Delta < -1% -> über Cap verschwendet = zu viel (orange)
+      dCell.textContent = (r.delta>0?'+':'') + fmt(r.delta) + '%';
+      // Ampel mit 1%-Toleranzband ums Cap: Delta = Aktuelle% - Max%.
+      // Delta > 1%  -> über Cap = zu viel (rot)
+      // Delta < -1% -> noch unter Cap = zu wenig (orange)
       // dazwischen  -> passt (grün)
-      if(r.delta > 1) dCell.className = 'delta-under';
-      else if(r.delta < -1) dCell.className = 'delta-over';
-      else dCell.className = 'delta-ok';
+      let cls;
+      if(r.delta > 1) cls = 'delta-toomuch';
+      else if(r.delta < -1) cls = 'delta-toolittle';
+      else cls = 'delta-ok';
+      dCell.className = cls;
+      // Wert (E) und Prozent (F) bekommen jeweils EINZELN dieselbe Ampelfarbe (statt der
+      // statischen goldenen "computed"-Farbe), damit auf einen Blick klar ist, welche Stats
+      // noch zu wenig, genau richtig oder verschwendet (zu viel) sind.
+      if(eCell) eCell.className = 'computed ' + cls;
+      if(fCell) fCell.className = 'computed ' + cls;
     }
   }
 }
@@ -1239,8 +1272,8 @@ function renderManualTable(cat){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1340,8 +1373,8 @@ function renderGefaehrtenWerteTable(){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1428,8 +1461,8 @@ function renderReittierWerteTable(){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" value="${formatWerte(v.werte)}"` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" value="${v.prozent}"><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
