@@ -16,7 +16,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const CHAR_DIR = path.join(DATA_DIR, 'chars');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SHARED_FILE = path.join(DATA_DIR, 'shared.json');
-const SHARES_FILE = path.join(DATA_DIR, 'shares.json');
+const TRANSFERS_FILE = path.join(DATA_DIR, 'transfers.json');
 
 if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
   console.warn('WARNUNG: JWT_SECRET wurde nicht gesetzt - bitte in der .env auf einen langen, zufälligen Wert ändern!');
@@ -25,7 +25,7 @@ if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
 fs.mkdirSync(CHAR_DIR, { recursive: true });
 if(!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
 if(!fs.existsSync(SHARED_FILE)) fs.writeFileSync(SHARED_FILE, '{}');
-if(!fs.existsSync(SHARES_FILE)) fs.writeFileSync(SHARES_FILE, '{}');
+if(!fs.existsSync(TRANSFERS_FILE)) fs.writeFileSync(TRANSFERS_FILE, '{}');
 
 function readJson(file, fallback){
   try{ return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -45,48 +45,31 @@ function charFile(username, charname){
   return path.join(CHAR_DIR, `${safeName(username)}__${safeName(charname)}.json`);
 }
 
-/* ---------- Charakter-Freigaben (Mitbearbeiter) ----------
-   Ein Charakter gehört weiterhin genau EINEM Benutzer (Datei liegt unter dessen Namen),
-   kann aber für andere Benutzer als Mitbearbeiter freigegeben werden - die sehen und
-   bearbeiten dann denselben Charakter (kein Konflikt-Handling, letzter Speichervorgang
-   gewinnt - reicht für eine Gilde, bei der nicht mehrere gleichzeitig dieselbe Sekunde tippen). */
-function shareKey(owner, charname){ return `${owner}::${charname}`; }
-function getCollaborators(owner, charname){
-  const shares = readJson(SHARES_FILE, {});
-  return shares[shareKey(owner, charname)] || [];
+/* ---------- Charakter-Übergabe (Senden/Annehmen/Ablehnen) ----------
+   Ein Charakter gehört immer genau EINEM Benutzer. Statt einer dauerhaften Freigabe
+   (keine Live-Ansicht möglich, daher wenig sinnvoll) kann der Besitzer den Charakter
+   an einen anderen Benutzer SENDEN - die Übergabe ist eine Anfrage, die der Empfänger
+   annehmen oder ablehnen muss. Erst nach Annahme wechselt der Besitzer wirklich.
+   Pro Charakter kann es höchstens eine offene Übergabe geben (Schlüssel = Charaktername,
+   da Namen global eindeutig sind). */
+function getTransfer(charname){
+  const transfers = readJson(TRANSFERS_FILE, {});
+  return transfers[charname] || null;
 }
-function setCollaborators(owner, charname, list){
-  const shares = readJson(SHARES_FILE, {});
-  const key = shareKey(owner, charname);
-  if(list.length) shares[key] = list;
-  else delete shares[key];
-  writeJson(SHARES_FILE, shares);
+function setTransfer(charname, transfer){
+  const transfers = readJson(TRANSFERS_FILE, {});
+  if(transfer) transfers[charname] = transfer;
+  else delete transfers[charname];
+  writeJson(TRANSFERS_FILE, transfers);
 }
-function removeAllSharesFor(owner, charname){
-  setCollaborators(owner, charname, []);
-}
-function removeUserFromAllShares(username){
-  const shares = readJson(SHARES_FILE, {});
+function removeTransfersInvolving(username){
+  const transfers = readJson(TRANSFERS_FILE, {});
   let changed = false;
-  Object.keys(shares).forEach(key=>{
-    if(shares[key].includes(username)){
-      shares[key] = shares[key].filter(u => u !== username);
-      changed = true;
-    }
+  Object.keys(transfers).forEach(charname=>{
+    const t = transfers[charname];
+    if(t.from === username || t.to === username){ delete transfers[charname]; changed = true; }
   });
-  if(changed) writeJson(SHARES_FILE, shares);
-}
-// Findet, welchem Benutzer ein Charaktername gehört (Namen sind global eindeutig).
-function findCharOwner(charname){
-  const users = readJson(USERS_FILE, {});
-  for(const uname of Object.keys(users)){
-    if((users[uname].characters || []).includes(charname)) return uname;
-  }
-  return null;
-}
-function canAccessChar(username, owner, charname){
-  if(username === owner) return true;
-  return getCollaborators(owner, charname).includes(username);
+  if(changed) writeJson(TRANSFERS_FILE, transfers);
 }
 
 const app = express();
@@ -185,23 +168,12 @@ function charSummary(username, name){
 app.get('/api/characters', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  const shares = readJson(SHARES_FILE, {});
+  const transfers = readJson(TRANSFERS_FILE, {});
   const own = ((user && user.characters) || []).map(n => Object.assign(
     charSummary(req.username, n),
-    { owner: req.username, isOwner: true, collaborators: shares[shareKey(req.username, n)] || [] }
+    { owner: req.username, isOwner: true, pendingTransferTo: (transfers[n] && transfers[n].from === req.username) ? transfers[n].to : null }
   ));
-
-  // Von anderen Benutzern freigegebene Charaktere dazu mischen.
-  const shared = [];
-  Object.keys(shares).forEach(key => {
-    if(!shares[key].includes(req.username)) return;
-    const sepIdx = key.indexOf('::');
-    const ownerName = key.slice(0, sepIdx);
-    const charName = key.slice(sepIdx + 2);
-    shared.push(Object.assign(charSummary(ownerName, charName), { owner: ownerName, isOwner: false }));
-  });
-
-  res.json([...own, ...shared]);
+  res.json(own);
 });
 
 // Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
@@ -238,20 +210,22 @@ app.post('/api/characters', authMiddleware, (req, res) => {
 });
 
 app.get('/api/characters/:name', authMiddleware, (req, res) => {
-  const owner = findCharOwner(req.params.name);
-  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !user.characters.includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
-  const data = readJson(charFile(owner, req.params.name), {});
-  res.json({ name: req.params.name, data, owner, isOwner: owner === req.username });
+  const data = readJson(charFile(req.username, req.params.name), {});
+  res.json({ name: req.params.name, data });
 });
 
 app.put('/api/characters/:name', authMiddleware, (req, res) => {
-  const owner = findCharOwner(req.params.name);
-  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !user.characters.includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
-  writeJson(charFile(owner, req.params.name), req.body || {});
+  writeJson(charFile(req.username, req.params.name), req.body || {});
   res.json({ ok: true });
 });
 
@@ -262,11 +236,11 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
   user.characters = user.characters.filter(c => c !== req.params.name);
   writeJson(USERS_FILE, users);
   try{ fs.unlinkSync(charFile(req.username, req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
-  removeAllSharesFor(req.username, req.params.name);
+  setTransfer(req.params.name, null);
   res.json({ ok: true });
 });
 
-// Charakter umbenennen - nur der Besitzer darf das (Mitbearbeiter nicht).
+// Charakter umbenennen - nur der Besitzer darf das.
 app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
@@ -291,33 +265,36 @@ app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
   user.characters = user.characters.map(c => c === req.params.name ? newName : c);
   writeJson(USERS_FILE, users);
 
-  // Freigaben (Mitbearbeiter-Liste) unter dem neuen Namen weiterführen.
-  const shares = readJson(SHARES_FILE, {});
-  const oldKey = shareKey(req.username, req.params.name);
-  if(shares[oldKey]){
-    shares[shareKey(req.username, newName)] = shares[oldKey];
-    delete shares[oldKey];
-    writeJson(SHARES_FILE, shares);
+  // Eine offene Übergabe (falls vorhanden) unter dem neuen Namen weiterführen.
+  const pendingTransfer = getTransfer(req.params.name);
+  if(pendingTransfer){
+    setTransfer(req.params.name, null);
+    setTransfer(newName, pendingTransfer);
   }
 
   res.json({ ok: true, name: newName });
 });
 
-/* ---------- Charakter-Freigaben: Mitbearbeiter einladen/entfernen/anzeigen ----------
-   Nur der Besitzer darf einladen/entfernen. Ein Mitbearbeiter kann denselben Charakter
-   danach ganz normal über /api/characters/:name laden und speichern. */
-app.get('/api/characters/:name/collaborators', authMiddleware, (req, res) => {
-  const owner = findCharOwner(req.params.name);
-  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
-    return res.status(404).json({ error: 'Charakter nicht gefunden' });
-  }
-  res.json({ owner, isOwner: owner === req.username, collaborators: getCollaborators(owner, req.params.name) });
+/* ---------- Charakter-Übergabe: Senden/Annehmen/Ablehnen/Abbrechen ----------
+   Nur der Besitzer darf einen Charakter senden oder eine offene Übergabe abbrechen.
+   Nur der Empfänger darf eine an ihn gerichtete Übergabe annehmen oder ablehnen.
+   Erst durch "Annehmen" wechselt der Besitzer wirklich (Datei, Benutzerliste). */
+app.get('/api/transfers', authMiddleware, (req, res) => {
+  const transfers = readJson(TRANSFERS_FILE, {});
+  const incoming = [];
+  const outgoing = [];
+  Object.keys(transfers).forEach(charname => {
+    const t = transfers[charname];
+    if(t.to === req.username) incoming.push({ charName: charname, from: t.from });
+    if(t.from === req.username) outgoing.push({ charName: charname, to: t.to });
+  });
+  res.json({ incoming, outgoing });
 });
-app.post('/api/characters/:name/invite', authMiddleware, (req, res) => {
+app.post('/api/characters/:name/send', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
-    return res.status(403).json({ error: 'Nur der Besitzer kann Mitbearbeiter einladen' });
+    return res.status(403).json({ error: 'Nur der Besitzer kann den Charakter senden' });
   }
   const targetUsername = req.body && req.body.username;
   if(!targetUsername || !users[targetUsername]){
@@ -326,25 +303,55 @@ app.post('/api/characters/:name/invite', authMiddleware, (req, res) => {
   if(targetUsername === req.username){
     return res.status(400).json({ error: 'Du bist bereits Besitzer dieses Charakters' });
   }
-  const list = getCollaborators(req.username, req.params.name);
-  if(!list.includes(targetUsername)) list.push(targetUsername);
-  setCollaborators(req.username, req.params.name, list);
-  res.json({ ok: true, collaborators: list });
+  setTransfer(req.params.name, { from: req.username, to: targetUsername, createdAt: Date.now() });
+  res.json({ ok: true, to: targetUsername });
 });
-app.delete('/api/characters/:name/invite/:username', authMiddleware, (req, res) => {
+app.post('/api/characters/:name/cancel-send', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  const isOwner = !!(user && user.characters.includes(req.params.name));
-  const isSelfLeave = req.username === req.params.username;
-  if(!isOwner && !isSelfLeave){
-    return res.status(403).json({ error: 'Nur der Besitzer kann Mitbearbeiter entfernen' });
+  if(!user || !user.characters.includes(req.params.name)){
+    return res.status(403).json({ error: 'Nur der Besitzer kann eine Übergabe abbrechen' });
   }
-  const owner = isOwner ? req.username : findCharOwner(req.params.name);
-  if(!owner) return res.status(404).json({ error: 'Charakter nicht gefunden' });
-  const list = getCollaborators(owner, req.params.name).filter(u => u !== req.params.username);
-  setCollaborators(owner, req.params.name, list);
-  res.json({ ok: true, collaborators: list });
+  const t = getTransfer(req.params.name);
+  if(!t || t.from !== req.username){
+    return res.status(404).json({ error: 'Keine offene Übergabe für diesen Charakter' });
+  }
+  setTransfer(req.params.name, null);
+  res.json({ ok: true });
 });
+app.post('/api/transfers/:name/accept', authMiddleware, (req, res) => {
+  const t = getTransfer(req.params.name);
+  if(!t || t.to !== req.username){
+    return res.status(404).json({ error: 'Kein an dich gerichtetes Angebot für diesen Charakter' });
+  }
+  const users = readJson(USERS_FILE, {});
+  const fromUser = users[t.from];
+  const toUser = users[req.username];
+  if(!fromUser || !toUser){
+    setTransfer(req.params.name, null);
+    return res.status(404).json({ error: 'Absender oder Empfänger existiert nicht mehr' });
+  }
+  // Datei auf den neuen Besitzer umbenennen, Benutzerlisten aktualisieren.
+  const oldFile = charFile(t.from, req.params.name);
+  const newFile = charFile(req.username, req.params.name);
+  try{ fs.renameSync(oldFile, newFile); }
+  catch(e){ writeJson(newFile, readJson(oldFile, {})); }
+  fromUser.characters = (fromUser.characters || []).filter(c => c !== req.params.name);
+  if(!toUser.characters) toUser.characters = [];
+  if(!toUser.characters.includes(req.params.name)) toUser.characters.push(req.params.name);
+  writeJson(USERS_FILE, users);
+  setTransfer(req.params.name, null);
+  res.json({ ok: true });
+});
+app.post('/api/transfers/:name/decline', authMiddleware, (req, res) => {
+  const t = getTransfer(req.params.name);
+  if(!t || t.to !== req.username){
+    return res.status(404).json({ error: 'Kein an dich gerichtetes Angebot für diesen Charakter' });
+  }
+  setTransfer(req.params.name, null);
+  res.json({ ok: true });
+});
+
 
 /* ---------- Geteilte Daten: Formeln, Presets/Datenbanken ----------
    Lesen bleibt für alle offen (jeder Charakter-Rechner braucht die
@@ -411,11 +418,10 @@ app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (
   if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   (users[target].characters || []).forEach(c => {
     try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
-    removeAllSharesFor(target, c);
   });
   delete users[target];
   writeJson(USERS_FILE, users);
-  removeUserFromAllShares(target);
+  removeTransfersInvolving(target);
   res.json({ ok: true });
 });
 

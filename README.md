@@ -42,7 +42,7 @@ Im Unterordner `data/`, der auf dem Server liegt (nicht im Container –
 - `data/users.json` – Benutzerkonten (Passwort als Hash, keine Klartexte)
 - `data/chars/*.json` – je eine Datei pro Charakter
 - `data/shared.json` – Formeln, Gefährten-/Reittier-/Buff-Food-Datenbank, Presets
-- `data/shares.json` – wer welchen Charakter für wen als Mitbearbeiter freigegeben hat
+- `data/transfers.json` – offene Charakter-Übergaben (wer hat wem welchen Charakter angeboten)
 
 **Backup:** Es reicht, den `data/`-Ordner regelmäßig zu kopieren.
 
@@ -126,12 +126,16 @@ du selbst am Server etwas eintippen musst.
 - Bei sehr vielen gleichzeitigen Schreibvorgängen auf denselben Charakter
   könnten sich Speicherungen theoretisch überschreiben (unwahrscheinlich bei
   einer Gilde, da jeder nur seinen eigenen Charakter speichert).
-- **Charaktere freigeben:** Über den Account-Bereich kann jeder Benutzer bei
-  seinen eigenen Charakteren auf "Freigeben" klicken und andere, bereits
-  registrierte Benutzernamen als Mitbearbeiter einladen. Mitbearbeiter können
-  den Charakter danach genauso laden, bearbeiten und speichern wie der
-  Besitzer, aber nicht löschen oder weitere Mitbearbeiter einladen/entfernen -
-  das bleibt dem Besitzer vorbehalten. Es gibt dabei **keine Live-Synchronisation**
-  (kein gleichzeitiges Sehen von Änderungen wie in einem Google Doc) - wer
-  zuletzt speichert, gewinnt. Der eingeladene Benutzer muss bereits ein Konto
-  haben; man kann nicht per E-Mail o. Ä. zur Registrierung einladen.
+- **Charaktere an andere Benutzer senden:** Über den Account-Bereich kann
+  jeder Benutzer bei seinen eigenen Charakteren auf "Senden" klicken und
+  einen anderen, bereits registrierten Benutzernamen als Empfänger angeben.
+  Der Charakter wechselt dabei **nicht sofort** den Besitzer - der Empfänger
+  sieht die Anfrage oben im Account-Bereich und muss sie erst annehmen oder
+  ablehnen. Erst nach "Annehmen" gehört der Charakter dem Empfänger, und der
+  ursprüngliche Besitzer hat keinen Zugriff mehr darauf. Solange die Übergabe
+  noch offen ist, kann der Absender sie über "Senden abbrechen" auch wieder
+  zurückziehen. Es gibt bewusst **keine dauerhaft geteilte Bearbeitung mit
+  mehreren Besitzern** (keine Live-Synchronisation möglich, daher wenig
+  sinnvoll) - stattdessen ist es ein einfacher, eindeutiger Besitzerwechsel.
+  Der Empfänger muss bereits ein Konto haben; man kann nicht per E-Mail o. Ä.
+  zur Registrierung einladen.
