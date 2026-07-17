@@ -517,15 +517,18 @@ const DEFAULT_MOUNT_DB = {
 // Hinweis: "großes sommerfestmahl" und "scharfangebratener Thunfisch" hatten in der Excel bei
 // Trefferpunkte ein kaputtes Datums-Zellformat statt einer Zahl - hier erstmal auf 0 gesetzt.
 // Bitte kurz den echten Wert nachtragen (Presets bearbeiten -> Buff Food).
-const FOOD_CATEGORIES = ['Event-Food','Hauptgericht','Elixier','Sonderbuff','Utility'];
+// Kategorien entsprechen den Neverwinter-eigenen Verbrauchsgüter-Gruppen (siehe nw-hub.com/consumables):
+// von "Trank", "Elixier", "Festungsessen" und "Event-Essen" wirkt jeweils nur EINS gleichzeitig
+// (ein neues verdrängt das alte); Utility ist davon unabhängig und bleibt wie gehabt.
+const FOOD_CATEGORIES = ['Event-Essen','Festungsessen','Elixier','Trank','Utility'];
 const DEFAULT_FOOD_DB = {
-  'Event-Food': {
+  'Event-Essen': {
     'wassermelonensorbet': { kraft:{werte:0,prozent:5}, zielgenauigkeit:{werte:0,prozent:5} },
     'großes sommerfestmahl': { kraft:{werte:0,prozent:2.5}, zielgenauigkeit:{werte:0,prozent:1.5}, kritwert:{werte:0,prozent:1.5}, kritschaden:{werte:0,prozent:2.5}, robustheit:{werte:0,prozent:1.5}, trefferpunkte:{werte:0,prozent:0} },
     'Kürbissuppe': { kritwert:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
     'Pikane Flügel': { zielgenauigkeit:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
   },
-  'Hauptgericht': {
+  'Festungsessen': {
     'hochrippe': { kraft:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
     'scharfangebratener Thunfisch': { kritwert:{werte:4000,prozent:0}, trefferpunkte:{werte:0,prozent:0} },
     'Ratataouile': { zielgenauigkeit:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
@@ -534,8 +537,8 @@ const DEFAULT_FOOD_DB = {
     'orkanelexir': { kritwert:{werte:2000,prozent:0}, kritschaden:{werte:0,prozent:5} },
     'Geschenkelexir des Sonnenherren': { zielgenauigkeit:{werte:2000,prozent:0}, kampfvorteil:{werte:0,prozent:5} },
   },
-  'Sonderbuff': {
-    'Flaktok der Potenz Rang 3 +1': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
+  'Trank': {
+    'Überlegener Trank der Potenz': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
   },
   'Utility': {
     'wut der flamme': { bonusschaden:{werte:0,prozent:5} },
@@ -568,14 +571,15 @@ const DEFAULT_REITTIER_PRESETS = {
 // Jeder Buff-Food-Slot verweist auf eine Kategorie (siehe FOOD_CATEGORIES/foodDb) - die Essen
 // selbst werden direkt in ihrer Kategorie angelegt/gelöscht, keine Checkbox-Zuordnung mehr nötig.
 // Utility 1 und Utility 2 teilen sich dieselbe Kategorie "Utility": jedes Utility-Essen ist an
-// beiden Plätzen wählbar.
+// beiden Plätzen wählbar. "key" bleibt aus Kompatibilitätsgründen unverändert (bestehende
+// Charakter-Speicherstände referenzieren diese Bezeichner); "label" ist der Anzeigename.
 const FOOD_SLOTS = [
-  { key:'Buff Food – Event-Food', category:'Event-Food' },
-  { key:'Buff Food – Hauptgericht', category:'Hauptgericht' },
-  { key:'Buff Food – Elixier', category:'Elixier' },
-  { key:'Buff Food – Sonderbuff', category:'Sonderbuff' },
-  { key:'Buff Food – Utility 1', category:'Utility' },
-  { key:'Buff Food – Utility 2', category:'Utility' },
+  { key:'Buff Food – Event-Food', category:'Event-Essen', label:'Event-Essen' },
+  { key:'Buff Food – Hauptgericht', category:'Festungsessen', label:'Festungsessen' },
+  { key:'Buff Food – Elixier', category:'Elixier', label:'Elixier' },
+  { key:'Buff Food – Sonderbuff', category:'Trank', label:'Trank' },
+  { key:'Buff Food – Utility 1', category:'Utility', label:'Utility 1' },
+  { key:'Buff Food – Utility 2', category:'Utility', label:'Utility 2' },
 ];
 function foodSlotItems(fs){ return Object.keys(foodDb[fs.category] || {}); }
 
@@ -1568,7 +1572,7 @@ function renderFoodWerteTable(cat){
     const db = foodDb[fs.category] || {};
     const options = ['Leer', ...items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${fs.key.replace('Buff Food – ','')}: aus Preset laden</label>
+      <label style="font-size:0.75rem;">${fs.label}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, db)}</div>
     </div>`;
@@ -2805,8 +2809,25 @@ function bindGrunddaten(){
 // Kategorie-Zuordnung) in die neue Struktur (Kategorie -> {Essen-Name -> Stats}). Läuft
 // automatisch beim Laden, falls die vom Server geladene foodDb noch im alten Format ist.
 function migrateFoodDbIfNeeded(loadedFoodDb, loadedFoodSlots){
+  // Ältere Kategorienamen (vor der Umbenennung auf die echten Spiel-Begriffe) auf die
+  // aktuellen Namen abbilden.
+  const LEGACY_MAP = { 'Event-Food':'Event-Essen', 'Hauptgericht':'Festungsessen', 'Sonderbuff':'Trank', 'Elixier':'Elixier', 'Utility':'Utility' };
   const looksNew = FOOD_CATEGORIES.every(c => Object.prototype.hasOwnProperty.call(loadedFoodDb, c));
   if(looksNew) return loadedFoodDb;
+
+  // Zwischenformat: schon nach Kategorie sortiert, aber noch mit den alten Kategorienamen.
+  const looksLegacyCategorized = Object.keys(LEGACY_MAP).every(c => Object.prototype.hasOwnProperty.call(loadedFoodDb, c));
+  if(looksLegacyCategorized){
+    const result = {};
+    FOOD_CATEGORIES.forEach(c=>{ result[c] = {}; });
+    Object.keys(loadedFoodDb).forEach(oldCat=>{
+      const newCat = LEGACY_MAP[oldCat] || oldCat;
+      if(result[newCat]) Object.assign(result[newCat], loadedFoodDb[oldCat]);
+    });
+    return result;
+  }
+
+  // Ganz altes, flaches Format (Essen-Name -> Stats direkt), Kategorie kommt aus foodSlots[].items.
   const result = {};
   FOOD_CATEGORIES.forEach(c=>{ result[c] = {}; });
   const slots = (loadedFoodSlots && loadedFoodSlots.length) ? loadedFoodSlots : FOOD_SLOTS.map(fs=>({key:fs.key, items:[]}));
@@ -2814,11 +2835,12 @@ function migrateFoodDbIfNeeded(loadedFoodDb, loadedFoodSlots){
     let cat = null;
     for(const slot of slots){
       if(slot.items && slot.items.includes(name)){
-        cat = slot.key.includes('Utility') ? 'Utility' : slot.key.replace('Buff Food – ','');
+        const rawCat = slot.key.includes('Utility') ? 'Utility' : slot.key.replace('Buff Food – ','');
+        cat = LEGACY_MAP[rawCat] || rawCat;
         break;
       }
     }
-    if(!cat || !result[cat]) cat = 'Sonderbuff';
+    if(!cat || !result[cat]) cat = 'Trank';
     result[cat][name] = loadedFoodDb[name];
   });
   return result;
