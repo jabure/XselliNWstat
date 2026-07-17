@@ -414,8 +414,39 @@
       <textarea id="f_fSimple"></textarea>
     </div>
     <div class="formula-row">
-      <label>Delta (Max% minus aktuelles %) &ndash; Variablen: maxPr, F</label>
+      <label>Delta (Aktuelles % minus Max%: positiv = zu viel, negativ = zu wenig) &ndash; Variablen: maxPr, F</label>
       <textarea id="f_delta"></textarea>
+    </div>
+
+    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Schadensberechnung</h3>
+    <p class="helptext">Alle Prozent-Variablen (kraft, zielgenauigkeit, kampfvorteil, kritwert, kritschaden, bonusschaden) sind bereits die gecappten, aktuellen % dieses Stats (0-100). Die "Gegner: ..."-Werte kommen von der Schadensberechnung-Seite.</p>
+    <div class="formula-row">
+      <label>Waffenschaden &ndash; Variablen: itemlevel, klassenFaktor (1,2 DPS / 1,1 Heiler / 1,0 Tank)</label>
+      <textarea id="f_dmgWaffenschaden"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Kraft-Faktor &ndash; Variablen: kraft</label>
+      <textarea id="f_dmgKraftFaktor"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Zielgenauigkeit-Faktor &ndash; Variablen: zielgenauigkeit, gegnerDeflect, gegnerDeflectSev</label>
+      <textarea id="f_dmgZgFaktor"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Kampfvorteil-Faktor &ndash; Variablen: kampfvorteil, gegnerAwareness</label>
+      <textarea id="f_dmgKvFaktor"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Krit-Faktor &ndash; Variablen: kritwert, kritschaden, gegnerKritvermeidung</label>
+      <textarea id="f_dmgKritFaktor"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Bonus-Schaden-Faktor &ndash; Variablen: bonusschaden</label>
+      <textarea id="f_dmgBonusFaktor"></textarea>
+    </div>
+    <div class="formula-row">
+      <label>Gesamtschaden &ndash; Variablen: waffenschaden, kraftF, zgF, kvF, kritF, bonusF, gegnerDefensive, faehigkeit</label>
+      <textarea id="f_dmgTotal"></textarea>
     </div>
 
     <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Wehrhaftigkeit-Umverteilung pro Klasse/Vorbildpfad</h3>
@@ -486,20 +517,31 @@ const DEFAULT_MOUNT_DB = {
 // Hinweis: "großes sommerfestmahl" und "scharfangebratener Thunfisch" hatten in der Excel bei
 // Trefferpunkte ein kaputtes Datums-Zellformat statt einer Zahl - hier erstmal auf 0 gesetzt.
 // Bitte kurz den echten Wert nachtragen (Presets bearbeiten -> Buff Food).
+const FOOD_CATEGORIES = ['Event-Food','Hauptgericht','Elixier','Sonderbuff','Utility'];
 const DEFAULT_FOOD_DB = {
-  'wassermelonensorbet': { kraft:{werte:0,prozent:5}, zielgenauigkeit:{werte:0,prozent:5} },
-  'großes sommerfestmahl': { kraft:{werte:0,prozent:2.5}, zielgenauigkeit:{werte:0,prozent:1.5}, kritwert:{werte:0,prozent:1.5}, kritschaden:{werte:0,prozent:2.5}, robustheit:{werte:0,prozent:1.5}, trefferpunkte:{werte:0,prozent:0} },
-  'Kürbissuppe': { kritwert:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
-  'Pikane Flügel': { zielgenauigkeit:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
-  'hochrippe': { kraft:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
-  'scharfangebratener Thunfisch': { kritwert:{werte:4000,prozent:0}, trefferpunkte:{werte:0,prozent:0} },
-  'Ratataouile': { zielgenauigkeit:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
-  'orkanelexir': { kritwert:{werte:2000,prozent:0}, kritschaden:{werte:0,prozent:5} },
-  'Geschenkelexir des Sonnenherren': { zielgenauigkeit:{werte:2000,prozent:0}, kampfvorteil:{werte:0,prozent:5} },
-  'Flaktok der Potenz Rang 3 +1': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
-  'wut der flamme': { bonusschaden:{werte:0,prozent:5} },
-  'präzision des Teufel': { zielgenauigkeit:{werte:0,prozent:5}, kritwert:{werte:0,prozent:5} },
-  'taktiker der schwetrtküste': { kraft:{werte:0,prozent:5}, kampfvorteil:{werte:0,prozent:5} },
+  'Event-Food': {
+    'wassermelonensorbet': { kraft:{werte:0,prozent:5}, zielgenauigkeit:{werte:0,prozent:5} },
+    'großes sommerfestmahl': { kraft:{werte:0,prozent:2.5}, zielgenauigkeit:{werte:0,prozent:1.5}, kritwert:{werte:0,prozent:1.5}, kritschaden:{werte:0,prozent:2.5}, robustheit:{werte:0,prozent:1.5}, trefferpunkte:{werte:0,prozent:0} },
+    'Kürbissuppe': { kritwert:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
+    'Pikane Flügel': { zielgenauigkeit:{werte:0,prozent:5}, kritschaden:{werte:0,prozent:5} },
+  },
+  'Hauptgericht': {
+    'hochrippe': { kraft:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
+    'scharfangebratener Thunfisch': { kritwert:{werte:4000,prozent:0}, trefferpunkte:{werte:0,prozent:0} },
+    'Ratataouile': { zielgenauigkeit:{werte:4000,prozent:0}, trefferpunkte:{werte:20000,prozent:0} },
+  },
+  'Elixier': {
+    'orkanelexir': { kritwert:{werte:2000,prozent:0}, kritschaden:{werte:0,prozent:5} },
+    'Geschenkelexir des Sonnenherren': { zielgenauigkeit:{werte:2000,prozent:0}, kampfvorteil:{werte:0,prozent:5} },
+  },
+  'Sonderbuff': {
+    'Flaktok der Potenz Rang 3 +1': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
+  },
+  'Utility': {
+    'wut der flamme': { bonusschaden:{werte:0,prozent:5} },
+    'präzision des Teufel': { zielgenauigkeit:{werte:0,prozent:5}, kritwert:{werte:0,prozent:5} },
+    'taktiker der schwetrtküste': { kraft:{werte:0,prozent:5}, kampfvorteil:{werte:0,prozent:5} },
+  },
 };
 let companionDb = JSON.parse(JSON.stringify(DEFAULT_COMPANION_DB));
 let mountDb = JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
@@ -523,16 +565,19 @@ const DEFAULT_REITTIER_PRESETS = {
   'Manuell': [],
 };
 
-// Jeder Buff-Food-Slot hat seine eigene, feste Auswahlliste (so wie in deiner Excel je Dropdown-Zeile).
+// Jeder Buff-Food-Slot verweist auf eine Kategorie (siehe FOOD_CATEGORIES/foodDb) - die Essen
+// selbst werden direkt in ihrer Kategorie angelegt/gelöscht, keine Checkbox-Zuordnung mehr nötig.
+// Utility 1 und Utility 2 teilen sich dieselbe Kategorie "Utility": jedes Utility-Essen ist an
+// beiden Plätzen wählbar.
 const FOOD_SLOTS = [
-  { key:'Buff Food – Event-Food', items:['wassermelonensorbet','großes sommerfestmahl','Kürbissuppe','Pikane Flügel'] },
-  { key:'Buff Food – Hauptgericht', items:['hochrippe','scharfangebratener Thunfisch','Ratataouile'] },
-  { key:'Buff Food – Elixier', items:['orkanelexir','Geschenkelexir des Sonnenherren'] },
-  { key:'Buff Food – Sonderbuff', items:['Flaktok der Potenz Rang 3 +1'] },
-  { key:'Buff Food – Utility 1', items:['wut der flamme','präzision des Teufel','taktiker der schwetrtküste'] },
-  { key:'Buff Food – Utility 2', items:['wut der flamme','präzision des Teufel','taktiker der schwetrtküste'] },
+  { key:'Buff Food – Event-Food', category:'Event-Food' },
+  { key:'Buff Food – Hauptgericht', category:'Hauptgericht' },
+  { key:'Buff Food – Elixier', category:'Elixier' },
+  { key:'Buff Food – Sonderbuff', category:'Sonderbuff' },
+  { key:'Buff Food – Utility 1', category:'Utility' },
+  { key:'Buff Food – Utility 2', category:'Utility' },
 ];
-const FOOD_SLOTS_DEFAULT = JSON.parse(JSON.stringify(FOOD_SLOTS));
+function foodSlotItems(fs){ return Object.keys(foodDb[fs.category] || {}); }
 
 let gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
 let reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
@@ -861,7 +906,7 @@ const STAT_GROUPS = [
     {id:'robustheit', label:'Robustheit', type:'softcap', maxPr:0.90},
     {id:'robustheitstaerke', label:'Robustheitstärke', type:'softcap', maxPr:1.20},
     {id:'trefferpunkte', label:'Trefferpunkte', type:'werteProzent', maxPr:null},
-    {id:'ausdauerzugewinn', label:'Ausdauerzugewinn', type:'werteOnly', maxPr:null},
+    {id:'ausdauerzugewinn', label:'Ausdauerzugewinn', type:'simple', pctOnly:true, maxPr:null},
     {id:'schadensreduzierung', label:'Schadensreduzierung', type:'simple', maxPr:null},
   ]},
   { id:'support', label:'Unterstützung', color:'var(--sup)', stats:[
@@ -919,6 +964,16 @@ const DEFAULT_FORMULAS = {
   fPercent: 'I - softcap(H, maxPr, itemlevel) + softcap(E, maxPr, itemlevel) + sourcesProzent',
   fSimple: 'I + sourcesProzent',
   delta: 'F - maxPr * 100',
+  // Schadensberechnung (Werte in %, 0-100): jeder einzelne Faktor plus die Gesamtformel,
+  // die sie zusammenmultipliziert. Bei Formelfehlern greift automatisch die eingebaute
+  // Rechnung als Rückfallebene, die Seite bleibt also auch bei Tippfehlern nutzbar.
+  dmgWaffenschaden: 'itemlevel/10 * klassenFaktor',
+  dmgKraftFaktor: '1 + kraft/100',
+  dmgZgFaktor: '1 / (1 + (gegnerDeflect/100) * (gegnerDeflectSev/100 - zielgenauigkeit/100))',
+  dmgKvFaktor: '1 + (kampfvorteil - gegnerAwareness)/100',
+  dmgKritFaktor: '1 + (kritwert/100) * (kritschaden/100 - gegnerKritvermeidung/100)',
+  dmgBonusFaktor: '1 + bonusschaden/100',
+  dmgTotal: 'waffenschaden * kraftF * zgF * kvF * kritF / (1 + gegnerDefensive/100) * (faehigkeit/100) * bonusF',
 };
 
 let formulas = {...DEFAULT_FORMULAS};
@@ -1509,11 +1564,13 @@ function sourceHasValue(src){
 function renderFoodWerteTable(cat){
   const loaderCards = FOOD_SLOTS.map(fs=>{
     const sel = getSlotSelection(fs.key);
-    const options = ['Leer', ...fs.items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const items = foodSlotItems(fs);
+    const db = foodDb[fs.category] || {};
+    const options = ['Leer', ...items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${fs.key.replace('Buff Food – ','')}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
-      <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, foodDb)}</div>
+      <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, db)}</div>
     </div>`;
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
@@ -1526,7 +1583,8 @@ function renderFoodWerteTable(cat){
     </div>`;
 }
 function loadFoodPreset(src, name){
-  applySlotSelection(src, name, foodDb);
+  const fs = FOOD_SLOTS.find(f=>f.key===src);
+  applySlotSelection(src, name, (fs && foodDb[fs.category]) || {});
   queueSave();
   renderSourceAccordions();
   refresh(false);
@@ -1590,7 +1648,7 @@ function renderSourceAccordions(){
   el.querySelectorAll('select[data-slot]').forEach(sel=>{
     sel.addEventListener('change', e=>{
       const src = e.target.dataset.slot, catId = e.target.dataset.cat;
-      const db = catId==='bufffood' ? foodDb : dbForCategory(catId);
+      const db = catId==='bufffood' ? (foodDb[(FOOD_SLOTS.find(fs=>fs.key===src)||{}).category] || {}) : dbForCategory(catId);
       applySlotSelection(src, e.target.value, db);
       const summaryEl = document.getElementById('summary-'+slugSrc(src));
       if(summaryEl) summaryEl.textContent = summarizeContrib(e.target.value, db);
@@ -1678,6 +1736,13 @@ function fillFormulaFields(){
   document.getElementById('f_fPercent').value = formulas.fPercent;
   document.getElementById('f_fSimple').value = formulas.fSimple;
   document.getElementById('f_delta').value = formulas.delta;
+  document.getElementById('f_dmgWaffenschaden').value = formulas.dmgWaffenschaden;
+  document.getElementById('f_dmgKraftFaktor').value = formulas.dmgKraftFaktor;
+  document.getElementById('f_dmgZgFaktor').value = formulas.dmgZgFaktor;
+  document.getElementById('f_dmgKvFaktor').value = formulas.dmgKvFaktor;
+  document.getElementById('f_dmgKritFaktor').value = formulas.dmgKritFaktor;
+  document.getElementById('f_dmgBonusFaktor').value = formulas.dmgBonusFaktor;
+  document.getElementById('f_dmgTotal').value = formulas.dmgTotal;
   document.getElementById('f_wehr').value = JSON.stringify(wehrVerteilung, null, 2);
 }
 
@@ -1711,7 +1776,9 @@ function renderUebersicht(){
   const P = uebersichtParams;
   const itemlevel = Number(grunddaten.itemlevel)||0;
   const klassenFaktor = grunddaten.klassentyp==='DPS' ? 1.2 : (grunddaten.klassentyp==='Heiler' ? 1.1 : 1.0);
-  const waffenschaden = itemlevel/10 * klassenFaktor;
+  let waffenschaden;
+  try{ waffenschaden = math.evaluate(formulas.dmgWaffenschaden, {itemlevel, klassenFaktor}); }
+  catch(e){ waffenschaden = itemlevel/10 * klassenFaktor; }
 
   // Roh-% (F) und Cap pro Stat; das "+X %" wird VOR dem Cap addiert - wer schon
   // am Cap ist, bekommt durch +X % also nichts mehr dazu (genau wie im Excel).
@@ -1731,26 +1798,46 @@ function renderUebersicht(){
     return fmt(raw) + ' %' + over;
   };
 
-  // Die Schadensfaktoren aus dem Excel. plusStat: dieser eine Stat bekommt +amount %
-  // (amount default = Vergleichs-% aus den Einstellungen; für die Grafik am Ende wird
-  // fest +1% verwendet, damit die Balken unabhängig vom eingestellten Vergleichswert sind).
+  // Die Schadensfaktoren - jetzt über die editierbaren Formeln auf der Formeln-Seite (Coadmin)
+  // berechnet. plusStat: dieser eine Stat bekommt +amount % (amount default = Vergleichs-%
+  // aus den Einstellungen; für die Grafik am Ende wird fest +1% verwendet, damit die Kurven
+  // unabhängig vom eingestellten Vergleichswert sind). Bei einem Formelfehler (z. B. Tippfehler
+  // beim Bearbeiten) greift automatisch die eingebaute Rechnung als Rückfallebene.
   function dmgFaktoren(plusStat, amount){
     const amt = amount!==undefined ? amount : P.deltaPct;
     const pl = id => {
       const on = (typeof plusStat === 'function') ? plusStat(id) : (plusStat===id);
       return on ? amt : 0;
     };
-    return {
-      kraft: 1 + frac('kraft', pl('kraft')),
-      zg:    1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - frac('zielgenauigkeit', pl('zielgenauigkeit')))),
-      kv:    1 + (frac('kampfvorteil', pl('kampfvorteil')) - P.gegnerAwareness/100),
-      krit:  1 + frac('kritwert', pl('kritwert')) * (frac('kritschaden', pl('kritschaden')) - P.gegnerKritvermeidung/100),
-      bonus: 1 + frac('bonusschaden', pl('bonusschaden')),
-    };
+    const kraftPct = frac('kraft', pl('kraft'))*100;
+    const zgPct = frac('zielgenauigkeit', pl('zielgenauigkeit'))*100;
+    const kvPct = frac('kampfvorteil', pl('kampfvorteil'))*100;
+    const kwPct = frac('kritwert', pl('kritwert'))*100;
+    const ksPct = frac('kritschaden', pl('kritschaden'))*100;
+    const bonusPct = frac('bonusschaden', pl('bonusschaden'))*100;
+    let kraft, zg, kv, krit, bonus;
+    try{ kraft = math.evaluate(formulas.dmgKraftFaktor, {kraft:kraftPct}); }
+    catch(e){ kraft = 1 + kraftPct/100; }
+    try{ zg = math.evaluate(formulas.dmgZgFaktor, {zielgenauigkeit:zgPct, gegnerDeflect:P.gegnerDeflect, gegnerDeflectSev:P.gegnerDeflectSev}); }
+    catch(e){ zg = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - zgPct/100)); }
+    try{ kv = math.evaluate(formulas.dmgKvFaktor, {kampfvorteil:kvPct, gegnerAwareness:P.gegnerAwareness}); }
+    catch(e){ kv = 1 + (kvPct - P.gegnerAwareness)/100; }
+    try{ krit = math.evaluate(formulas.dmgKritFaktor, {kritwert:kwPct, kritschaden:ksPct, gegnerKritvermeidung:P.gegnerKritvermeidung}); }
+    catch(e){ krit = 1 + (kwPct/100) * (ksPct/100 - P.gegnerKritvermeidung/100); }
+    try{ bonus = math.evaluate(formulas.dmgBonusFaktor, {bonusschaden:bonusPct}); }
+    catch(e){ bonus = 1 + bonusPct/100; }
+    return {kraft, zg, kv, krit, bonus};
   }
   function dmgTotal(plusStat, amount){
     const f = dmgFaktoren(plusStat, amount);
-    return waffenschaden * f.kraft * f.zg * f.kv * f.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * f.bonus;
+    try{
+      return math.evaluate(formulas.dmgTotal, {
+        waffenschaden, kraftF:f.kraft, zgF:f.zg, kvF:f.kv, kritF:f.krit, bonusF:f.bonus,
+        gegnerDefensive: P.gegnerDefensive, faehigkeit: P.faehigkeit,
+      });
+    }catch(e){
+      return waffenschaden * f.kraft * f.zg * f.kv * f.krit / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * f.bonus;
+    }
   }
   const fB = dmgFaktoren(null);
   const totalDmg = dmgTotal(null);
@@ -2420,88 +2507,70 @@ function renderFoodEditor(){
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
   const wasFirstRender = el.children.length === 0;
 
-  // Jedes Essen wird der ERSTEN Kategorie zugeordnet, in der es aktuell angehakt ist (Anzeige-Gruppierung;
-  // die Checkboxen selbst erlauben weiterhin, ein Essen mehreren Kategorien gleichzeitig zuzuweisen).
-  const grouped = FOOD_SLOTS.map(fs => ({fs, items: []}));
-  const unassigned = [];
-  Object.keys(foodDb).forEach(name=>{
-    const idx = FOOD_SLOTS.findIndex(fs => fs.items.includes(name));
-    if(idx >= 0) grouped[idx].items.push(name);
-    else unassigned.push(name);
-  });
-
-  function cardFor(name){
-    const checks = FOOD_SLOTS.map((fs,i)=>{
-      const checked = fs.items.includes(name);
-      return `<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}" ${checked?'checked':''}> ${fs.key.replace('Buff Food – ','')}</label>`;
-    }).join('');
-    return entryCardHtml(name, foodDb[name], `<div class="slot-check-row">${checks}</div>`);
-  }
-
-  const groupsHtml = grouped.map((g,gi)=>{
-    const cardsHtml = g.items.length ? g.items.map(cardFor).join('') : '<p class="helptext" style="margin:0;">Noch kein Essen in dieser Kategorie.</p>';
-    return `<div class="accordion" id="acc-foodgroup-${gi}" style="margin-top:8px;">
-      <button type="button" onclick="toggleFoodGroup('${gi}')">
-        <span>${g.fs.key.replace('Buff Food – ','')} <span class="muted">(${g.items.length})</span></span><span class="chevron">&#9656;</span>
+  el.innerHTML = FOOD_CATEGORIES.map((catName, ci)=>{
+    const items = foodDb[catName] || {};
+    const names = Object.keys(items);
+    const cardsHtml = names.length
+      ? names.map(name=>entryCardHtml(name, items[name])).join('')
+      : '<p class="helptext" style="margin:0 0 10px 0;">Noch kein Essen in dieser Kategorie.</p>';
+    const hint = catName==='Utility' ? ' <span class="muted">(gilt für Utility 1 und Utility 2)</span>' : '';
+    return `<div class="accordion" id="acc-foodcat-${ci}" style="margin-top:8px;">
+      <button type="button" onclick="toggleFoodGroup(${ci})">
+        <span>${catName}${hint} <span class="muted">(${names.length})</span></span><span class="chevron">&#9656;</span>
       </button>
-      <div class="body">${cardsHtml}</div>
+      <div class="body" data-food-cat="${catName}">
+        <div class="food-cat-cards">${cardsHtml}</div>
+        <div class="btnrow"><button type="button" class="action small" onclick="addFoodEntryCard('${catName}')">+ Essen in "${catName}" anlegen</button></div>
+      </div>
     </div>`;
   }).join('');
-  const unassignedHtml = `<div class="accordion" id="acc-foodgroup-unassigned" style="margin-top:8px;">
-    <button type="button" onclick="toggleFoodGroup('unassigned')">
-      <span>Ohne Kategorie <span class="muted">(${unassigned.length})</span></span><span class="chevron">&#9656;</span>
-    </button>
-    <div class="body">${unassigned.length ? unassigned.map(cardFor).join('') : '<p class="helptext" style="margin:0;">Kein zugeordnungsfreies Essen.</p>'}</div>
-  </div>`;
-
-  el.innerHTML = groupsHtml + unassignedHtml;
 
   if(wasFirstRender){
-    const el0 = document.getElementById('acc-foodgroup-0');
+    const el0 = document.getElementById('acc-foodcat-0');
     if(el0) el0.classList.add('open');
   } else {
     prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
   }
   attachWerteFormatting(el);
 }
-function toggleFoodGroup(id){
-  const e = document.getElementById('acc-foodgroup-'+id);
+function toggleFoodGroup(idx){
+  const e = document.getElementById('acc-foodcat-'+idx);
   if(e) e.classList.toggle('open');
 }
-function addFoodEntryCard(){
-  const group = document.getElementById('acc-foodgroup-unassigned');
-  group.classList.add('open');
-  const body = group.querySelector('.body');
-  const emptyMsg = body.querySelector(':scope > p.helptext');
+function addFoodEntryCard(catName){
+  const ci = FOOD_CATEGORIES.indexOf(catName);
+  const acc = document.getElementById('acc-foodcat-'+ci);
+  if(!acc) return;
+  acc.classList.add('open');
+  const cardsWrap = acc.querySelector('.food-cat-cards');
+  const emptyMsg = cardsWrap.querySelector(':scope > p.helptext');
   if(emptyMsg) emptyMsg.remove();
-  const checks = FOOD_SLOTS.map((fs,i)=>`<label class="slot-check"><input type="checkbox" class="food-slot-check" data-slotidx="${i}"> ${fs.key.replace('Buff Food – ','')}</label>`).join('');
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = entryCardHtml('', {}, `<div class="slot-check-row">${checks}</div>`);
+  wrapper.innerHTML = entryCardHtml('', {});
   const card = wrapper.firstElementChild;
-  body.appendChild(card);
+  cardsWrap.appendChild(card);
   attachWerteFormatting(card);
 }
 function collectFoodEditor(){
   const el = document.getElementById('foodEditor');
   const result = {};
-  const slotItems = FOOD_SLOTS.map(()=>[]);
-  el.querySelectorAll('.entry-card').forEach(card=>{
-    const name = card.querySelector('.entry-name').value.trim();
-    if(!name) return;
-    const stats = {};
-    card.querySelectorAll('.stat-row').forEach(row=>{
-      const statId = row.querySelector('.stat-select').value;
-      if(!statId) return;
-      const werte = parseWerte(row.querySelector('.stat-werte').value);
-      const prozent = Number(row.querySelector('.stat-prozent').value)||0;
-      if(werte || prozent) stats[statId] = {werte, prozent};
-    });
-    result[name] = stats;
-    card.querySelectorAll('.food-slot-check').forEach(chk=>{
-      if(chk.checked) slotItems[Number(chk.dataset.slotidx)].push(name);
+  FOOD_CATEGORIES.forEach(c=>{ result[c] = {}; });
+  el.querySelectorAll('[data-food-cat]').forEach(body=>{
+    const catName = body.dataset.foodCat;
+    body.querySelectorAll('.entry-card').forEach(card=>{
+      const name = card.querySelector('.entry-name').value.trim();
+      if(!name) return;
+      const stats = {};
+      card.querySelectorAll('.stat-row').forEach(row=>{
+        const statId = row.querySelector('.stat-select').value;
+        if(!statId) return;
+        const werte = parseWerte(row.querySelector('.stat-werte').value);
+        const prozent = Number(row.querySelector('.stat-prozent').value)||0;
+        if(werte || prozent) stats[statId] = {werte, prozent};
+      });
+      result[catName][name] = stats;
     });
   });
-  FOOD_SLOTS.forEach((fs,i)=>{ fs.items = slotItems[i]; });
   return result;
 }
 
@@ -2560,7 +2629,6 @@ async function savePresetsShared(){
   try{
     await apiSetPresets({
       companionDb, mountDb, foodDb,
-      foodSlots: FOOD_SLOTS.map(fs=>({key:fs.key, items:fs.items})),
       gefaehrtenPresets, reittierPresets,
     });
     document.getElementById('saveStatus').textContent = 'Presets gespeichert (für alle)';
@@ -2578,7 +2646,6 @@ function resetPresetsToDefault(){
   foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
   gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
   reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
-  FOOD_SLOTS_DEFAULT.forEach((def,i)=>{ FOOD_SLOTS[i].items = [...def.items]; });
   fillPresetFields();
 }
 
@@ -2589,6 +2656,13 @@ async function saveFormulas(){
   formulas.fPercent = document.getElementById('f_fPercent').value;
   formulas.fSimple = document.getElementById('f_fSimple').value;
   formulas.delta = document.getElementById('f_delta').value;
+  formulas.dmgWaffenschaden = document.getElementById('f_dmgWaffenschaden').value;
+  formulas.dmgKraftFaktor = document.getElementById('f_dmgKraftFaktor').value;
+  formulas.dmgZgFaktor = document.getElementById('f_dmgZgFaktor').value;
+  formulas.dmgKvFaktor = document.getElementById('f_dmgKvFaktor').value;
+  formulas.dmgKritFaktor = document.getElementById('f_dmgKritFaktor').value;
+  formulas.dmgBonusFaktor = document.getElementById('f_dmgBonusFaktor').value;
+  formulas.dmgTotal = document.getElementById('f_dmgTotal').value;
   try{
     wehrVerteilung = JSON.parse(document.getElementById('f_wehr').value);
   }catch(e){
@@ -2727,6 +2801,28 @@ function bindGrunddaten(){
 }
 
 /* ---------- Init ---------- */
+// Migriert eine alte, flache foodDb (Essen-Name -> Stats, mit foodSlots[].items zur
+// Kategorie-Zuordnung) in die neue Struktur (Kategorie -> {Essen-Name -> Stats}). Läuft
+// automatisch beim Laden, falls die vom Server geladene foodDb noch im alten Format ist.
+function migrateFoodDbIfNeeded(loadedFoodDb, loadedFoodSlots){
+  const looksNew = FOOD_CATEGORIES.every(c => Object.prototype.hasOwnProperty.call(loadedFoodDb, c));
+  if(looksNew) return loadedFoodDb;
+  const result = {};
+  FOOD_CATEGORIES.forEach(c=>{ result[c] = {}; });
+  const slots = (loadedFoodSlots && loadedFoodSlots.length) ? loadedFoodSlots : FOOD_SLOTS.map(fs=>({key:fs.key, items:[]}));
+  Object.keys(loadedFoodDb).forEach(name=>{
+    let cat = null;
+    for(const slot of slots){
+      if(slot.items && slot.items.includes(name)){
+        cat = slot.key.includes('Utility') ? 'Utility' : slot.key.replace('Buff Food – ','');
+        break;
+      }
+    }
+    if(!cat || !result[cat]) cat = 'Sonderbuff';
+    result[cat][name] = loadedFoodDb[name];
+  });
+  return result;
+}
 async function init(){
   // Start immer als Gast mit Standardwerten - persönliche Charakterdaten werden
   // erst geladen, wenn man sich anmeldet und einen Charakter auswählt.
@@ -2744,10 +2840,9 @@ async function init(){
     if(shared.wehrVerteilung) wehrVerteilung = shared.wehrVerteilung;
     if(shared.companionDb) companionDb = shared.companionDb;
     if(shared.mountDb) mountDb = shared.mountDb;
-    if(shared.foodDb) foodDb = shared.foodDb;
+    if(shared.foodDb) foodDb = migrateFoodDbIfNeeded(shared.foodDb, shared.foodSlots);
     if(shared.gefaehrtenPresets) gefaehrtenPresets = shared.gefaehrtenPresets;
     if(shared.reittierPresets) reittierPresets = shared.reittierPresets;
-    if(shared.foodSlots) shared.foodSlots.forEach((def,i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
   }catch(e){
     console.warn('Presets/Formeln konnten nicht vom Server geladen werden:', e.message);
   }
