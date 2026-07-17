@@ -185,10 +185,13 @@ function charSummary(username, name){
 app.get('/api/characters', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  const own = ((user && user.characters) || []).map(n => Object.assign(charSummary(req.username, n), { owner: req.username, isOwner: true }));
+  const shares = readJson(SHARES_FILE, {});
+  const own = ((user && user.characters) || []).map(n => Object.assign(
+    charSummary(req.username, n),
+    { owner: req.username, isOwner: true, collaborators: shares[shareKey(req.username, n)] || [] }
+  ));
 
   // Von anderen Benutzern freigegebene Charaktere dazu mischen.
-  const shares = readJson(SHARES_FILE, {});
   const shared = [];
   Object.keys(shares).forEach(key => {
     if(!shares[key].includes(req.username)) return;
@@ -263,6 +266,43 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
   res.json({ ok: true });
 });
 
+// Charakter umbenennen - nur der Besitzer darf das (Mitbearbeiter nicht).
+app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !user.characters.includes(req.params.name)){
+    return res.status(403).json({ error: 'Nur der Besitzer kann den Charakter umbenennen' });
+  }
+  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(newName === req.params.name) return res.json({ ok: true, name: newName });
+  if(user.characters.includes(newName)){
+    return res.status(409).json({ error: 'Diesen Charakternamen hast du bereits vergeben' });
+  }
+  if(isCharNameTakenByOther(newName, req.username)){
+    return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
+  }
+
+  const oldFile = charFile(req.username, req.params.name);
+  const newFile = charFile(req.username, newName);
+  try{ fs.renameSync(oldFile, newFile); }
+  catch(e){ writeJson(newFile, readJson(oldFile, {})); }
+
+  user.characters = user.characters.map(c => c === req.params.name ? newName : c);
+  writeJson(USERS_FILE, users);
+
+  // Freigaben (Mitbearbeiter-Liste) unter dem neuen Namen weiterführen.
+  const shares = readJson(SHARES_FILE, {});
+  const oldKey = shareKey(req.username, req.params.name);
+  if(shares[oldKey]){
+    shares[shareKey(req.username, newName)] = shares[oldKey];
+    delete shares[oldKey];
+    writeJson(SHARES_FILE, shares);
+  }
+
+  res.json({ ok: true, name: newName });
+});
+
 /* ---------- Charakter-Freigaben: Mitbearbeiter einladen/entfernen/anzeigen ----------
    Nur der Besitzer darf einladen/entfernen. Ein Mitbearbeiter kann denselben Charakter
    danach ganz normal über /api/characters/:name laden und speichern. */
@@ -294,11 +334,15 @@ app.post('/api/characters/:name/invite', authMiddleware, (req, res) => {
 app.delete('/api/characters/:name/invite/:username', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  if(!user || !user.characters.includes(req.params.name)){
+  const isOwner = !!(user && user.characters.includes(req.params.name));
+  const isSelfLeave = req.username === req.params.username;
+  if(!isOwner && !isSelfLeave){
     return res.status(403).json({ error: 'Nur der Besitzer kann Mitbearbeiter entfernen' });
   }
-  const list = getCollaborators(req.username, req.params.name).filter(u => u !== req.params.username);
-  setCollaborators(req.username, req.params.name, list);
+  const owner = isOwner ? req.username : findCharOwner(req.params.name);
+  if(!owner) return res.status(404).json({ error: 'Charakter nicht gefunden' });
+  const list = getCollaborators(owner, req.params.name).filter(u => u !== req.params.username);
+  setCollaborators(owner, req.params.name, list);
   res.json({ ok: true, collaborators: list });
 });
 

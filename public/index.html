@@ -481,7 +481,7 @@
 </div>
 
 <div class="modal-bg" id="accountModalBg">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal" style="max-width:680px; width:92vw;">
     <div id="accountModalBody"></div>
   </div>
 </div>
@@ -695,6 +695,7 @@ const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComp
 const apiGetCollaborators = (name) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/collaborators');
 const apiInviteCollaborator = (name, username) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/invite', {method:'POST', body:JSON.stringify({username})});
 const apiRemoveCollaborator = (name, username) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/invite/'+encodeURIComponent(username), {method:'DELETE'});
+const apiRenameCharacter = (name, newName) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/rename', {method:'POST', body:JSON.stringify({newName})});
 const apiAdminListUsers = () => apiRequest('/api/admin/users');
 const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({role})});
 const apiAdminResetPassword = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/reset-password', {method:'POST'});
@@ -753,17 +754,26 @@ async function renderAccountPanel(){
   myCharacters = chars;
   const list = chars.length ? chars.map((c, i)=>{
     const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
-    const sharedNote = c.isOwner ? '' : ` <span class="muted">&middot; von ${c.owner} freigegeben</span>`;
+    let statusNote = '';
+    if(!c.isOwner){
+      statusNote = ` <span class="muted">&middot; von ${c.owner} freigegeben</span>`;
+    } else if(c.collaborators && c.collaborators.length){
+      statusNote = ` <span class="muted">&middot; freigegeben an: ${c.collaborators.join(', ')}</span>`;
+    }
     return `<div>
       <div class="char-item">
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
           <span class="char-name">${c.name}</span>
-          <span class="char-info">${info}${sharedNote}</span>
+          <span class="char-info">${info}${statusNote}</span>
         </button>
         ${c.isOwner ? `<button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>` : ''}
+        ${c.isOwner ? `<button class="action small" type="button" onclick="toggleRenameByIndex(${i})">Umbenennen</button>` : ''}
         ${c.isOwner ? `<button class="action small" type="button" onclick="toggleShareByIndex(${i})">Freigeben</button>` : ''}
-        ${c.isOwner ? `<button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>` : ''}
+        ${c.isOwner
+          ? `<button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>`
+          : `<button class="action danger small" type="button" onclick="leaveSharedCharacterByIndex(${i})">Verlassen</button>`}
       </div>
+      <div id="rename-panel-${i}" style="display:none;"></div>
       <div id="share-panel-${i}" style="display:none;"></div>
     </div>`;
   }).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
@@ -851,6 +861,57 @@ async function removeCollaboratorByIndex(i, username){
     const msg = document.getElementById('invite-msg-'+i);
     if(msg) msg.textContent = e.message;
   }
+}
+
+// Auf-/zuklappbares Umbenennen-Panel für einen eigenen Charakter.
+function toggleRenameByIndex(i){
+  const panel = document.getElementById('rename-panel-'+i);
+  if(!panel) return;
+  const willOpen = panel.style.display === 'none';
+  if(!willOpen){ panel.style.display = 'none'; return; }
+  const charName = myCharacters[i].name;
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
+      <label style="font-size:0.8rem;">Charakter umbenennen</label>
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;">
+        <button type="button" class="action gold small" onclick="renameCharacterByIndex(${i})">Speichern</button>
+      </div>
+      <div id="rename-msg-${i}" class="helptext" style="color:var(--off);"></div>
+    </div>`;
+}
+async function renameCharacterByIndex(i){
+  const charName = myCharacters[i].name;
+  const input = document.getElementById('rename-input-'+i);
+  const newName = input.value.trim();
+  if(!newName || newName === charName) return;
+  try{
+    await apiRenameCharacter(charName, newName);
+    if(currentChar === charName){
+      currentChar = newName;
+      localStorage.setItem('xselli_lastchar_'+currentUser, newName);
+      updateAccountLabel();
+    }
+    await renderAccountPanel();
+  }catch(e){
+    const msg = document.getElementById('rename-msg-'+i);
+    if(msg) msg.textContent = e.message;
+  }
+}
+
+// Eigenen Mitbearbeiter-Zugang zu einem fremden, freigegebenen Charakter beenden.
+async function leaveSharedCharacterByIndex(i){
+  const c = myCharacters[i];
+  try{
+    await apiRemoveCollaborator(c.name, currentUser);
+    if(currentChar === c.name){
+      currentChar = null;
+      applyCharDataBundle({});
+      fullUiRefreshAfterProfileSwitch();
+    }
+    await renderAccountPanel();
+  }catch(e){ setAccountMsg(e.message); }
 }
 
 // Zugriff über den Index statt über den Namen - so machen auch Charakternamen
@@ -1641,6 +1702,14 @@ function sourceHasValue(src){
 // Buff Food: pro Slot oben ein Lade-Dropdown (füllt Werte aus der Datenbank),
 // darunter frei editierbare Werte/%-Tabelle wie bei Ausrüstung - so bleibt das
 // geladene Essen wirksam, kann aber jederzeit von Hand angepasst werden.
+// Zeigt bei einem ausgewählten Essen an, ob es laut Presets "über den Tod hinaus besteht".
+function foodDeathBadge(name, db){
+  if(!name || name==='Leer' || !db[name]) return '';
+  const persists = !!db[name]._persistsDeath;
+  const cls = persists ? 'delta-ok' : 'delta-toomuch';
+  const text = persists ? '&#10003; übersteht den Tod' : '&#10007; übersteht den Tod nicht';
+  return `<div style="font-size:0.72rem; margin-top:4px;"><span class="${cls}">${text}</span></div>`;
+}
 function renderFoodWerteTable(cat){
   const loaderCards = FOOD_SLOTS.map(fs=>{
     const sel = getSlotSelection(fs.key);
@@ -1651,6 +1720,7 @@ function renderFoodWerteTable(cat){
       <label style="font-size:0.75rem;">${fs.label}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, db)}</div>
+      <div id="death-badge-${slugSrc(fs.key)}">${foodDeathBadge(sel, db)}</div>
     </div>`;
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
