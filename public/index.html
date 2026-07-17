@@ -377,9 +377,8 @@
       <span><span class="dot" style="background:var(--sup)"></span>Buff Food</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Pro Essen: Name, Stats, und ankreuzen in welchem Food-Slot es wählbar sein soll.</p>
+      <p class="helptext">Essen werden direkt in ihrer Kategorie unten angelegt und gelöscht.</p>
       <div id="foodEditor"></div>
-      <div class="btnrow"><button type="button" class="action" onclick="addFoodEntryCard()">+ Neues Essen</button></div>
     </div>
   </div>
 
@@ -489,7 +488,7 @@
 
 <script>
 /* ---------- Datenmodell ---------- */
-const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Verstärkung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
+const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Kampfverzauberung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
 
 // Aus deiner Excel importiert: "Presets" Tab (Gefährten AJ3:DC27, Reittiere AJ51:DC75) und
 // "Buff food Sammlung" Tab (Blöcke bei Zeile 2/31/60/90/120). Werte pro Stat: {werte, prozent}.
@@ -520,7 +519,7 @@ const DEFAULT_MOUNT_DB = {
 // Kategorien entsprechen den Neverwinter-eigenen Verbrauchsgüter-Gruppen (siehe nw-hub.com/consumables):
 // von "Trank", "Elixier", "Festungsessen" und "Event-Essen" wirkt jeweils nur EINS gleichzeitig
 // (ein neues verdrängt das alte); Utility ist davon unabhängig und bleibt wie gehabt.
-const FOOD_CATEGORIES = ['Event-Essen','Festungsessen','Elixier','Trank','Utility'];
+const FOOD_CATEGORIES = ['Event-Essen','Festungsessen','Elixier','Trank','Gürtel Item','Utility'];
 const DEFAULT_FOOD_DB = {
   'Event-Essen': {
     'wassermelonensorbet': { kraft:{werte:0,prozent:5}, zielgenauigkeit:{werte:0,prozent:5} },
@@ -540,6 +539,7 @@ const DEFAULT_FOOD_DB = {
   'Trank': {
     'Überlegener Trank der Potenz': { kraft:{werte:550,prozent:0}, zielgenauigkeit:{werte:550,prozent:0}, kritschaden:{werte:0,prozent:5} },
   },
+  'Gürtel Item': {},
   'Utility': {
     'wut der flamme': { bonusschaden:{werte:0,prozent:5} },
     'präzision des Teufel': { zielgenauigkeit:{werte:0,prozent:5}, kritwert:{werte:0,prozent:5} },
@@ -578,6 +578,7 @@ const FOOD_SLOTS = [
   { key:'Buff Food – Hauptgericht', category:'Festungsessen', label:'Festungsessen' },
   { key:'Buff Food – Elixier', category:'Elixier', label:'Elixier' },
   { key:'Buff Food – Sonderbuff', category:'Trank', label:'Trank' },
+  { key:'Buff Food – Gürtel Item', category:'Gürtel Item', label:'Gürtel Item' },
   { key:'Buff Food – Utility 1', category:'Utility', label:'Utility 1' },
   { key:'Buff Food – Utility 2', category:'Utility', label:'Utility 2' },
 ];
@@ -2450,14 +2451,16 @@ function addStatRowTo(btn){
   card.querySelector('.stat-rows').appendChild(row);
   attachWerteFormatting(row);
 }
-function entryCardHtml(name, statsObj, extraHtml, withInfo){
-  // Schlüssel mit "_" am Anfang (z. B. _info) sind keine Stats und werden hier übersprungen.
+function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
+  // Schlüssel mit "_" am Anfang (z. B. _info, _persistsDeath) sind keine Stats und werden hier übersprungen.
   const rows = Object.keys(statsObj||{}).filter(id=>!id.startsWith('_')).map(id=>statRowHtml(id, statsObj[id].werte, statsObj[id].prozent)).join('');
   const infoVal = (statsObj && statsObj._info) ? String(statsObj._info) : '';
   const infoHtml = withInfo ? `<div style="margin-top:8px;">
       <label>Sonstige Info (nur Text, beeinflusst keine Stats)</label>
       <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz ...">
     </div>` : '';
+  const persistsChecked = (statsObj && statsObj._persistsDeath) ? 'checked' : '';
+  const deathHtml = withDeathCheck ? `<label class="slot-check" style="margin-top:8px;"><input type="checkbox" class="entry-persists-death" ${persistsChecked}> Besteht über den Tod hinaus</label>` : '';
   return `<div class="entry-card">
     <div class="entry-head">
       <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben...">
@@ -2466,6 +2469,7 @@ function entryCardHtml(name, statsObj, extraHtml, withInfo){
     <div class="stat-rows">${rows}</div>
     <button type="button" class="action small" onclick="addStatRowTo(this)">+ Stat</button>
     ${infoHtml}
+    ${deathHtml}
     ${extraHtml||''}
   </div>`;
 }
@@ -2505,7 +2509,8 @@ function collectEntryEditor(containerId){
   return result;
 }
 
-// Buff Food: wie oben, plus Checkboxen für die Food-Slots, in denen das Essen wählbar sein soll.
+// Buff Food: wie oben, plus "Sonstige Info" (reiner Text, keine Stat-Wirkung) und ein Häkchen
+// "Besteht über den Tod hinaus" pro Essen.
 function renderFoodEditor(){
   const el = document.getElementById('foodEditor');
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
@@ -2515,7 +2520,7 @@ function renderFoodEditor(){
     const items = foodDb[catName] || {};
     const names = Object.keys(items);
     const cardsHtml = names.length
-      ? names.map(name=>entryCardHtml(name, items[name])).join('')
+      ? names.map(name=>entryCardHtml(name, items[name], '', true, true)).join('')
       : '<p class="helptext" style="margin:0 0 10px 0;">Noch kein Essen in dieser Kategorie.</p>';
     const hint = catName==='Utility' ? ' <span class="muted">(gilt für Utility 1 und Utility 2)</span>' : '';
     return `<div class="accordion" id="acc-foodcat-${ci}" style="margin-top:8px;">
@@ -2550,7 +2555,7 @@ function addFoodEntryCard(catName){
   const emptyMsg = cardsWrap.querySelector(':scope > p.helptext');
   if(emptyMsg) emptyMsg.remove();
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = entryCardHtml('', {});
+  wrapper.innerHTML = entryCardHtml('', {}, '', true, true);
   const card = wrapper.firstElementChild;
   cardsWrap.appendChild(card);
   attachWerteFormatting(card);
@@ -2572,6 +2577,10 @@ function collectFoodEditor(){
         const prozent = Number(row.querySelector('.stat-prozent').value)||0;
         if(werte || prozent) stats[statId] = {werte, prozent};
       });
+      const infoInput = card.querySelector('.entry-info');
+      if(infoInput && infoInput.value.trim()) stats._info = infoInput.value.trim();
+      const deathCheck = card.querySelector('.entry-persists-death');
+      if(deathCheck && deathCheck.checked) stats._persistsDeath = true;
       result[catName][name] = stats;
     });
   });
