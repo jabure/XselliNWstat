@@ -42,6 +42,7 @@ Im Unterordner `data/`, der auf dem Server liegt (nicht im Container –
 - `data/users.json` – Benutzerkonten (Passwort als Hash, keine Klartexte)
 - `data/chars/*.json` – je eine Datei pro Charakter
 - `data/shared.json` – Formeln, Gefährten-/Reittier-/Buff-Food-Datenbank, Presets
+- `data/shares.json` – wer welchen Charakter für wen als Mitbearbeiter freigegeben hat
 
 **Backup:** Es reicht, den `data/`-Ordner regelmäßig zu kopieren.
 
@@ -125,3 +126,12 @@ du selbst am Server etwas eintippen musst.
 - Bei sehr vielen gleichzeitigen Schreibvorgängen auf denselben Charakter
   könnten sich Speicherungen theoretisch überschreiben (unwahrscheinlich bei
   einer Gilde, da jeder nur seinen eigenen Charakter speichert).
+- **Charaktere freigeben:** Über den Account-Bereich kann jeder Benutzer bei
+  seinen eigenen Charakteren auf "Freigeben" klicken und andere, bereits
+  registrierte Benutzernamen als Mitbearbeiter einladen. Mitbearbeiter können
+  den Charakter danach genauso laden, bearbeiten und speichern wie der
+  Besitzer, aber nicht löschen oder weitere Mitbearbeiter einladen/entfernen -
+  das bleibt dem Besitzer vorbehalten. Es gibt dabei **keine Live-Synchronisation**
+  (kein gleichzeitiges Sehen von Änderungen wie in einem Google Doc) - wer
+  zuletzt speichert, gewinnt. Der eingeladene Benutzer muss bereits ein Konto
+  haben; man kann nicht per E-Mail o. Ä. zur Registrierung einladen.

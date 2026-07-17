@@ -656,6 +656,12 @@ function applyCharDataBundle(bundle){
   calcActive = Object.assign(defaultCalcActive(), bundle.calcActive || {});
   baseInputs = bundle.baseInputs || {};
   sourceInputs = bundle.sourceInputs || {};
+  // Migration: "Verstärkung" wurde zu "Kampfverzauberung" umbenannt - alte gespeicherte
+  // Werte unter dem alten Schlüssel auf den neuen übernehmen, statt sie zu verlieren.
+  if(sourceInputs['Verstärkung'] && !sourceInputs['Kampfverzauberung']){
+    sourceInputs['Kampfverzauberung'] = sourceInputs['Verstärkung'];
+    delete sourceInputs['Verstärkung'];
+  }
   slotSelections = bundle.slotSelections || {};
   raptorCount = bundle.raptorCount || 0;
   gefaehrtenMode = bundle.gefaehrtenMode || 'presets';
@@ -686,6 +692,9 @@ const apiCreateCharacter = (name, copyFrom) => apiRequest('/api/characters', {me
 const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name));
 const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
 const apiDeleteCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'DELETE'});
+const apiGetCollaborators = (name) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/collaborators');
+const apiInviteCollaborator = (name, username) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/invite', {method:'POST', body:JSON.stringify({username})});
+const apiRemoveCollaborator = (name, username) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/invite/'+encodeURIComponent(username), {method:'DELETE'});
 const apiAdminListUsers = () => apiRequest('/api/admin/users');
 const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({role})});
 const apiAdminResetPassword = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/reset-password', {method:'POST'});
@@ -744,22 +753,28 @@ async function renderAccountPanel(){
   myCharacters = chars;
   const list = chars.length ? chars.map((c, i)=>{
     const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
-    return `<div class="char-item">
-      <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
-        <span class="char-name">${c.name}</span>
-        <span class="char-info">${info}</span>
-      </button>
-      <button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>
-      <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>
+    const sharedNote = c.isOwner ? '' : ` <span class="muted">&middot; von ${c.owner} freigegeben</span>`;
+    return `<div>
+      <div class="char-item">
+        <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
+          <span class="char-name">${c.name}</span>
+          <span class="char-info">${info}${sharedNote}</span>
+        </button>
+        ${c.isOwner ? `<button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>` : ''}
+        ${c.isOwner ? `<button class="action small" type="button" onclick="toggleShareByIndex(${i})">Freigeben</button>` : ''}
+        ${c.isOwner ? `<button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>` : ''}
+      </div>
+      <div id="share-panel-${i}" style="display:none;"></div>
     </div>`;
   }).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
 
   const vorlageOptions = ['<option value="">– leer starten –</option>',
-    ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${c.name}</option>`)].join('');
+    ...chars.filter(c=>c.isOwner).map((c,i)=>`<option value="${myCharacters.indexOf(c)}">Kopie von: ${c.name}</option>`)].join('');
 
   body.innerHTML = `
     <h3>Angemeldet als ${currentUser}</h3>
     <div class="char-list">${list}</div>
+    <p class="helptext" style="margin-top:4px;">Bei eigenen Charakteren kannst du über "Freigeben" andere Benutzer als Mitbearbeiter einladen - sie können den Charakter dann genauso laden und speichern wie du. Es gibt dabei keine Live-Synchronisation: Wer zuletzt speichert, gewinnt.</p>
     <div class="login-grid" style="margin-top:12px;">
       <div>
         <label>Neuer Charakter</label>
@@ -776,6 +791,66 @@ async function renderAccountPanel(){
       <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
       <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
     </div>`;
+}
+
+// Auf-/zuklappbares Mitbearbeiter-Panel für einen eigenen Charakter.
+async function toggleShareByIndex(i){
+  const panel = document.getElementById('share-panel-'+i);
+  if(!panel) return;
+  const willOpen = panel.style.display === 'none';
+  if(!willOpen){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  panel.innerHTML = '<p class="helptext">Lade Mitbearbeiter ...</p>';
+  const charName = myCharacters[i].name;
+  try{
+    const res = await apiGetCollaborators(charName);
+    renderSharePanel(i, charName, res.collaborators || []);
+  }catch(e){
+    panel.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler: ${e.message}</p>`;
+  }
+}
+function renderSharePanel(i, charName, collaborators){
+  const panel = document.getElementById('share-panel-'+i);
+  if(!panel) return;
+  const list = collaborators.length
+    ? collaborators.map(u=>`<div class="char-item" style="padding:6px 10px;">
+        <span style="flex:1;">${u}</span>
+        <button type="button" class="action danger small" onclick="removeCollaboratorByIndex(${i}, '${u.replace(/'/g,"\\'")}')">Entfernen</button>
+      </div>`).join('')
+    : '<p class="helptext" style="margin:4px 0;">Noch keine Mitbearbeiter.</p>';
+  panel.innerHTML = `
+    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
+      <label style="font-size:0.8rem;">Mitbearbeiter von "${charName}"</label>
+      ${list}
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <input type="text" id="invite-input-${i}" placeholder="Benutzername" style="flex:1;">
+        <button type="button" class="action small" onclick="inviteCollaboratorByIndex(${i})">Einladen</button>
+      </div>
+      <div id="invite-msg-${i}" class="helptext" style="color:var(--off);"></div>
+    </div>`;
+}
+async function inviteCollaboratorByIndex(i){
+  const charName = myCharacters[i].name;
+  const input = document.getElementById('invite-input-'+i);
+  const username = input.value.trim();
+  if(!username) return;
+  try{
+    const res = await apiInviteCollaborator(charName, username);
+    renderSharePanel(i, charName, res.collaborators || []);
+  }catch(e){
+    const msg = document.getElementById('invite-msg-'+i);
+    if(msg) msg.textContent = e.message;
+  }
+}
+async function removeCollaboratorByIndex(i, username){
+  const charName = myCharacters[i].name;
+  try{
+    const res = await apiRemoveCollaborator(charName, username);
+    renderSharePanel(i, charName, res.collaborators || []);
+  }catch(e){
+    const msg = document.getElementById('invite-msg-'+i);
+    if(msg) msg.textContent = e.message;
+  }
 }
 
 // Zugriff über den Index statt über den Namen - so machen auch Charakternamen

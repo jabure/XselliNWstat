@@ -16,6 +16,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const CHAR_DIR = path.join(DATA_DIR, 'chars');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SHARED_FILE = path.join(DATA_DIR, 'shared.json');
+const SHARES_FILE = path.join(DATA_DIR, 'shares.json');
 
 if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
   console.warn('WARNUNG: JWT_SECRET wurde nicht gesetzt - bitte in der .env auf einen langen, zufälligen Wert ändern!');
@@ -24,6 +25,7 @@ if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
 fs.mkdirSync(CHAR_DIR, { recursive: true });
 if(!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
 if(!fs.existsSync(SHARED_FILE)) fs.writeFileSync(SHARED_FILE, '{}');
+if(!fs.existsSync(SHARES_FILE)) fs.writeFileSync(SHARES_FILE, '{}');
 
 function readJson(file, fallback){
   try{ return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -41,6 +43,50 @@ function safeName(s){
 }
 function charFile(username, charname){
   return path.join(CHAR_DIR, `${safeName(username)}__${safeName(charname)}.json`);
+}
+
+/* ---------- Charakter-Freigaben (Mitbearbeiter) ----------
+   Ein Charakter gehört weiterhin genau EINEM Benutzer (Datei liegt unter dessen Namen),
+   kann aber für andere Benutzer als Mitbearbeiter freigegeben werden - die sehen und
+   bearbeiten dann denselben Charakter (kein Konflikt-Handling, letzter Speichervorgang
+   gewinnt - reicht für eine Gilde, bei der nicht mehrere gleichzeitig dieselbe Sekunde tippen). */
+function shareKey(owner, charname){ return `${owner}::${charname}`; }
+function getCollaborators(owner, charname){
+  const shares = readJson(SHARES_FILE, {});
+  return shares[shareKey(owner, charname)] || [];
+}
+function setCollaborators(owner, charname, list){
+  const shares = readJson(SHARES_FILE, {});
+  const key = shareKey(owner, charname);
+  if(list.length) shares[key] = list;
+  else delete shares[key];
+  writeJson(SHARES_FILE, shares);
+}
+function removeAllSharesFor(owner, charname){
+  setCollaborators(owner, charname, []);
+}
+function removeUserFromAllShares(username){
+  const shares = readJson(SHARES_FILE, {});
+  let changed = false;
+  Object.keys(shares).forEach(key=>{
+    if(shares[key].includes(username)){
+      shares[key] = shares[key].filter(u => u !== username);
+      changed = true;
+    }
+  });
+  if(changed) writeJson(SHARES_FILE, shares);
+}
+// Findet, welchem Benutzer ein Charaktername gehört (Namen sind global eindeutig).
+function findCharOwner(charname){
+  const users = readJson(USERS_FILE, {});
+  for(const uname of Object.keys(users)){
+    if((users[uname].characters || []).includes(charname)) return uname;
+  }
+  return null;
+}
+function canAccessChar(username, owner, charname){
+  if(username === owner) return true;
+  return getCollaborators(owner, charname).includes(username);
 }
 
 const app = express();
@@ -139,8 +185,20 @@ function charSummary(username, name){
 app.get('/api/characters', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  const names = (user && user.characters) || [];
-  res.json(names.map(n => charSummary(req.username, n)));
+  const own = ((user && user.characters) || []).map(n => Object.assign(charSummary(req.username, n), { owner: req.username, isOwner: true }));
+
+  // Von anderen Benutzern freigegebene Charaktere dazu mischen.
+  const shares = readJson(SHARES_FILE, {});
+  const shared = [];
+  Object.keys(shares).forEach(key => {
+    if(!shares[key].includes(req.username)) return;
+    const sepIdx = key.indexOf('::');
+    const ownerName = key.slice(0, sepIdx);
+    const charName = key.slice(sepIdx + 2);
+    shared.push(Object.assign(charSummary(ownerName, charName), { owner: ownerName, isOwner: false }));
+  });
+
+  res.json([...own, ...shared]);
 });
 
 // Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
@@ -177,22 +235,20 @@ app.post('/api/characters', authMiddleware, (req, res) => {
 });
 
 app.get('/api/characters/:name', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
-  const user = users[req.username];
-  if(!user || !user.characters.includes(req.params.name)){
+  const owner = findCharOwner(req.params.name);
+  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
-  const data = readJson(charFile(req.username, req.params.name), {});
-  res.json({ name: req.params.name, data });
+  const data = readJson(charFile(owner, req.params.name), {});
+  res.json({ name: req.params.name, data, owner, isOwner: owner === req.username });
 });
 
 app.put('/api/characters/:name', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
-  const user = users[req.username];
-  if(!user || !user.characters.includes(req.params.name)){
+  const owner = findCharOwner(req.params.name);
+  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
-  writeJson(charFile(req.username, req.params.name), req.body || {});
+  writeJson(charFile(owner, req.params.name), req.body || {});
   res.json({ ok: true });
 });
 
@@ -203,7 +259,47 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
   user.characters = user.characters.filter(c => c !== req.params.name);
   writeJson(USERS_FILE, users);
   try{ fs.unlinkSync(charFile(req.username, req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
+  removeAllSharesFor(req.username, req.params.name);
   res.json({ ok: true });
+});
+
+/* ---------- Charakter-Freigaben: Mitbearbeiter einladen/entfernen/anzeigen ----------
+   Nur der Besitzer darf einladen/entfernen. Ein Mitbearbeiter kann denselben Charakter
+   danach ganz normal über /api/characters/:name laden und speichern. */
+app.get('/api/characters/:name/collaborators', authMiddleware, (req, res) => {
+  const owner = findCharOwner(req.params.name);
+  if(!owner || !canAccessChar(req.username, owner, req.params.name)){
+    return res.status(404).json({ error: 'Charakter nicht gefunden' });
+  }
+  res.json({ owner, isOwner: owner === req.username, collaborators: getCollaborators(owner, req.params.name) });
+});
+app.post('/api/characters/:name/invite', authMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !user.characters.includes(req.params.name)){
+    return res.status(403).json({ error: 'Nur der Besitzer kann Mitbearbeiter einladen' });
+  }
+  const targetUsername = req.body && req.body.username;
+  if(!targetUsername || !users[targetUsername]){
+    return res.status(404).json({ error: 'Diesen Benutzer gibt es nicht' });
+  }
+  if(targetUsername === req.username){
+    return res.status(400).json({ error: 'Du bist bereits Besitzer dieses Charakters' });
+  }
+  const list = getCollaborators(req.username, req.params.name);
+  if(!list.includes(targetUsername)) list.push(targetUsername);
+  setCollaborators(req.username, req.params.name, list);
+  res.json({ ok: true, collaborators: list });
+});
+app.delete('/api/characters/:name/invite/:username', authMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !user.characters.includes(req.params.name)){
+    return res.status(403).json({ error: 'Nur der Besitzer kann Mitbearbeiter entfernen' });
+  }
+  const list = getCollaborators(req.username, req.params.name).filter(u => u !== req.params.username);
+  setCollaborators(req.username, req.params.name, list);
+  res.json({ ok: true, collaborators: list });
 });
 
 /* ---------- Geteilte Daten: Formeln, Presets/Datenbanken ----------
@@ -271,9 +367,11 @@ app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (
   if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   (users[target].characters || []).forEach(c => {
     try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
+    removeAllSharesFor(target, c);
   });
   delete users[target];
   writeJson(USERS_FILE, users);
+  removeUserFromAllShares(target);
   res.json({ ok: true });
 });
 
