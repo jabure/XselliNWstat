@@ -32,6 +32,14 @@ Gefährten, Reittier-Gruppenbuffs, Buff Food in den Kategorien Event-Essen,
 Festungsessen, Elixier, Trank, Gürtel Item und Utility). Zwischen den Feldern
 lässt sich mit den Pfeiltasten wie in einer Tabellenkalkulation springen.
 
+Kurz zur Bedienung: Trage deine aktuellen Werte aus Neverwinter in die grün
+markierten Felder ein. Der Rechner zeigt dir anschließend deine Gesamtwerte
+inklusive zusätzlicher Buffs an. Wichtig: Trage nur Werte ein, die zusätzlich
+aktiviert werden (z. B. Procs beim Angreifen oder Schaden verursachen).
+Bereits dauerhaft aktive Boni sowie der aktive Gefährte werden nicht
+eingetragen. Für Gefährten und Reittiere stehen Presets zur Verfügung.
+Änderungswünsche oder Feedback sind jederzeit willkommen.
+
 **Schadensberechnung** - rechnet aus den Gesamt-Stats eine Schadens-, eine
 Heilungs- und eine Tank-Einschätzung, jeweils mit allen Zwischenschritten,
 einer verständlichen Erklärung der Formel und einer Grafik, die zeigt, wie
