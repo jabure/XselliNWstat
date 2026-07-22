@@ -282,7 +282,7 @@
     <!-- Links: Grunddaten + Stat-Gruppen -->
     <div class="rechner-col-left">
       <div class="card">
-        <h2>Charakter-Grunddaten</h2>
+        <h2>Charakter-Grunddaten <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:0.85rem;"></span></h2>
         <div class="grunddaten-grid">
           <div>
             <label for="itemlevel">Gegenstandsstufe</label>
@@ -721,6 +721,8 @@ function updateAccountLabel(){
   if(!isLoggedIn) el.textContent = 'Gast (nicht gespeichert)';
   else if(!currentChar) el.textContent = `${currentUser}: Charakter wählen`;
   else el.textContent = `${currentUser} · ${currentChar}`;
+  const gdName = document.getElementById('grunddatenCharName');
+  if(gdName) gdName.textContent = currentChar ? `– ${currentChar}` : '';
   updateAdminTabVisibility();
 }
 function setAccountMsg(msg){
