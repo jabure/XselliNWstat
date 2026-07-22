@@ -279,6 +279,11 @@
   .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:4px; padding:2px 5px;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
   .ovw-charbtn:hover{color:var(--gold); text-decoration:underline;}
+  table.ovw .subgroup-header td{position:sticky; left:0; z-index:3; background:var(--panel-2); box-shadow:2px 0 4px rgba(0,0,0,0.35);}
+  /* Für den Klassentyp relevante Werte: Tönung + Farbstreifen in der Typ-Farbe */
+  .ovw td.relev-dps{background:rgba(201,96,63,0.10); box-shadow:inset 3px 0 0 var(--off);}
+  .ovw td.relev-tank{background:rgba(63,127,166,0.10); box-shadow:inset 3px 0 0 var(--def);}
+  .ovw td.relev-heal{background:rgba(74,155,110,0.10); box-shadow:inset 3px 0 0 var(--sup);}
   /* Mobil (echte Geräte-Breite dank Viewport-Meta): weniger Außenabstand, Tabs dürfen umbrechen */
   @media (max-width:700px){
     body{padding:12px;}
@@ -2558,51 +2563,95 @@ function renderAlleCharsSection(){
   } else if(uebersichtCharsLoading){
     inner = '<p class="helptext">Lade Charaktere ...</p>';
   } else if(uebersichtCharsData === null){
-    inner = `<p class="helptext" style="margin-top:0;">Zeigt alle deine Charaktere nebeneinander - gerechnet mit denselben Fähigkeits- und Gegner-Werten wie oben. Der beste Wert pro Zeile ist gold markiert; ein Klick auf einen Namen übernimmt den Charakter in den Vergleich.</p>
+    inner = `<p class="helptext" style="margin-top:0;">Zeigt alle deine Charaktere nebeneinander - sortiert nach Klassentyp (DPS, Heiler, Tank) und gerechnet mit denselben Fähigkeits-/Gegner-Werten wie oben. Die für den jeweiligen Klassentyp relevanten Werte sind farblich hervorgehoben.</p>
       <div class="btnrow" style="margin-top:0;"><button type="button" class="action" onclick="loadAlleChars()">Alle Charaktere laden</button></div>`;
   } else if(!uebersichtCharsData.length){
     inner = '<p class="helptext">Noch keine gespeicherten Charaktere vorhanden.</p>';
   } else {
-    // Kennzahlen berechnen; der aktuell geladene Charakter immer mit dem Live-Stand
-    const ks = uebersichtCharsData.map(e => computeKennzahlenForData(e.name === currentChar ? getCharDataBundle() : e.bundle));
+    // Kennzahlen berechnen (aktuell geladener Charakter immer live) und nach
+    // Klassentyp gruppieren: erst alle DPS, dann Heiler, dann Tank, dann Rest.
+    const TYP_RANK = { 'DPS': 0, 'Heiler': 1, 'Tank': 2 };
+    const entries = uebersichtCharsData.map((e, i) => {
+      const k = computeKennzahlenForData(e.name === currentChar ? getCharDataBundle() : e.bundle);
+      return { name: e.name, updatedAt: e.updatedAt, origIdx: i, k, typ: k.grunddaten.klassentyp || '' };
+    });
+    entries.sort((a, b) => ((TYP_RANK[a.typ] ?? 3) - (TYP_RANK[b.typ] ?? 3)) || (a.origIdx - b.origIdx));
+
     const typBadge = t => t === 'Tank' ? '<span class="typ-badge typ-tank">Tank</span>'
       : (t === 'Heiler' ? '<span class="typ-badge typ-heal">Heiler</span>'
       : (t === 'DPS' ? '<span class="typ-badge typ-dps">DPS</span>' : ''));
-    const head = uebersichtCharsData.map((e, i) => `<th style="text-align:right;">
-      <button type="button" class="ovw-charbtn" title="In den Vergleich übernehmen" onclick="uebersichtCharZumVergleich(${i})">${escapeHtml(e.name)}</button>${typBadge(ks[i].grunddaten.klassentyp)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
+    const relevClass = typ => typ === 'DPS' ? 'relev-dps' : (typ === 'Tank' ? 'relev-tank' : (typ === 'Heiler' ? 'relev-heal' : ''));
+    const totalCols = 1 + entries.length;
+
+    const head = entries.map(e => `<th style="text-align:right;">
+      <button type="button" class="ovw-charbtn" title="In den Vergleich übernehmen" onclick="uebersichtCharZumVergleich(${e.origIdx})">${escapeHtml(e.name)}</button>${typBadge(e.typ)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
     </th>`).join('');
-    // Eine Zeile: Werte je Charakter, bester Wert (höchste Zahl) gold markiert.
-    const zeile = (label, vals, texts, muted) => {
+
+    // Eine Zeile: Werte je Charakter; bester Wert gold markiert (außer opt.noBest),
+    // klassenrelevante Zellen bekommen die Typ-Tönung (opt.relevFor entscheidet).
+    const zeile = (label, vals, texts, opt) => {
+      opt = opt || {};
       let bestIdx = -1;
-      if(!muted){
+      if(!opt.muted && !opt.noBest){
         let best = -Infinity;
         vals.forEach((v, i) => { if(v !== null && isFinite(v) && v > best && v > 0){ best = v; bestIdx = i; } });
       }
-      const cells = texts.map((t, i) => `<td style="text-align:right;" class="${muted ? 'muted' : ''}">${i === bestIdx ? `<span class="best">${t}</span>` : t}</td>`).join('');
-      return `<tr><td class="statname">${label}</td>${cells}</tr>`;
+      const cells = texts.map((t, i) => {
+        const relev = (opt.relevFor && opt.relevFor(entries[i].typ)) ? relevClass(entries[i].typ) : '';
+        return `<td style="text-align:right;" class="${opt.muted ? 'muted ' : ''}${relev}">${i === bestIdx ? `<span class="best">${t}</span>` : t}</td>`;
+      }).join('');
+      return `<tr class="${opt.subrow ? 'subgroup-row' : ''}"><td class="statname">${label}</td>${cells}</tr>`;
     };
-    const rows = [
-      zeile('Gegenstandsstufe', ks.map(k=>k.itemlevel), ks.map(k=>formatWerte(k.itemlevel))),
-      zeile('Gesamtschaden der Fähigkeit', ks.map(k=>k.totalDmg), ks.map(k=>formatWerte(k.totalDmg))),
-      zeile('Effektive Trefferpunkte (eHP)', ks.map(k=>k.ehp), ks.map(k=>formatWerte(k.ehp))),
-      zeile('Heilung der Fähigkeit', ks.map(k=>k.heilWert), ks.map(k=>formatWerte(k.heilWert))),
-      zeile('Kraft (genutzt)', ks.map(k=>k.frac('kraft')), ks.map(k=>fmt(k.frac('kraft')*100)+' %')),
-      zeile('Kritwert / Kritschaden', ks.map(k=>k.frac('kritwert')+k.frac('kritschaden')), ks.map(k=>fmt(k.frac('kritwert')*100)+' % / '+fmt(k.frac('kritschaden')*100)+' %')),
-      zeile('Verteidigung (genutzt)', ks.map(k=>k.frac('verteidigung')), ks.map(k=>fmt(k.frac('verteidigung')*100)+' %')),
-      zeile('zuletzt bearbeitet', [], uebersichtCharsData.map(e => e.name === currentChar ? 'jetzt (live)' : (e.updatedAt ? formatUpdatedAt(e.updatedAt) : '–')), true),
+
+    // Kennzahlen (immer sichtbar): die Hauptkennzahl des jeweiligen Klassentyps ist hervorgehoben.
+    const kennRows = [
+      zeile('Gegenstandsstufe', entries.map(e=>e.k.itemlevel), entries.map(e=>formatWerte(e.k.itemlevel))),
+      zeile('Gesamtschaden der Fähigkeit', entries.map(e=>e.k.totalDmg), entries.map(e=>formatWerte(e.k.totalDmg)), { relevFor: t => t === 'DPS' }),
+      zeile('Heilung der Fähigkeit', entries.map(e=>e.k.heilWert), entries.map(e=>formatWerte(e.k.heilWert)), { relevFor: t => t === 'Heiler' }),
+      zeile('Effektive Trefferpunkte (eHP)', entries.map(e=>e.k.ehp), entries.map(e=>formatWerte(e.k.ehp)), { relevFor: t => t === 'Tank' }),
+      zeile('zuletzt bearbeitet', [], entries.map(e => e.name === currentChar ? 'jetzt (live)' : (e.updatedAt ? formatUpdatedAt(e.updatedAt) : '–')), { muted: true }),
     ].join('');
+
+    // Offensive/Defensive/Unterstützung als auf-/zuklappbare Untergruppen; standardmäßig
+    // ist die zum Klassentyp des aktuell geladenen Charakters passende Gruppe offen.
+    const RELEVANTE_GRUPPEN = { 'DPS': ['offensive'], 'Tank': ['defensive'], 'Heiler': ['offensive', 'support'] };
+    const defaultOffen = RELEVANTE_GRUPPEN[grunddaten.klassentyp] || [];
+    const statText = (e, stat) => {
+      if(stat.id === 'trefferpunkte') return formatWerte(e.k.tp);
+      if(stat.type === 'derived') return fmt(e.k.heilTotal) + ' %';
+      return fmt(e.k.frac(stat.id) * 100) + ' %';
+    };
+    const statVal = (e, stat) => {
+      if(stat.id === 'trefferpunkte') return e.k.tp;
+      if(stat.type === 'derived') return e.k.heilTotal;
+      return e.k.frac(stat.id);
+    };
+    const gruppen = STAT_GROUPS.map(g => {
+      const relevFor = typ => (RELEVANTE_GRUPPEN[typ] || []).includes(g.id);
+      const rows = g.stats.map(stat =>
+        zeile(stat.label, entries.map(e=>statVal(e, stat)), entries.map(e=>statText(e, stat)), { relevFor, noBest: true, subrow: true })
+      ).join('');
+      return `<tbody class="stat-subgroup${defaultOffen.includes(g.id) ? ' open' : ''}" id="srcgrp-ovw-${g.id}">
+        <tr class="subgroup-header" onclick="toggleSrcSubgroup('ovw','${g.id}')">
+          <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        </tr>
+        ${rows}
+      </tbody>`;
+    }).join('');
+
     inner = `<div class="btnrow" style="margin:0 0 10px 0;">
         <button type="button" class="action small" onclick="loadAlleChars()">Neu laden</button>
       </div>
       <div class="ovw-scroll"><table class="ovw">
         <thead><tr><th>Wert</th>${head}</tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${kennRows}</tbody>
+        ${gruppen}
       </table></div>
-      <p class="helptext" style="margin-top:10px;">Gerechnet mit den aktuellen Fähigkeits-/Gegner-Werten. Der beste Wert pro Zeile ist gold markiert. Klick auf einen Namen übernimmt den Charakter als "B" in den Vergleich. "${escapeHtml(currentChar || 'Aktuell')}" wird live inklusive ungespeicherter Änderungen gerechnet; die anderen zeigen den zuletzt gespeicherten Stand ("Neu laden" holt frische Daten).</p>`;
+      <p class="helptext" style="margin-top:10px;">Sortiert nach Klassentyp (DPS &middot; Heiler &middot; Tank). Farbige Zellen = für den Klassentyp des Charakters relevante Werte; gold umrandet = bester Wert der Zeile. Offensive/Defensive/Unterstützung per Klick auf die Zeilenköpfe auf- und zuklappen. Klick auf einen Namen übernimmt den Charakter als "B" in den Vergleich oben. Der aktuell geladene Charakter wird live inklusive ungespeicherter Änderungen gerechnet; "Neu laden" holt frische Stände der anderen.</p>`;
   }
-  return `<div class="accordion" id="acc-dmg-allechars" style="margin-top:8px;">
+  return `<div class="accordion" id="acc-dmg-allechars" style="margin-top:14px;">
     <button type="button" onclick="toggleDmgAccordion('allechars')">
-      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Übersicht</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Übersicht <span class="muted" style="font-weight:400;font-size:0.8rem;">(alle eigenen Charaktere)</span></span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">${inner}</div>
   </div>`;
@@ -2814,7 +2863,7 @@ function renderVergleichSection(){
     <button type="button" onclick="toggleDmgAccordion('vergleich')">
       <span><span class="dot" style="background:var(--gold)"></span>Charakter-Vergleich</span><span class="chevron">&#9656;</span>
     </button>
-    <div class="body">${inner}</div>
+    <div class="body">${inner}${renderAlleCharsSection()}</div>
   </div>`;
 }
 function renderUebersicht(){
@@ -3186,6 +3235,10 @@ function renderUebersicht(){
 
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
+  // Auf-/Zu-Zustand der Stat-Untergruppen (Charakter-Übersicht) über den Rebuild retten:
+  // vorhandene behalten ihren Zustand, neue bekommen ihre Inline-Vorgabe (Klassentyp).
+  const prevSub = {};
+  el.querySelectorAll('.stat-subgroup').forEach(x => { prevSub[x.id] = x.classList.contains('open'); });
 
   const klasseHinweis = !grunddaten.klasse
     ? `<div class="notice" style="margin-bottom:14px;">Es ist noch keine Klasse gewählt - der Waffenschaden wird deshalb mit dem Tank-Faktor 1,0 gerechnet und fällt zu niedrig aus. Bitte zuerst auf der <strong>Rechner</strong>-Seite Klasse und Vorbildpfad wählen.</div>`
@@ -3205,8 +3258,6 @@ function renderUebersicht(){
   </div>
 
   ${renderVergleichSection()}
-
-  ${renderAlleCharsSection()}
 
   <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('schaden')">
@@ -3311,6 +3362,7 @@ function renderUebersicht(){
   } else {
     prevOpen.forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('open'); });
   }
+  el.querySelectorAll('.stat-subgroup').forEach(x => { if(x.id in prevSub) x.classList.toggle('open', prevSub[x.id]); });
 
   // Eingabefelder der Parameter (Fähigkeit / Vergleich / Gegner): bei Änderung neu
   // rechnen und mitspeichern.

@@ -79,7 +79,15 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   computeKennzahlenForData, aktueller Charakter immer live via
   getCharDataBundle(), bester Wert pro Zeile gold (.best), Klick auf den
   Namen setzt Vergleich B. Cache wird in fullUiRefreshAfterProfileSwitch
-  geleert. Ein Cap-Fortschrittsbalken in der Stat-Tabelle wurde bewusst
+  geleert. Seit v0.13.1 auf Nutzerwunsch umgebaut: die Übersicht ist ein
+  UNTERPUNKT im Vergleichs-Accordion (renderVergleichSection hängt
+  renderAlleCharsSection ans Body-Ende), Spalten sortiert nach Klassentyp
+  (DPS, Heiler, Tank, Rest; TYP_RANK), Offensive/Defensive/Unterstützung als
+  auf-/zuklappbare stat-subgroup-tbodies (srcgrp-ovw-*, Vorgabe je nach
+  Klassentyp des geladenen Charakters, Zustand überlebt Rebuilds via
+  prevSub-Map in renderUebersicht), klassenrelevante Zellen getönt
+  (relev-dps/-tank/-heal; RELEVANTE_GRUPPEN = DPS:offensive, Tank:defensive,
+  Heiler:offensive+support). Ein Cap-Fortschrittsbalken in der Stat-Tabelle wurde bewusst
   VERWORFEN (Nutzer-Entscheidung: zu viel Platz) - nicht erneut vorschlagen.
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)

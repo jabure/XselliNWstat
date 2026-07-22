@@ -266,6 +266,12 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const common = { grunddaten: { itemlevel: 100000, klasse: 'Kämpfer', vorbildpfad: 'Schwertmeister (DPS)', klassentyp: 'DPS' }, baseInputs: { kraft: { H: 140000, I: 90 } }, sourceInputs: {} };
     await api('/api/characters/' + encodeURIComponent(cA), { method: 'PUT', body: JSON.stringify(common) }, t2);
     await api('/api/characters/' + encodeURIComponent(cB), { method: 'PUT', body: JSON.stringify(Object.assign({}, common, { uebersichtParams: { waffenschadenBonus: 1000, waffenschadenBonusPct: 10 } })) }, t2);
+    // Tank VOR Heiler angelegt - die Übersicht muss trotzdem DPS, Heiler, Tank sortieren
+    const cT = 'Tank_' + uniq, cH = 'Heil_' + uniq;
+    await api('/api/characters', { method: 'POST', body: JSON.stringify({ name: cT }) }, t2);
+    await api('/api/characters', { method: 'POST', body: JSON.stringify({ name: cH }) }, t2);
+    await api('/api/characters/' + encodeURIComponent(cT), { method: 'PUT', body: JSON.stringify({ grunddaten: { itemlevel: 90000, klasse: 'Kämpfer', vorbildpfad: 'Wächter (Tank)', klassentyp: 'Tank' }, baseInputs: { verteidigung: { H: 150000, I: 100 }, trefferpunkte: { H: 1500000, I: 0 } }, sourceInputs: {} }) }, t2);
+    await api('/api/characters/' + encodeURIComponent(cH), { method: 'PUT', body: JSON.stringify({ grunddaten: { itemlevel: 85000, klasse: 'Kleriker', vorbildpfad: 'Geweihter Kleriker (Heiler)', klassentyp: 'Heiler' }, baseInputs: { kraft: { H: 90000, I: 60 } }, sourceInputs: {} }) }, t2);
 
     dom = loadFrontend();
     win = dom.window; doc = win.document;
@@ -306,26 +312,42 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       }
     }
 
-    // Charakter-Übersicht: laden, beide Charaktere sichtbar, bester Wert markiert,
-    // Klick auf einen Namen übernimmt den Charakter in den Vergleich
+    // Charakter-Übersicht: Unterpunkt des Vergleichs, sortiert nach Klassentyp,
+    // klappbare Stat-Gruppen, klassenrelevante Werte hervorgehoben
     {
       await win.loadAlleChars(); await wait(400);
       const ovw = doc.getElementById('acc-dmg-allechars');
+      check('Übersicht ist Unterpunkt des Vergleichs', !!ovw && !!ovw.closest('#acc-dmg-vergleich'));
       ovw.classList.add('open');
-      check('Übersicht: beide Charaktere in der Tabelle', ovw.textContent.includes(cA) && ovw.textContent.includes(cB));
+      check('Übersicht: alle vier Charaktere in der Tabelle', [cA, cB, cT, cH].every(n => ovw.textContent.includes(n)));
+      // Sortierung: DPS (A, B), dann Heiler (cH), dann Tank (cT) - obwohl Tank zuerst angelegt wurde
+      const headNames = Array.from(ovw.querySelectorAll('thead .ovw-charbtn')).map(b => b.textContent.trim());
+      check('Übersicht: sortiert DPS -> Heiler -> Tank', JSON.stringify(headNames) === JSON.stringify([cA, cB, cH, cT]), headNames.join(' | '));
       check('Übersicht: aktueller Charakter als live markiert', ovw.textContent.includes('(aktuell)') && ovw.textContent.includes('jetzt (live)'));
       check('Übersicht: bester Wert gold markiert', ovw.querySelectorAll('.best').length >= 3, ovw.querySelectorAll('.best').length);
-      const rowsO = Array.from(ovw.querySelectorAll('tbody tr')).map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()));
-      const ilRow = rowsO.find(r => r[0] === 'Gegenstandsstufe');
-      check('Übersicht: Gegenstandsstufen stimmen', ilRow && num(ilRow[1]) === 100000 && num(ilRow[2]) === 100000, ilRow && ilRow.slice(1, 3).join('/'));
-      const dmgRowO = rowsO.find(r => r[0] === 'Gesamtschaden der Fähigkeit');
-      check('Übersicht: B (mit Waffenbonus) hat den besseren Schaden markiert', dmgRowO && ovw.querySelectorAll('tbody tr')[1].querySelectorAll('td')[2].querySelector('.best') !== null, dmgRowO && dmgRowO.slice(1, 3).join('/'));
-      // Klick auf B-Spaltenkopf -> Vergleich B = cB
+      // Kennzahlen-Hervorhebung: Schaden-Zeile tönt die DPS-Spalten, eHP-Zeile die Tank-Spalte
+      const rowsEls = Array.from(ovw.querySelectorAll('tbody tr'));
+      const rowByLabel = l => rowsEls.find(tr => tr.querySelector('td') && tr.querySelector('td').textContent.trim() === l);
+      check('Übersicht: Schaden-Zeile hebt DPS hervor', rowByLabel('Gesamtschaden der Fähigkeit').querySelectorAll('td.relev-dps').length === 2);
+      check('Übersicht: eHP-Zeile hebt Tank hervor', rowByLabel('Effektive Trefferpunkte (eHP)').querySelectorAll('td.relev-tank').length === 1);
+      check('Übersicht: Heilung-Zeile hebt Heiler hervor', rowByLabel('Heilung der Fähigkeit').querySelectorAll('td.relev-heal').length === 1);
+      // Klappbare Gruppen: aktueller Charakter ist DPS -> Offensive offen, Defensive zu
+      const off = doc.getElementById('srcgrp-ovw-offensive'), def = doc.getElementById('srcgrp-ovw-defensive');
+      check('Übersicht: Offensive standardmäßig offen (DPS geladen)', off && off.classList.contains('open'));
+      check('Übersicht: Defensive standardmäßig zu', def && !def.classList.contains('open'));
+      win.toggleSrcSubgroup('ovw', 'defensive');
+      check('Übersicht: Defensive aufklappbar', def.classList.contains('open'));
+      check('Übersicht: Defensive-Stats heben Tank hervor', def.querySelectorAll('td.relev-tank').length >= 5, def.querySelectorAll('td.relev-tank').length);
+      check('Übersicht: Offensive-Stats heben DPS und Heiler hervor', off.querySelectorAll('td.relev-dps').length >= 10 && off.querySelectorAll('td.relev-heal').length >= 5);
+      // Klick auf B-Spaltenkopf -> Vergleich B = cB (B ist die zweite DPS-Spalte)
       const btns = ovw.querySelectorAll('.ovw-charbtn');
       btns[1].click(); await wait(700);
       const selBAfter = doc.querySelector('select[data-vgl="b"]');
       const chosen = Array.from(selBAfter.options).find(o => o.selected);
       check('Übersicht: Klick übernimmt Charakter in den Vergleich', chosen && chosen.textContent.includes('Beta_'), chosen && chosen.textContent);
+      // Aufgeklappter Zustand überlebt den Rebuild durch die Vergleichsauswahl
+      const defNeu = doc.getElementById('srcgrp-ovw-defensive');
+      check('Übersicht: Aufklapp-Zustand überlebt Neuaufbau', defNeu && defNeu.classList.contains('open'));
     }
 
     // Snapshot ("Vorher/Nachher"): Stand einfrieren, Kraft erhöhen, Unterschied sichtbar
