@@ -115,8 +115,10 @@ crontab -e
 - `backups/shared/` - die letzten 10 Stände von `shared.json` (Sicherheitsnetz vor jedem Presets-/Formeln-Speichern)
 
 **Eingebaute Schutzmechanismen:** Login-Bremse (nach 10 Fehlversuchen 15
-Minuten Sperre pro Benutzername), Struktur-Whitelist + Größenlimit beim
-Speichern von Charakterdaten, `Cache-Control`-Header, damit nach Updates
+Minuten Sperre pro Benutzername), Passwortwechsel meldet alle bestehenden
+Anmeldungen auf anderen Geräten ab (auch nach einem Admin-Reset - dabei wird
+beim nächsten Login automatisch ein eigener Passwortwechsel angefordert),
+Struktur-Whitelist + Größenlimit beim Speichern von Charakterdaten, `Cache-Control`-Header, damit nach Updates
 niemand eine veraltete Seite aus dem Browser-Cache sieht. mathjs liegt lokal
 unter `public/vendor/` bei - der Rechner funktioniert also auch, wenn das
 frühere CDN nicht erreichbar ist.

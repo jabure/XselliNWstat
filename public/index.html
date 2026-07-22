@@ -341,6 +341,10 @@
       <div class="card">
         <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
         <p class="helptext">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
+        <div class="btnrow" style="margin:0 0 10px 0;">
+          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', true)">Alles aufklappen</button>
+          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', false)">Alles zuklappen</button>
+        </div>
         <div id="sourceAccordions"></div>
       </div>
     </div>
@@ -403,6 +407,17 @@
     <div class="body">
       <p class="helptext">Essen werden direkt in ihrer Kategorie unten angelegt und gelöscht.</p>
       <div id="foodEditor"></div>
+    </div>
+  </div>
+
+  <div class="accordion" id="acc-admin-gegner">
+    <button type="button" onclick="toggleAdminAccordion('gegner')">
+      <span><span class="dot" style="background:var(--def)"></span>Gegner-Profile</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">
+      <p class="helptext">Pro Profil: Name (z. B. Boss-Name) und die 10 Gegner-Werte in %. Die Profile erscheinen auf der Schadensberechnung-Seite unter "Gegnerische Werte" als Dropdown.</p>
+      <div id="gegnerProfilEditor"></div>
+      <div class="btnrow"><button type="button" class="action" onclick="addGegnerProfilCard()">+ Neues Profil</button></div>
     </div>
   </div>
 
@@ -662,9 +677,35 @@ function defaultUebersichtParams(){
     // Manche Waffen geben zusätzlichen Waffenschaden - fester Bonus (Werte) wird auf den
     // berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Beides ist eine
     // Eigenschaft der Waffe und wird deshalb pro Charakter gespeichert.
-    waffenschadenBonus:0, waffenschadenBonusPct:0 };
+    waffenschadenBonus:0, waffenschadenBonusPct:0,
+    gegnerProfilName:'' }; // Anzeige, welches Gegner-Profil zuletzt angewendet wurde ('' = eigene Werte)
 }
 let uebersichtParams = defaultUebersichtParams();
+// Gemeinsame Gegner-Profile (von Moderatoren auf der Presets-Seite gepflegt):
+// ein Profil setzt alle 10 "Gegner: ..."-Felder auf einen Schlag - so rechnet die
+// ganze Gilde denselben Gegner und Vergleiche sind untereinander vergleichbar.
+const GEGNER_FELDER = [
+  ['gegnerDefensive','Verteidigung'], ['gegnerDeflect','Deflect'], ['gegnerDeflectSev','Deflect-Härte'],
+  ['gegnerAwareness','Awareness'], ['gegnerKritvermeidung','Kritische Vermeidung'],
+  ['gegnerKraft','Kraft'], ['gegnerZielgenauigkeit','Zielgenauigkeit'], ['gegnerKampfvorteil','Kampfvorteil'],
+  ['gegnerKritwert','Kritischer Trefferwert'], ['gegnerKritschaden','Kritischer Trefferschaden'],
+];
+const DEFAULT_GEGNER_PROFILE = {
+  'Standard-PvE': { gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0,
+    gegnerKraft:90, gegnerZielgenauigkeit:0, gegnerKampfvorteil:90, gegnerKritwert:50, gegnerKritschaden:90 },
+};
+let gegnerProfile = JSON.parse(JSON.stringify(DEFAULT_GEGNER_PROFILE));
+let gegnerProfilNames = []; // Zuordnung Dropdown-Index -> Profilname (Sonderzeichen-sicher)
+function applyGegnerProfil(val){
+  if(val === ''){ uebersichtParams.gegnerProfilName = ''; queueSave(); renderUebersicht(); return; }
+  const name = gegnerProfilNames[Number(val.slice(2))];
+  const prof = name && gegnerProfile[name];
+  if(!prof) return;
+  GEGNER_FELDER.forEach(([key])=>{ if(key in prof) uebersichtParams[key] = Number(prof[key])||0; });
+  uebersichtParams.gegnerProfilName = name;
+  queueSave();
+  renderUebersicht();
+}
 // Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
 // damit lässt sich z. B. simulieren "was würde es bringen, wenn dieser Stat +X% mehr hätte,
 // zusätzlich zu allen anderen aktiven Stats gleichzeitig". Fehlt ein Eintrag, gilt er als aktiv.
@@ -844,6 +885,7 @@ async function renderAccountPanel(){
   }).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
 
   const vorlageOptions = ['<option value="">– leer starten –</option>',
+    ...(loadGuestBundle() ? ['<option value="__guest__">Aktuelle Gast-Eingaben übernehmen</option>'] : []),
     ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${c.name}</option>`)].join('');
 
   body.innerHTML = `
@@ -870,7 +912,8 @@ async function renderAccountPanel(){
       <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
       <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
     </div>
-    <div id="pwChangeArea" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    <div id="pwChangeArea" style="display:${pwChangeRequired ? 'block' : 'none'};margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      ${pwChangeRequired ? '<p class="helptext" style="color:var(--gold);margin-top:0;">Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).</p>' : ''}
       <div class="login-grid">
         <div><label>Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
         <div><label>Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
@@ -878,6 +921,10 @@ async function renderAccountPanel(){
       <div class="btnrow"><button class="action gold" type="button" onclick="changePassword()">Neues Passwort speichern</button></div>
     </div>`;
 }
+
+// Nach einem Admin-Reset auf das Standardpasswort: beim nächsten Login wird das
+// Passwort-Formular automatisch geöffnet und um einen Wechsel gebeten.
+let pwChangeRequired = false;
 
 // Passwort-ändern-Bereich im Konto-Fenster ein-/ausblenden (standardmäßig versteckt).
 function togglePwChange(){
@@ -890,10 +937,14 @@ async function changePassword(){
   const newP = document.getElementById('acc_newpw').value;
   if(!newP){ setAccountMsg('Bitte ein neues Passwort eingeben.'); return; }
   try{
-    await apiChangePassword(oldP, newP);
+    const res = await apiChangePassword(oldP, newP);
+    // Der Wechsel macht alle alten Tokens ungültig (inkl. des gerade benutzten) -
+    // der Server liefert deshalb sofort ein frisches mit, damit man angemeldet bleibt.
+    if(res && res.token){ authToken = res.token; persistLoginLocally(); }
+    pwChangeRequired = false;
     document.getElementById('acc_oldpw').value = '';
     document.getElementById('acc_newpw').value = '';
-    setAccountMsg('Passwort geändert.', true);
+    setAccountMsg('Passwort geändert. Alle anderen Anmeldungen (andere Geräte/Browser) wurden dabei abgemeldet.', true);
   }catch(e){ setAccountMsg(e.message); }
 }
 
@@ -1082,6 +1133,7 @@ async function loginAccount(){
   try{
     const res = await apiLogin(username, password);
     authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentRole = res.role || 'user';
+    pwChangeRequired = res.mustChangePassword === true;
     persistLoginLocally();
     applyCharDataBundle({});
     updateAccountLabel();
@@ -1091,6 +1143,7 @@ async function loginAccount(){
 function logoutAccount(){
   clearLoginLocally();
   authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentRole = 'user';
+  pwChangeRequired = false;
   // Nach dem Abmelden wieder die (Browser-)Gast-Daten anzeigen, falls vorhanden.
   applyCharDataBundle(loadGuestBundle() || {});
   updateAccountLabel();
@@ -1101,6 +1154,24 @@ async function createCharacter(){
   const name = document.getElementById('acc_newchar').value.trim();
   if(!name){ setAccountMsg('Bitte einen Namen eingeben.'); return; }
   const copyIdx = document.getElementById('acc_copyfrom').value;
+  // "__guest__": die im Browser zwischengespeicherten Gast-Eingaben werden zum
+  // Startinhalt des neuen Charakters - die Brücke vom Ausprobieren zum Konto.
+  if(copyIdx === '__guest__'){
+    const guest = loadGuestBundle();
+    if(!guest){ setAccountMsg('Keine Gast-Eingaben (mehr) vorhanden.'); return; }
+    try{
+      await apiCreateCharacter(name);
+      currentChar = name;
+      applyCharDataBundle(guest);
+      await apiSaveCharacter(name, getCharDataBundle());
+      localStorage.setItem('xselli_lastchar_'+currentUser, name);
+      updateAccountLabel();
+      renderAccountPanel();
+      fullUiRefreshAfterProfileSwitch();
+      closeAccountModal();
+    }catch(e){ setAccountMsg(e.message); }
+    return;
+  }
   const copyFrom = copyIdx !== '' && myCharacters[copyIdx] ? myCharacters[copyIdx].name : null;
   try{
     await apiCreateCharacter(name, copyFrom);
@@ -1301,13 +1372,34 @@ function werteValueAttr(n){
   const num = Number(n)||0;
   return num ? `value="${formatWerte(num)}"` : `value="" placeholder="0"`;
 }
+/* Prozent-/Dezimalfelder sind jetzt Textfelder mit eigener Auswertung: type=number
+   akzeptiert je nach Browser-Sprache nur Punkt ODER Komma - bei der falschen
+   Kombination wird "95,5" stillschweigend zu einer leeren (= 0) Eingabe. parsePct
+   versteht beides, formatPct zeigt Werte einheitlich mit Komma an (deutsch). */
+function parsePct(str){
+  const cleaned = String(str).trim().replace(/\s/g,'').replace(',', '.').replace(/[^\d.\-]/g,'');
+  if(cleaned === '' || cleaned === '-' || cleaned === '.') return 0;
+  const n = Number(cleaned);
+  return Number.isNaN(n) ? 0 : n;
+}
+function formatPct(n){
+  const num = Number(n);
+  if(n === null || n === undefined || n === '' || Number.isNaN(num)) return '';
+  return String(num).replace('.', ',');
+}
 function pctValueAttr(n){
   const num = Number(n)||0;
-  return num ? `value="${num}"` : `value="" placeholder="0"`;
+  return num ? `value="${formatPct(num)}"` : `value="" placeholder="0"`;
 }
 // Beim Fokussieren: unformatiert (nur Ziffern) zeigen, damit man normal weitertippen kann.
 // Beim Verlassen des Feldes: wieder mit 1000er-Punkt formatieren.
 function attachWerteFormatting(root){
+  root.querySelectorAll('input.pct-in').forEach(inp=>{
+    inp.addEventListener('blur', e=>{
+      const n = parsePct(e.target.value);
+      e.target.value = n ? formatPct(n) : '';
+    });
+  });
   root.querySelectorAll('input.werte-in').forEach(inp=>{
     inp.addEventListener('focus', e=>{ e.target.value = e.target.value.replace(/[^\d-]/g,''); });
     inp.addEventListener('blur', e=>{
@@ -1623,7 +1715,7 @@ function buildStatGroupsDOM(){
           <td class="statname">${stat.label}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
-          <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
+          <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
           <td class="computed-stack"><span class="computed" id="F-${stat.id}"></span></td>
           <td class="muted">&ndash;</td>
         </tr>`;
@@ -1632,7 +1724,7 @@ function buildStatGroupsDOM(){
         <td class="statname">${stat.label}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
         <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
-        <td><span class="pct-wrap"><input type="number" step="0.01" class="num-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
+        <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
         <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span><span class="computed" id="F-${stat.id}"></span></td>
         <td id="delta-${stat.id}" class="muted">&ndash;</td>
       </tr>`;
@@ -1646,6 +1738,10 @@ function buildStatGroupsDOM(){
   }).join('');
 
   el.innerHTML = `<div class="card">
+    <div class="btnrow" style="margin:0 0 10px 0;">
+      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', true)">Alles aufklappen</button>
+      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', false)">Alles zuklappen</button>
+    </div>
     <table class="stats-table">
       <thead><tr>
         <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
@@ -1659,7 +1755,7 @@ function buildStatGroupsDOM(){
     inp.addEventListener('input', e=>{
       const statId = e.target.dataset.stat;
       const role = e.target.dataset.role;
-      const val = e.target.value === '' ? 0 : (role === 'H' ? parseWerte(e.target.value) : Number(e.target.value));
+      const val = e.target.value === '' ? 0 : (role === 'H' ? parseWerte(e.target.value) : parsePct(e.target.value));
       getBase(statId)[role] = val;
       queueSave();
       refresh(false);
@@ -1722,7 +1818,7 @@ function renderManualTable(cat){
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1823,7 +1919,7 @@ function renderGefaehrtenWerteTable(){
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -1911,7 +2007,7 @@ function renderReittierWerteTable(){
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="number" step="0.01" class="num-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
     }).join('');
@@ -2040,7 +2136,7 @@ function renderSourceAccordions(){
   el.querySelectorAll('input[data-src]').forEach(inp=>{
     inp.addEventListener('input', e=>{
       const src = e.target.dataset.src, statId = e.target.dataset.stat, field = e.target.dataset.field;
-      const val = e.target.value === '' ? 0 : (field === 'werte' ? parseWerte(e.target.value) : Number(e.target.value));
+      const val = e.target.value === '' ? 0 : (field === 'werte' ? parseWerte(e.target.value) : parsePct(e.target.value));
       getSourceVal(src, statId)[field] = val;
       e.target.classList.toggle('has-value', val !== 0);
       queueSave();
@@ -2099,6 +2195,15 @@ function applyCatPreset(catId, presetName){
 function toggleCatAccordion(catId){
   document.getElementById('acc-cat-'+catId).classList.toggle('open');
 }
+// "Alles auf-/zuklappen" für die Stat-Tabelle bzw. den kompletten Ausrüstung-&-Boni-Bereich.
+function setAllStatSubgroups(scope, open){
+  if(scope === 'stats'){
+    document.querySelectorAll('#statGroups .stat-subgroup').forEach(el=>el.classList.toggle('open', open));
+  } else {
+    document.querySelectorAll('#sourceAccordions .accordion').forEach(el=>el.classList.toggle('open', open));
+    document.querySelectorAll('#sourceAccordions .stat-subgroup').forEach(el=>el.classList.toggle('open', open));
+  }
+}
 function toggleSrcSubgroup(catId, groupId){
   document.getElementById(`srcgrp-${catId}-${groupId}`).classList.toggle('open');
 }
@@ -2123,14 +2228,15 @@ function renderMaxPrGrid(){
     const val = maxPrOverrides[stat.id] !== undefined ? maxPrOverrides[stat.id] : stat.maxPr;
     return `<div class="maxpr-item">
       <label>${stat.label}</label>
-      <input type="number" step="0.01" class="num-in" style="width:100%" data-maxpr="${stat.id}" value="${val}">
+      <input type="text" inputmode="decimal" class="num-in pct-in" style="width:100%" data-maxpr="${stat.id}" value="${formatPct(val)}">
     </div>`;
   }).join('');
   el.querySelectorAll('input[data-maxpr]').forEach(inp=>{
     inp.addEventListener('input', e=>{
-      maxPrOverrides[e.target.dataset.maxpr] = Number(e.target.value);
+      maxPrOverrides[e.target.dataset.maxpr] = parsePct(e.target.value);
     });
   });
+  attachWerteFormatting(el);
 }
 
 // Live-Testrechnung der Formeln-Seite: wertet die aktuellen Textarea-Inhalte mit
@@ -2702,7 +2808,7 @@ function renderUebersicht(){
   </tr>`).join('');
   const paramInput = (key, label) => `<div>
     <label>${label}</label>
-    <span class="pct-wrap"><input type="number" step="0.5" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]}"><span class="pct-suffix">%</span></span>
+    <span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" style="width:100%;" data-uparam="${key}" value="${formatPct(P[key])}"><span class="pct-suffix">%</span></span>
   </div>`;
   // Wie paramInput, aber für reine Zahlenwerte ohne %-Suffix (z. B. Bonus-Waffenschaden in Werten).
   const paramInputNum = (key, label) => `<div>
@@ -3058,6 +3164,14 @@ function renderUebersicht(){
       <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
+      <div style="max-width:340px;margin-bottom:6px;">
+        <label>Gegner-Profil</label>
+        <select onchange="applyGegnerProfil(this.value)">
+          <option value="" ${!P.gegnerProfilName?'selected':''}>&ndash; eigene Werte &ndash;</option>
+          ${(gegnerProfilNames = Object.keys(gegnerProfile)) && gegnerProfilNames.map((n,i)=>`<option value="gp${i}" ${P.gegnerProfilName===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+        </select>
+      </div>
+      <p class="helptext">Ein Profil setzt alle Felder unten auf einen Schlag (gepflegt von Moderatoren auf der Presets-Seite). Sobald du ein Feld von Hand änderst, gilt wieder "eigene Werte".</p>
       <p class="helptext">Defensive Gegner-Werte (wirken gegen deinen Schaden):</p>
       <div class="grunddaten-grid">
         ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
@@ -3089,7 +3203,8 @@ function renderUebersicht(){
   // rechnen und mitspeichern.
   el.querySelectorAll('input[data-uparam]').forEach(inp=>{
     inp.addEventListener('change', e=>{
-      uebersichtParams[e.target.dataset.uparam] = Number(e.target.value)||0;
+      uebersichtParams[e.target.dataset.uparam] = parsePct(e.target.value);
+      if(e.target.dataset.uparam.startsWith('gegner')) uebersichtParams.gegnerProfilName = '';
       queueSave();
       renderUebersicht();
     });
@@ -3104,6 +3219,8 @@ function renderUebersicht(){
       setVergleichAuswahl(e.target.dataset.vgl, name);
     });
   });
+
+  attachWerteFormatting(el);
 
   // Hover-Hervorhebung für alle drei Grenznutzen-Grafiken: beim Überfahren einer Linie
   // (bzw. Klick auf die Legende, für Touch-Geräte) wird sie hervorgehoben, die anderen abgedunkelt.
@@ -3410,6 +3527,7 @@ async function reloadShared(){
   foodDb = shared.foodDb || JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
   gefaehrtenPresets = shared.gefaehrtenPresets || JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
   reittierPresets = shared.reittierPresets || JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
+  gegnerProfile = shared.gegnerProfile || JSON.parse(JSON.stringify(DEFAULT_GEGNER_PROFILE));
   if(shared.foodSlots) shared.foodSlots.forEach((def, i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
   refresh(true);
   renderUebersicht();
@@ -3427,7 +3545,7 @@ function statRowHtml(statId, werte, prozent){
   return `<div class="stat-row">
     <select class="stat-select">${statOptionsHtml(statId)}</select>
     <input type="text" inputmode="numeric" class="num-in werte-in stat-werte" value="${formatWerte(werte||0)}" placeholder="Werte">
-    <span class="pct-wrap"><input type="number" step="0.01" class="num-in stat-prozent" value="${prozent||0}"><span class="pct-suffix">%</span></span>
+    <span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in stat-prozent" value="${formatPct(prozent||0)}"><span class="pct-suffix">%</span></span>
     <button type="button" class="action danger small" onclick="this.closest('.stat-row').remove()">✕</button>
   </div>`;
 }
@@ -3487,7 +3605,7 @@ function collectEntryEditor(containerId){
       const statId = row.querySelector('.stat-select').value;
       if(!statId) return;
       const werte = parseWerte(row.querySelector('.stat-werte').value);
-      const prozent = Number(row.querySelector('.stat-prozent').value)||0;
+      const prozent = parsePct(row.querySelector('.stat-prozent').value);
       if(werte || prozent) stats[statId] = {werte, prozent};
     });
     const infoInput = card.querySelector('.entry-info');
@@ -3562,7 +3680,7 @@ function collectFoodEditor(){
         const statId = row.querySelector('.stat-select').value;
         if(!statId) return;
         const werte = parseWerte(row.querySelector('.stat-werte').value);
-        const prozent = Number(row.querySelector('.stat-prozent').value)||0;
+        const prozent = parsePct(row.querySelector('.stat-prozent').value);
         if(werte || prozent) stats[statId] = {werte, prozent};
       });
       const infoInput = card.querySelector('.entry-info');
@@ -3613,12 +3731,55 @@ function collectPresetEditor(containerId){
   return result;
 }
 
+/* ---------- Presets-Seite: Gegner-Profil-Editor ---------- */
+function gegnerProfilCardHtml(name, prof){
+  prof = prof || {};
+  const fields = GEGNER_FELDER.map(([key, label])=>`<div class="preset-slot">
+    <label>${label}</label>
+    <span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in gp-field" data-gp="${key}" value="${formatPct(prof[key]||0)}" style="width:100%;"><span class="pct-suffix">%</span></span>
+  </div>`).join('');
+  return `<div class="preset-card">
+    <div class="entry-head">
+      <input type="text" class="entry-name gp-name" value="${String(name||'').replace(/"/g,'&quot;')}" placeholder="Profil-Name (z. B. Boss XY)">
+      <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
+    </div>
+    <div class="slot-grid">${fields}</div>
+  </div>`;
+}
+function renderGegnerProfilEditor(){
+  const el = document.getElementById('gegnerProfilEditor');
+  if(!el) return;
+  el.innerHTML = Object.keys(gegnerProfile).map(n=>gegnerProfilCardHtml(n, gegnerProfile[n])).join('');
+  attachWerteFormatting(el);
+}
+function addGegnerProfilCard(){
+  const el = document.getElementById('gegnerProfilEditor');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = gegnerProfilCardHtml('', JSON.parse(JSON.stringify(DEFAULT_GEGNER_PROFILE['Standard-PvE'])));
+  const card = wrapper.firstElementChild;
+  el.appendChild(card);
+  attachWerteFormatting(card);
+}
+function collectGegnerProfilEditor(){
+  const el = document.getElementById('gegnerProfilEditor');
+  const result = {};
+  el.querySelectorAll(':scope > .preset-card').forEach(card=>{
+    const name = card.querySelector('.gp-name').value.trim();
+    if(!name) return;
+    const prof = {};
+    card.querySelectorAll('.gp-field').forEach(inp=>{ prof[inp.dataset.gp] = parsePct(inp.value); });
+    result[name] = prof;
+  });
+  return result;
+}
+
 function fillPresetFields(){
   renderEntryEditor('companionEditor', companionDb);
   renderEntryEditor('mountEditor', mountDb);
   renderFoodEditor();
   renderPresetEditor('gefaehrtenPresetEditor', gefaehrtenPresets, GEFAEHRTEN_SLOTS, Object.keys(companionDb));
   renderPresetEditor('reittierPresetEditor', reittierPresets, REITTIER_GRUPPE_SLOTS, Object.keys(mountDb));
+  renderGegnerProfilEditor();
 }
 async function savePresetsShared(){
   companionDb = collectEntryEditor('companionEditor');
@@ -3626,11 +3787,12 @@ async function savePresetsShared(){
   foodDb = collectFoodEditor();
   gefaehrtenPresets = collectPresetEditor('gefaehrtenPresetEditor');
   reittierPresets = collectPresetEditor('reittierPresetEditor');
+  gegnerProfile = collectGegnerProfilEditor();
 
   try{
     const r = await apiSetPresets({
       rev: sharedRev,
-      companionDb, mountDb, foodDb,
+      companionDb, mountDb, foodDb, gegnerProfile,
       gefaehrtenPresets, reittierPresets,
     });
     if(r && r.rev !== undefined) sharedRev = r.rev;
@@ -3650,6 +3812,7 @@ function resetPresetsToDefault(){
   foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
   gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
   reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
+  gegnerProfile = JSON.parse(JSON.stringify(DEFAULT_GEGNER_PROFILE));
   fillPresetFields();
   setDirty('presets', true); // Standard ist erst nach "Presets speichern" wirklich für alle aktiv
 }
@@ -3918,6 +4081,7 @@ async function init(){
     if(shared.foodDb) foodDb = migrateFoodDbIfNeeded(shared.foodDb, shared.foodSlots);
     if(shared.gefaehrtenPresets) gefaehrtenPresets = shared.gefaehrtenPresets;
     if(shared.reittierPresets) reittierPresets = shared.reittierPresets;
+    if(shared.gegnerProfile) gegnerProfile = shared.gegnerProfile;
   }catch(e){
     console.warn('Presets/Formeln konnten nicht vom Server geladen werden:', e.message);
   }
@@ -3930,6 +4094,13 @@ async function init(){
     try{
       const me = await apiMe(); // prüft nebenbei, ob das Token noch gültig ist, liefert isAdmin + Charaktere
       currentRole = me.role || 'user';
+      pwChangeRequired = me.mustChangePassword === true;
+      if(pwChangeRequired){
+        setTimeout(()=>{
+          document.getElementById('saveStatus').textContent = 'Dein Passwort wurde auf das Standardpasswort zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.';
+          setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 12000);
+        }, 500);
+      }
       const savedChar = localStorage.getItem('xselli_lastchar_'+savedUsername);
       if(savedChar && me.characters.includes(savedChar)){
         const res = await apiGetCharacter(savedChar);

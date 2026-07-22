@@ -58,6 +58,21 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Vergleich kann einen Snapshot einfrieren (vergleichSnapshot, Option
   __snapshot__, auch für Gäste), Passwort-ändern-Bereich ist hinter
   togglePwChange() versteckt, Login/Kontoformulare reagieren auf Enter.
+- **Seit v0.12.0:** JWT enthält pw-Fingerprint (letzte 10 Zeichen des
+  bcrypt-Hashes) - Passwortwechsel/Admin-Reset macht ALLE alten Tokens
+  ungültig (Tokens ohne pw-Feld = Altbestand bleiben bis Ablauf gültig);
+  change-password liefert deshalb ein frisches Token zurück, das Frontend
+  übernimmt es. Admin-Reset setzt mustChangePassword (kommt in login- und
+  /api/me-Antwort mit, Frontend öffnet dann das Passwort-Formular).
+  ALLE %-/Dezimal-Eingabefelder sind Textfelder mit parsePct/formatPct
+  (verstehen Punkt UND Komma; NIE wieder type=number für Prozente verwenden,
+  sonst schluckt die falsche Browser-Sprache Kommaeingaben stillschweigend).
+  Geteilte gegnerProfile (Presets-Whitelist-Key) mit Editor auf der
+  Presets-Seite und Dropdown in der Gegner-Accordion (applyGegnerProfil,
+  P.gegnerProfilName; manuelles Ändern eines gegner*-Felds setzt auf
+  'eigene Werte' zurück). Gast-Eingaben können bei "Neuer Charakter" als
+  Vorlage __guest__ übernommen werden. setAllStatSubgroups('stats'|'sources',
+  open) = Alles auf-/zuklappen.
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)
 

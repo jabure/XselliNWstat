@@ -83,14 +83,20 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const user = 'smoke_' + uniq;
     let r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username: user, password: 'pass1234' }) });
     check('Registrieren', r.status === 201 && r.data.token, r.status);
-    const token = r.data.token;
+    let token = r.data.token; // wird nach jedem Passwortwechsel durch das jeweils frische ersetzt
 
     r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: 'FALSCH', newPassword: 'neu1234' }) }, token);
     check('Passwort ändern mit falschem alten Passwort -> 401', r.status === 401, r.status);
     r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: 'pass1234', newPassword: 'neu1234' }) }, token);
-    check('Passwort ändern', r.status === 200, r.status);
+    check('Passwort ändern', r.status === 200 && r.data.token, r.status);
+    const freshToken = r.data.token;
+    r = await api('/api/me', {}, token);
+    check('Altes Token ist nach Passwortwechsel ungültig', r.status === 401, r.status);
+    r = await api('/api/me', {}, freshToken);
+    check('Frisches Token aus der Antwort funktioniert', r.status === 200, r.status);
+    token = freshToken; // ab hier mit dem gültigen Token weiterarbeiten
     r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: 'neu1234' }) });
-    check('Login mit neuem Passwort', r.status === 200, r.status);
+    check('Login mit neuem Passwort', r.status === 200 && r.data.mustChangePassword === false, r.status);
 
     const bruteUser = 'brute_' + uniq;
     await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username: bruteUser, password: 'richtig' }) });
@@ -147,6 +153,26 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     r = await api('/api/admin/users', {}, admToken);
     check('Benutzerliste enthält updatedAt für Charaktere', r.data.some(u => (u.characters || []).some(c => c.updatedAt)), false);
 
+    console.log('\n[3c] Admin-Reset erzwingt Passwortwechsel');
+    r = await api('/api/admin/users/' + encodeURIComponent(user) + '/reset-password', { method: 'POST' }, admToken);
+    check('Admin setzt Passwort zurück', r.status === 200, r.status);
+    r = await api('/api/me', {}, freshToken);
+    check('Auch das frische Token fliegt nach Admin-Reset raus', r.status === 401, r.status);
+    r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: '123456789' }) });
+    check('Login mit Standardpasswort meldet Wechsel-Pflicht', r.status === 200 && r.data.mustChangePassword === true, JSON.stringify(r.data).slice(0, 60));
+    const resetToken = r.data.token;
+    r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: '123456789', newPassword: 'neu1234' }) }, resetToken);
+    check('Wechsel-Pflicht nach Passwortänderung erledigt', r.status === 200, r.status);
+    token = r.data.token; // frisches Token für die folgenden Abschnitte
+    r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: 'neu1234' }) });
+    check('Flag ist danach wieder aus', r.status === 200 && r.data.mustChangePassword === false, JSON.stringify(r.data).slice(0, 60));
+
+    console.log('\n[3d] Gegner-Profile in den geteilten Presets');
+    let curRev = ((await api('/api/shared')).data.rev) || 0;
+    r = await api('/api/shared/presets', { method: 'PUT', body: JSON.stringify({ rev: curRev, gegnerProfile: { 'Boss Test': { gegnerDefensive: 75, gegnerDeflect: 50, gegnerDeflectSev: 90, gegnerAwareness: 0, gegnerKritvermeidung: 10, gegnerKraft: 90, gegnerZielgenauigkeit: 0, gegnerKampfvorteil: 90, gegnerKritwert: 50, gegnerKritschaden: 90 } } }) }, token);
+    check('Gegner-Profil speicherbar (Moderator-Recht reicht)', r.status === 200, r.status + '/' + JSON.stringify(r.data).slice(0, 60));
+    check('Gegner-Profil landet in shared.json', !!((await api('/api/shared')).data.gegnerProfile || {})['Boss Test']);
+
     console.log('\n[4] Cache-Header');
     let res = await fetch(BASE + '/index.html');
     check('HTML: Cache-Control no-cache', (res.headers.get('cache-control') || '').includes('no-cache'), res.headers.get('cache-control'));
@@ -182,6 +208,18 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Hinweis bei fehlender Klasse auf der Schadensberechnung', t.includes('keine Klasse gewählt'), t.slice(0, 60));
       dg.window.close();
     }
+    // Komma-Eingabe: "2,5" in einem %-Feld muss als 2,5 rechnen (nicht 0 oder 25)
+    input(win, doc.querySelector('input[data-src="Kopf"][data-stat="kraft"][data-field="prozent"]'), '2,5');
+    await wait(200);
+    check('Komma-Eingabe "2,5 %" rechnet korrekt (55 -> 57,5)', doc.getElementById('F-kraft').textContent.startsWith('57,5'), doc.getElementById('F-kraft').textContent);
+    // Alles auf-/zuklappen
+    win.setAllStatSubgroups('stats', true);
+    const statGroupsCount = doc.querySelectorAll('#statGroups .stat-subgroup').length;
+    check('Alles aufklappen öffnet alle Stat-Gruppen', doc.querySelectorAll('#statGroups .stat-subgroup.open').length === statGroupsCount, doc.querySelectorAll('#statGroups .stat-subgroup.open').length + '/' + statGroupsCount);
+    win.setAllStatSubgroups('stats', false);
+    check('Alles zuklappen schließt alle Stat-Gruppen', doc.querySelectorAll('#statGroups .stat-subgroup.open').length === 0);
+    win.setAllStatSubgroups('sources', true);
+    check('Ausrüstung & Boni: alles aufklappbar', doc.querySelectorAll('#sourceAccordions .accordion.open').length === doc.querySelectorAll('#sourceAccordions .accordion').length);
     const guestSaved = win.localStorage.getItem('xselli_guest');
     check('Gast-Daten im Browser gespeichert', !!guestSaved && JSON.parse(guestSaved).grunddaten.itemlevel === 100000, (guestSaved || '').slice(0, 60));
 
@@ -190,6 +228,22 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     await wait(1200);
     check('Gast-Daten beim nächsten Besuch wiederhergestellt', num(dom2.window.document.getElementById('itemlevel').value) === 100000, dom2.window.document.getElementById('itemlevel').value);
     check('Wiederherstellungs-Hinweis sichtbar', dom2.window.document.getElementById('saveStatus').textContent.includes('wiederhergestellt'));
+    // Brücke Gast -> Konto: registrieren und die Gast-Eingaben als Vorlage übernehmen
+    {
+      const w2 = dom2.window, d2 = w2.document;
+      w2.openAccountPanel(); await wait(300);
+      input(w2, d2.getElementById('acc_username'), 'gastbruecke_' + uniq);
+      input(w2, d2.getElementById('acc_password'), 'pass1234');
+      await w2.registerAccount(); await wait(600);
+      const vorlage = d2.getElementById('acc_copyfrom');
+      check('Vorlage-Dropdown bietet Gast-Eingaben an', vorlage && Array.from(vorlage.options).some(o => o.value === '__guest__'));
+      input(w2, d2.getElementById('acc_newchar'), 'AusGast_' + uniq);
+      vorlage.value = '__guest__';
+      await w2.createCharacter(); await wait(800);
+      check('Charakter aus Gast-Eingaben übernimmt die Werte', num(d2.getElementById('itemlevel').value) === 100000, d2.getElementById('itemlevel').value);
+      const onServer = await api('/api/characters/' + encodeURIComponent('AusGast_' + uniq), {}, (await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'gastbruecke_' + uniq, password: 'pass1234' }) })).data.token);
+      check('Gast-Daten liegen auf dem Server', onServer.status === 200 && onServer.data.data.grunddaten.itemlevel === 100000, JSON.stringify(onServer.data && onServer.data.data && onServer.data.data.grunddaten).slice(0, 60));
+    }
     dom2.window.close();
 
     console.log('\n[6] Beispielcharakter');
@@ -238,6 +292,19 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Vergleich: 3 Ankreuzfelder, Schaden vorbelegt', checks.length === 3 && checks[0].checked && !checks[2].checked);
     win.toggleVergleichSection('tank', true); await wait(300);
     check('Vergleich: Tank-Bereich zuschaltbar', doc.getElementById('acc-dmg-vergleich').textContent.includes('Tank (effektive Trefferpunkte)'));
+
+    // Gegner-Profil per Dropdown anwenden ("Boss Test" aus [3d], Defensive 75)
+    {
+      const sel = doc.querySelector('#acc-dmg-gegner select');
+      check('Gegner-Profil-Dropdown vorhanden', !!sel);
+      const opt = sel && Array.from(sel.options).find(o => o.textContent === 'Boss Test');
+      check('Gepflegtes Profil erscheint im Dropdown', !!opt);
+      if(opt){
+        change(win, sel, opt.value); await wait(300);
+        const defFeld = doc.querySelector('input[data-uparam="gegnerDefensive"]');
+        check('Profil setzt die Gegner-Felder (Defensive 75)', defFeld && num(defFeld.value) === 75, defFeld && defFeld.value);
+      }
+    }
 
     // Snapshot ("Vorher/Nachher"): Stand einfrieren, Kraft erhöhen, Unterschied sichtbar
     win.freezeVergleichSnapshot(); await wait(300);

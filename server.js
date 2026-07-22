@@ -80,12 +80,29 @@ app.get('/api/version', (req, res) => {
   res.json({ version: PKG_VERSION });
 });
 
+function pwFingerprint(passwordHash){
+  return String(passwordHash || '').slice(-10);
+}
+function signToken(username, passwordHash){
+  return jwt.sign({ username, pw: pwFingerprint(passwordHash) }, JWT_SECRET, { expiresIn: '90d' });
+}
 function authMiddleware(req, res, next){
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if(!token) return res.status(401).json({ error: 'Nicht angemeldet' });
   try{
     const payload = jwt.verify(token, JWT_SECRET);
+    // Prüfwert des Passwort-Hashes vergleichen: nach einem Passwortwechsel (selbst
+    // oder per Admin-Reset) werden damit ALLE vorher ausgestellten Tokens ungültig.
+    // Tokens ohne Prüfwert stammen aus der Zeit vor diesem Mechanismus und bleiben
+    // gültig, bis sie regulär ablaufen.
+    if(payload.pw !== undefined){
+      const users = readJson(USERS_FILE, {});
+      const user = users[payload.username];
+      if(!user || payload.pw !== pwFingerprint(user.passwordHash)){
+        return res.status(401).json({ error: 'Login abgelaufen (Passwort wurde geändert), bitte neu anmelden' });
+      }
+    }
     req.username = payload.username;
     next();
   }catch(e){
@@ -135,7 +152,7 @@ app.post('/api/auth/register', async (req, res) => {
   const role = username === ADMIN_USERNAME ? 'admin' : 'user';
   users[username] = { passwordHash, characters: [], role };
   writeJson(USERS_FILE, users);
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '90d' });
+  const token = signToken(username, passwordHash);
   res.status(201).json({ token, username, role });
 });
 
@@ -175,8 +192,8 @@ app.post('/api/auth/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if(!ok){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   delete loginAttempts[username];
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '90d' });
-  res.json({ token, username, role: getUserRole(username) });
+  const token = signToken(username, user.passwordHash);
+  res.json({ token, username, role: getUserRole(username), mustChangePassword: user.mustChangePassword === true });
 });
 
 // Eigenes Passwort ändern (altes Passwort muss stimmen). Wichtig z. B. nachdem ein
@@ -192,15 +209,18 @@ app.post('/api/me/change-password', authMiddleware, async (req, res) => {
   const ok = await bcrypt.compare(String(oldPassword||''), user.passwordHash);
   if(!ok) return res.status(401).json({ error: 'Das aktuelle Passwort ist falsch' });
   user.passwordHash = await bcrypt.hash(newPassword, 10);
+  delete user.mustChangePassword; // Pflicht nach Admin-Reset ist hiermit erfüllt
   writeJson(USERS_FILE, users);
-  res.json({ ok: true });
+  // Der Passwortwechsel macht alle alten Tokens ungültig - auch das gerade benutzte.
+  // Deshalb bekommt der Aufrufer sofort ein frisches Token zurück und bleibt angemeldet.
+  res.json({ ok: true, token: signToken(req.username, user.passwordHash) });
 });
 
 /* ---------- Charaktere (pro Benutzer, benötigt Login) ---------- */
 app.get('/api/me', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [] });
+  res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [], mustChangePassword: !!(user && user.mustChangePassword) });
 });
 
 // Liefert zu einem Charakter die Kurzinfos (Klasse/Vorbildpfad) aus seinen Daten,
@@ -479,7 +499,7 @@ function saveShared(req, res, allowedKeys){
   res.json({ ok: true, rev: next.rev });
 }
 app.put('/api/shared/presets', authMiddleware, requireRole('moderator'), (req, res) => {
-  saveShared(req, res, ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets']);
+  saveShared(req, res, ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets', 'gegnerProfile']);
 });
 app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, res) => {
   saveShared(req, res, ['formulas', 'maxPrOverrides', 'wehrVerteilung']);
@@ -513,6 +533,9 @@ app.post('/api/admin/users/:username/reset-password', authMiddleware, requireRol
   const target = users[req.params.username];
   if(!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   target.passwordHash = await bcrypt.hash(DEFAULT_RESET_PASSWORD, 10);
+  // Beim nächsten Login wird die Person aufgefordert, das Standardpasswort sofort
+  // zu ändern (Frontend öffnet das Passwort-Formular automatisch).
+  target.mustChangePassword = true;
   writeJson(USERS_FILE, users);
   res.json({ ok: true, username: req.params.username, password: DEFAULT_RESET_PASSWORD });
 });
