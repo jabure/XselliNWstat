@@ -249,6 +249,13 @@
     font-size:0.75rem; font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
     border:1px solid var(--gold-soft); border-radius:12px; padding:2px 10px; margin-left:0;
   }
+  /* Charakter-Vergleich: Balken für den direkten optischen Vergleich */
+  .vgl-bar-row{display:flex; align-items:center; gap:10px; margin:3px 0;}
+  .vgl-bar-name{flex:0 0 150px; font-size:0.82rem; color:var(--text-dim); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vgl-bar-track{flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:4px; height:16px; overflow:hidden;}
+  .vgl-bar{height:100%; border-radius:3px 0 0 3px;}
+  .vgl-bar-val{flex:0 0 auto; font-size:0.85rem; font-variant-numeric:tabular-nums; font-weight:600; min-width:80px;}
+  @media (max-width:700px){ .vgl-bar-name{flex-basis:90px;} }
 </style>
 </head>
 <body>
@@ -2040,6 +2047,20 @@ let vergleichBundles = {};      // Charaktername -> vom Server geladenes Datenpa
 let vergleichCharListe = null;  // Namen der eigenen Charaktere für die Dropdowns, null = noch nicht geladen
 let vergleichListePending = false;
 let vergleichOptionNames = [];  // Zuordnung Dropdown-Index -> Charaktername (verhindert Probleme mit Sonderzeichen)
+// Welche Bereiche verglichen werden (ankreuzbar). Wird beim ersten Vergleich anhand
+// des Klassentyps von Charakter A vorbelegt (DPS -> Schaden, Heiler -> Heilung, Tank -> Tank).
+let vergleichSections = null;
+function ensureVergleichSections(klassentyp){
+  if(vergleichSections) return;
+  if(klassentyp === 'Heiler') vergleichSections = { schaden:false, heilung:true, tank:false };
+  else if(klassentyp === 'Tank') vergleichSections = { schaden:false, heilung:false, tank:true };
+  else vergleichSections = { schaden:true, heilung:false, tank:false };
+}
+function toggleVergleichSection(key, on){
+  if(!vergleichSections) vergleichSections = { schaden:false, heilung:false, tank:false };
+  vergleichSections[key] = !!on;
+  renderUebersicht();
+}
 
 function ensureVergleichListe(){
   if(!isLoggedIn || vergleichCharListe !== null || vergleichListePending) return;
@@ -2134,7 +2155,16 @@ function computeKennzahlenForData(bundle){
   const srF = 1 - sr/100;
   const ehp = tp / (vertF * wahrF * kvmF * robF * srF);
 
-  return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF };
+  // Einzelfaktoren mit zurückgeben, damit der Vergleich aufschlüsseln kann,
+  // welcher Faktor wie viel Schaden/Heilung/eHP kostet oder bringt.
+  const faktoren = {
+    dmg: { kraftF, zgF, kvF, kritF, bonusF },
+    heal: { kraftF, kritF: healKritF, heilF: 1 + heilTotal/100 },
+    tank: { vertF, wahrF, kvmF, robF, srF },
+  };
+  const tankPct = { vert, wahr, kvm, rob, robS, sr };
+
+  return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF, faktoren, tankPct };
 }
 
 // Baut den kompletten "Charakter-Vergleich"-Abschnitt (Accordion) für die
@@ -2167,52 +2197,161 @@ function renderVergleichSection(){
     } else {
       const kA = computeKennzahlenForData(A.bundle), kB = computeKennzahlenForData(B.bundle);
       const nameA = escapeHtml(A.label), nameB = escapeHtml(B.label);
-      // Relative Differenz (B gegenüber A) in % - für Kennzahlen wie Schaden/eHP.
-      const relCell = (a, b) => {
-        if(!a || !isFinite(a) || b===null || b===undefined || !isFinite(b)) return '<span class="muted">&ndash;</span>';
-        const d = b/a - 1;
+      ensureVergleichSections(kA.grunddaten.klassentyp);
+      // Relative Differenz (B gegenüber A) als eingefärbter Text.
+      const impactTxt = d => {
+        if(d === null || d === undefined || !isFinite(d)) return '<span class="muted">&ndash;</span>';
         const cls = d > 0.0005 ? 'delta-pos' : (d < -0.0005 ? 'delta-neg' : 'muted');
         return `<span class="${cls}">${d>0?'+':''}${fmt(d*100)} %</span>`;
       };
-      // Differenz in Prozentpunkten (B minus A) - für die einzelnen Stat-Prozente.
-      const ppCell = (a, b) => {
-        const d = b - a;
-        const cls = d > 0.005 ? 'delta-pos' : (d < -0.005 ? 'delta-neg' : 'muted');
-        return `<span class="${cls}">${d>0?'+':''}${fmt(d)} %</span>`;
-      };
+      const rel = (a, b) => (a && isFinite(a) && b!==null && b!==undefined && isFinite(b)) ? b/a - 1 : null;
       const klasseTxt = g => {
         const t = [g.klasse, g.vorbildpfad].filter(Boolean).join(' · ');
         return t ? t : '–';
       };
-      const row = cells => `<tr><td class="statname">${cells[0]}</td><td style="text-align:right;">${cells[1]}</td><td style="text-align:right;">${cells[2]}</td><td style="text-align:right;">${cells[3]}</td></tr>`;
-      const headerRow = label => `<tr><td colspan="4" style="background:var(--panel-2);font-weight:700;font-size:0.85rem;padding:8px 10px;">${label}</td></tr>`;
-      const pctRow = id => row([statLabel(id), fmt(kA.frac(id)*100)+' %', fmt(kB.frac(id)*100)+' %', ppCell(kA.frac(id)*100, kB.frac(id)*100)]);
 
-      const kennRows = [
-        row(['Gegenstandsstufe', formatWerte(kA.itemlevel), formatWerte(kB.itemlevel), relCell(kA.itemlevel, kB.itemlevel)]),
-        row(['Klasse / Vorbildpfad', escapeHtml(klasseTxt(kA.grunddaten)), escapeHtml(klasseTxt(kB.grunddaten)), '<span class="muted">&ndash;</span>']),
-        row(['Waffenschaden', formatWerte(kA.waffenschaden), formatWerte(kB.waffenschaden), relCell(kA.waffenschaden, kB.waffenschaden)]),
-        row(['Gesamtschaden der Fähigkeit', formatWerte(kA.totalDmg), formatWerte(kB.totalDmg), relCell(kA.totalDmg, kB.totalDmg)]),
-        row(['Heilung der Fähigkeit', formatWerte(kA.heilWert), formatWerte(kB.heilWert), relCell(kA.heilWert, kB.heilWert)]),
-        row(['Effektive Trefferpunkte (eHP)', formatWerte(kA.ehp), formatWerte(kB.ehp), relCell(kA.ehp, kB.ehp)]),
-      ].join('');
-      const statRows = [
-        headerRow('Offensive (genutzt/gecappt)'),
-        ...['kraft','zielgenauigkeit','kampfvorteil','kritwert','kritschaden','bonusschaden'].map(pctRow),
-        headerRow('Defensive (genutzt/gecappt)'),
-        ...['verteidigung','wahrnehmung','kritvermeidung','robustheit','robustheitstaerke','schadensreduzierung'].map(pctRow),
-        row([statLabel('trefferpunkte'), formatWerte(kA.tp), formatWerte(kB.tp), relCell(kA.tp, kB.tp)]),
-        headerRow('Heilung'),
-        row([statLabel('gesamtheilung'), fmt(kA.heilTotal)+' %', fmt(kB.heilTotal)+' %', ppCell(kA.heilTotal, kB.heilTotal)]),
-      ].join('');
+      // Klartext-Fazit: wer liegt vorne, und um wie viel (immer aus Sicht des Stärkeren).
+      const verdict = (va, vb, what) => {
+        if(!va || !vb || !isFinite(va) || !isFinite(vb)) return '';
+        const d = vb/va - 1;
+        if(Math.abs(d) < 0.0005) return `<p style="margin:8px 0 4px 0;">${nameA} und ${nameB} liegen bei ${what} praktisch gleichauf.</p>`;
+        const better = d > 0 ? nameB : nameA;
+        const worse = d > 0 ? nameA : nameB;
+        const pct = d > 0 ? d*100 : (va/vb - 1)*100;
+        return `<p style="margin:8px 0 4px 0;font-size:1.02rem;"><strong>${better}</strong> hat <strong class="${d>0?'delta-pos':'delta-neg'}">${fmt(pct)} %</strong> mehr ${what} als ${worse}.</p>`;
+      };
+      // Zwei Balken (A/B) für den direkten optischen Vergleich einer Kennzahl.
+      const bars = (va, vb) => {
+        const maxV = Math.max(va||0, vb||0, 1e-9);
+        const bar = (name, v, c) => `<div class="vgl-bar-row">
+          <span class="vgl-bar-name" title="${name}">${name}</span>
+          <div class="vgl-bar-track"><div class="vgl-bar" style="width:${Math.max(1.5, (v||0)/maxV*100).toFixed(1)}%;background:${c};"></div></div>
+          <span class="vgl-bar-val">${formatWerte(v)}</span>
+        </div>`;
+        return `<div style="margin:6px 0 10px 0;">${bar(nameA, va, 'var(--gold)')}${bar(nameB, vb, '#4285F4')}</div>`;
+      };
+      // Aufschlüsselungs-Tabelle: pro Faktor die genutzten Werte, die Faktoren beider
+      // Charaktere und die Wirkung dieses Faktors allein auf die Kennzahl (B vs. A).
+      // Multipliziert ergeben alle Zeilen zusammen exakt die Gesamtdifferenz.
+      const buildBreakdown = (metricLabel, entries, totalA, totalB) => {
+        const rowsHtml = entries.map(e=>`<tr>
+          <td class="statname">${e.label}</td>
+          <td style="text-align:right;">${e.usedA}</td>
+          <td style="text-align:right;">${e.usedB}</td>
+          <td style="text-align:right;">${e.fA}</td>
+          <td style="text-align:right;">${e.fB}</td>
+          <td style="text-align:right;">${impactTxt(e.impact)}</td>
+        </tr>`).join('');
+        const totalRow = `<tr style="border-top:2px solid var(--gold-soft);">
+          <td class="statname"><strong>Gesamt</strong></td>
+          <td class="muted" style="text-align:right;">&ndash;</td>
+          <td class="muted" style="text-align:right;">&ndash;</td>
+          <td style="text-align:right;"><strong>${formatWerte(totalA)}</strong></td>
+          <td style="text-align:right;"><strong>${formatWerte(totalB)}</strong></td>
+          <td style="text-align:right;"><strong>${impactTxt(rel(totalA, totalB))}</strong></td>
+        </tr>`;
+        let biggest = null;
+        entries.forEach(e=>{ if(e.impact!==null && e.impact!==undefined && isFinite(e.impact) && (biggest===null || Math.abs(e.impact) > Math.abs(biggest.impact))) biggest = e; });
+        const biggestTxt = (biggest && Math.abs(biggest.impact) > 0.0005)
+          ? `<p class="helptext" style="margin:6px 0 0 0;">Größter Einzelunterschied: <strong>${biggest.label}</strong> (${biggest.impact>0?'+':''}${fmt(biggest.impact*100)} % ${metricLabel})</p>` : '';
+        return `<div class="wide-table-scroll"><table>
+          <thead><tr><th>Faktor</th><th style="text-align:right;">${nameA} genutzt</th><th style="text-align:right;">${nameB} genutzt</th><th style="text-align:right;">Faktor ${nameA}</th><th style="text-align:right;">Faktor ${nameB}</th><th style="text-align:right;">${metricLabel} ${nameB} vs. ${nameA}</th></tr></thead>
+          <tbody>${rowsHtml}${totalRow}</tbody>
+        </table></div>${biggestTxt}
+        <p class="helptext" style="margin:6px 0 0 0;">Die letzte Spalte zeigt, wie viel ${metricLabel} allein durch diesen Faktor gewonnen bzw. verloren wird - alle Zeilen zusammen (multipliziert) ergeben die Gesamtdifferenz.</p>`;
+      };
+      const sectionBlock = (color, title, inner) => `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+        <h3 style="font-size:0.95rem;margin:0 0 4px 0;"><span class="dot" style="background:${color}"></span> ${title}</h3>
+        ${inner}</div>`;
+      const pct = v => fmt(v)+' %';
 
-      bodyHtml = `<div class="wide-table-scroll" style="margin-top:12px;">
-        <table>
-          <thead><tr><th>Wert</th><th style="text-align:right;">${nameA}</th><th style="text-align:right;">${nameB}</th><th style="text-align:right;">${nameB} vs. ${nameA}</th></tr></thead>
-          <tbody>${kennRows}${statRows}</tbody>
-        </table>
-      </div>
-      <p class="helptext" style="margin-top:10px;">Beide Charaktere werden mit denselben Fähigkeits- und Gegner-Werten (siehe "Fähigkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. Bei den Kennzahlen zeigt die letzte Spalte die relative Differenz, bei den einzelnen Stats die Differenz in Prozentpunkten. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter Änderungen.</p>`;
+      /* --- Kopf: Grunddaten beider Charaktere --- */
+      const kopf = `<div class="wide-table-scroll" style="margin-top:12px;"><table>
+        <thead><tr><th></th><th style="text-align:right;">${nameA}</th><th style="text-align:right;">${nameB}</th><th style="text-align:right;">${nameB} vs. ${nameA}</th></tr></thead>
+        <tbody>
+          <tr><td class="statname">Gegenstandsstufe</td><td style="text-align:right;">${formatWerte(kA.itemlevel)}</td><td style="text-align:right;">${formatWerte(kB.itemlevel)}</td><td style="text-align:right;">${impactTxt(rel(kA.itemlevel, kB.itemlevel))}</td></tr>
+          <tr><td class="statname">Klasse / Vorbildpfad</td><td style="text-align:right;">${escapeHtml(klasseTxt(kA.grunddaten))}</td><td style="text-align:right;">${escapeHtml(klasseTxt(kB.grunddaten))}</td><td class="muted" style="text-align:right;">&ndash;</td></tr>
+        </tbody>
+      </table></div>`;
+
+      /* --- Ankreuzen, was verglichen werden soll --- */
+      const chk = (key, label) => `<label class="slot-check" style="font-size:0.88rem;color:var(--text);"><input type="checkbox" ${vergleichSections[key]?'checked':''} onchange="toggleVergleichSection('${key}', this.checked)"> ${label}</label>`;
+      const chkRow = `<div style="display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 0 0;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;">
+        <span class="muted" style="font-size:0.85rem;">Vergleichen:</span>
+        ${chk('schaden','Schaden (DPS)')}${chk('heilung','Heilung')}${chk('tank','Tank (eHP)')}
+      </div>`;
+
+      const sections = [];
+      const fA_ = kA.faktoren, fB_ = kB.faktoren;
+      const wsRow = metric => ({ label:'Waffenschaden (Stufe × Klasse)',
+        usedA:formatWerte(kA.itemlevel)+' × '+fmt(kA.klassenFaktor).replace('.',','), usedB:formatWerte(kB.itemlevel)+' × '+fmt(kB.klassenFaktor).replace('.',','),
+        fA:formatWerte(kA.waffenschaden), fB:formatWerte(kB.waffenschaden), impact:rel(kA.waffenschaden, kB.waffenschaden) });
+
+      /* --- Bereich Schaden --- */
+      if(vergleichSections.schaden){
+        const entries = [
+          wsRow(),
+          { label:statLabel('kraft'), usedA:pct(kA.frac('kraft')*100), usedB:pct(kB.frac('kraft')*100),
+            fA:'× '+fmt(fA_.dmg.kraftF), fB:'× '+fmt(fB_.dmg.kraftF), impact:rel(fA_.dmg.kraftF, fB_.dmg.kraftF) },
+          { label:statLabel('zielgenauigkeit'), usedA:pct(kA.frac('zielgenauigkeit')*100), usedB:pct(kB.frac('zielgenauigkeit')*100),
+            fA:'× '+fmt(fA_.dmg.zgF), fB:'× '+fmt(fB_.dmg.zgF), impact:rel(fA_.dmg.zgF, fB_.dmg.zgF) },
+          { label:statLabel('kampfvorteil'), usedA:pct(kA.frac('kampfvorteil')*100), usedB:pct(kB.frac('kampfvorteil')*100),
+            fA:'× '+fmt(fA_.dmg.kvF), fB:'× '+fmt(fB_.dmg.kvF), impact:rel(fA_.dmg.kvF, fB_.dmg.kvF) },
+          { label:'Krit (Wert × Schaden)', usedA:pct(kA.frac('kritwert')*100)+' / '+pct(kA.frac('kritschaden')*100), usedB:pct(kB.frac('kritwert')*100)+' / '+pct(kB.frac('kritschaden')*100),
+            fA:'× '+fmt(fA_.dmg.kritF), fB:'× '+fmt(fB_.dmg.kritF), impact:rel(fA_.dmg.kritF, fB_.dmg.kritF) },
+          { label:statLabel('bonusschaden'), usedA:pct(kA.frac('bonusschaden')*100), usedB:pct(kB.frac('bonusschaden')*100),
+            fA:'× '+fmt(fA_.dmg.bonusF), fB:'× '+fmt(fB_.dmg.bonusF), impact:rel(fA_.dmg.bonusF, fB_.dmg.bonusF) },
+        ];
+        sections.push(sectionBlock('var(--off)', 'Schaden',
+          verdict(kA.totalDmg, kB.totalDmg, 'Schaden') + bars(kA.totalDmg, kB.totalDmg) +
+          buildBreakdown('Schaden', entries, kA.totalDmg, kB.totalDmg)));
+      }
+
+      /* --- Bereich Heilung --- */
+      if(vergleichSections.heilung){
+        const entries = [
+          wsRow(),
+          { label:statLabel('kraft'), usedA:pct(kA.frac('kraft')*100), usedB:pct(kB.frac('kraft')*100),
+            fA:'× '+fmt(fA_.heal.kraftF), fB:'× '+fmt(fB_.heal.kraftF), impact:rel(fA_.heal.kraftF, fB_.heal.kraftF) },
+          { label:'Krit (Wert × Schaden ÷ 2)', usedA:pct(kA.frac('kritwert')*100)+' / '+pct(kA.frac('kritschaden')*100), usedB:pct(kB.frac('kritwert')*100)+' / '+pct(kB.frac('kritschaden')*100),
+            fA:'× '+fmt(fA_.heal.kritF), fB:'× '+fmt(fB_.heal.kritF), impact:rel(fA_.heal.kritF, fB_.heal.kritF) },
+          { label:statLabel('gesamtheilung'), usedA:pct(kA.heilTotal), usedB:pct(kB.heilTotal),
+            fA:'× '+fmt(fA_.heal.heilF), fB:'× '+fmt(fB_.heal.heilF), impact:rel(fA_.heal.heilF, fB_.heal.heilF) },
+        ];
+        sections.push(sectionBlock('var(--sup)', 'Heilung',
+          verdict(kA.heilWert, kB.heilWert, 'Heilung') + bars(kA.heilWert, kB.heilWert) +
+          buildBreakdown('Heilung', entries, kA.heilWert, kB.heilWert)));
+      }
+
+      /* --- Bereich Tank (eHP) --- */
+      if(vergleichSections.tank){
+        // Tank-Faktoren sind "wie viel Schaden kommt noch durch" (kleiner = besser) -
+        // ihre Wirkung auf die eHP ist deshalb umgekehrt: fA/fB - 1.
+        const inv = (fa, fb) => (fb && isFinite(fa) && isFinite(fb)) ? fa/fb - 1 : null;
+        const tA = kA.tankPct, tB = kB.tankPct;
+        const entries = [
+          { label:statLabel('trefferpunkte'), usedA:formatWerte(kA.tp), usedB:formatWerte(kB.tp),
+            fA:'Basis', fB:'Basis', impact:rel(kA.tp, kB.tp) },
+          { label:statLabel('verteidigung'), usedA:pct(tA.vert), usedB:pct(tB.vert),
+            fA:'÷ '+fmt(1+tA.vert/100), fB:'÷ '+fmt(1+tB.vert/100), impact:inv(fA_.tank.vertF, fB_.tank.vertF) },
+          { label:statLabel('wahrnehmung'), usedA:pct(tA.wahr), usedB:pct(tB.wahr),
+            fA:'÷ '+fmt(fA_.tank.wahrF), fB:'÷ '+fmt(fB_.tank.wahrF), impact:inv(fA_.tank.wahrF, fB_.tank.wahrF) },
+          { label:statLabel('kritvermeidung'), usedA:pct(tA.kvm), usedB:pct(tB.kvm),
+            fA:'÷ '+fmt(fA_.tank.kvmF), fB:'÷ '+fmt(fB_.tank.kvmF), impact:inv(fA_.tank.kvmF, fB_.tank.kvmF) },
+          { label:statLabel('robustheit')+' × '+statLabel('robustheitstaerke'), usedA:pct(tA.rob)+' / '+pct(tA.robS), usedB:pct(tB.rob)+' / '+pct(tB.robS),
+            fA:'÷ '+fmt(fA_.tank.robF), fB:'÷ '+fmt(fB_.tank.robF), impact:inv(fA_.tank.robF, fB_.tank.robF) },
+          { label:statLabel('schadensreduzierung'), usedA:pct(tA.sr), usedB:pct(tB.sr),
+            fA:'÷ '+fmt(fA_.tank.srF), fB:'÷ '+fmt(fB_.tank.srF), impact:inv(fA_.tank.srF, fB_.tank.srF) },
+        ];
+        sections.push(sectionBlock('var(--def)', 'Tank (effektive Trefferpunkte)',
+          verdict(kA.ehp, kB.ehp, 'effektive Trefferpunkte (eHP)') + bars(kA.ehp, kB.ehp) +
+          buildBreakdown('eHP', entries, kA.ehp, kB.ehp)));
+      }
+
+      const noneChecked = !vergleichSections.schaden && !vergleichSections.heilung && !vergleichSections.tank;
+      bodyHtml = kopf + chkRow +
+        (noneChecked ? '<p class="helptext" style="margin-top:10px;">Kreuze oben an, was verglichen werden soll (Schaden, Heilung und/oder Tank).</p>' : sections.join('')) +
+        `<p class="helptext" style="margin-top:12px;">Beide Charaktere werden mit denselben Fähigkeits- und Gegner-Werten (siehe "Fähigkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter Änderungen.</p>`;
     }
     inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander.</p>
       <div class="grunddaten-grid" style="max-width:620px;">
