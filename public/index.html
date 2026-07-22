@@ -737,6 +737,11 @@ function closeAccountModal(){
   document.getElementById('accountModalBg').classList.remove('show');
 }
 async function renderAccountPanel(){
+  // Charakterverwaltung (Anlegen/Umbenennen/Kopieren/Löschen) läuft über dieses
+  // Panel - danach kann die Namensliste und der Daten-Cache des Charakter-Vergleichs
+  // veraltet sein, also beides beim nächsten Bedarf neu laden lassen.
+  vergleichCharListe = null;
+  vergleichBundles = {};
   const body = document.getElementById('accountModalBody');
   if(!isLoggedIn){
     body.innerHTML = `
@@ -1021,6 +1026,12 @@ function confirmDeleteCharacter(name){
   document.getElementById('modalBg').classList.add('show');
 }
 function fullUiRefreshAfterProfileSwitch(){
+  // Charakter-Vergleich: gecachte Daten und Namensliste verwerfen (Charaktere
+  // könnten inzwischen geändert/umbenannt/gelöscht worden sein); beim Abmelden
+  // zusätzlich die Auswahl zurücksetzen.
+  vergleichBundles = {};
+  vergleichCharListe = null;
+  if(!isLoggedIn) vergleichAuswahl = { a:'__current__', b:'' };
   document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
   document.getElementById('klasse').value = grunddaten.klasse;
   populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
@@ -1248,6 +1259,9 @@ function queueSave(){
   saveTimer = setTimeout(async ()=>{
     try{
       await apiSaveCharacter(currentChar, getCharDataBundle());
+      // Falls dieser Charakter im Vergleich als "gespeicherter" Stand gecacht ist:
+      // Cache verwerfen, damit der Vergleich beim nächsten Auswählen frisch lädt.
+      delete vergleichBundles[currentChar];
       document.getElementById('saveStatus').textContent = 'Gespeichert';
     }catch(e){
       document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -1289,17 +1303,32 @@ function sumSources(statId){
 }
 
 /* ---------- Berechnung ---------- */
-function computeAll(){
-  const itemlevel = Number(grunddaten.itemlevel)||0;
+// Berechnet alle Stats für ein beliebiges Datenpaket (Grunddaten + Basis-Eingaben +
+// Ausrüstungs-/Boni-Quellen). Wird vom normalen Rechner mit den aktuell geladenen
+// globalen Daten benutzt (computeAll unten) und vom Charakter-Vergleich auf der
+// Schadensberechnung-Seite mit den Daten eines anderen, vom Server geladenen Charakters.
+function computeAllForData(gd, bIn, sIn){
+  gd = gd || {}; bIn = bIn || {}; sIn = sIn || {};
+  const baseOf = id => bIn[id] || {H:0, I:0};
+  const sumOf = id => {
+    let werte=0, prozent=0;
+    for(const src of ALL_SOURCES){
+      const v = (sIn[src] && sIn[src][id]) || {werte:0, prozent:0};
+      werte += Number(v.werte)||0;
+      prozent += Number(v.prozent)||0;
+    }
+    return {werte, prozent};
+  };
+  const itemlevel = Number(gd.itemlevel)||0;
   const results = {};
 
   // erst alle nicht-derived Stats
   for(const stat of ALL_STATS){
     if(stat.type === 'derived') continue;
-    const base = getBase(stat.id);
+    const base = baseOf(stat.id);
     const H = Number(base.H)||0;
     const I = Number(base.I)||0;
-    const {werte:sourcesWerte, prozent:sourcesProzent} = sumSources(stat.id);
+    const {werte:sourcesWerte, prozent:sourcesProzent} = sumOf(stat.id);
     const maxPr = getMaxPr(stat) || 0;
 
     let E = null, F = null, delta = null, error = null;
@@ -1334,7 +1363,7 @@ function computeAll(){
   const wehr = results['wehrhaftigkeit'];
   if(wehr && wehr.F !== null && wehr.I !== null){
     const diff = wehr.F - wehr.I;
-    const key = `${grunddaten.klasse}|${grunddaten.vorbildpfad}`;
+    const key = `${gd.klasse}|${gd.vorbildpfad}`;
     const verteilung = wehrVerteilung[key] || {};
     for(const statId in verteilung){
       const r = results[statId];
@@ -1352,7 +1381,7 @@ function computeAll(){
   for(const stat of ALL_STATS){
     if(stat.type !== 'derived') continue;
     const from = results[stat.derivedFrom];
-    const {werte:sourcesWerte} = sumSources(stat.id);
+    const {werte:sourcesWerte} = sumOf(stat.id);
     let E = null, error = null;
     try{
       const fFromCapped = Math.min(from && from.F !== null ? from.F : 0, 120);
@@ -1362,6 +1391,7 @@ function computeAll(){
   }
   return results;
 }
+function computeAll(){ return computeAllForData(grunddaten, baseInputs, sourceInputs); }
 
 /* ---------- Rendering ---------- */
 function fmt(n){
@@ -1995,6 +2025,209 @@ function statLabel(statId){
   const s = ALL_STATS.find(x=>x.id===statId);
   return s ? s.label : statId;
 }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Charakter-Vergleich (Schadensberechnung-Seite) ----------
+   Vergleicht zwei Charaktere nebeneinander: A und B sind frei wählbar aus den
+   eigenen gespeicherten Charakteren; "Aktuell geladen" nutzt die gerade im
+   Rechner sichtbaren (evtl. noch ungespeicherten) Werte. Beide werden mit den
+   AKTUELL eingestellten Fähigkeits-/Gegner-Werten (uebersichtParams) gerechnet,
+   damit der Vergleich fair gegen denselben Gegner läuft. */
+let vergleichAuswahl = { a:'__current__', b:'' };
+let vergleichBundles = {};      // Charaktername -> vom Server geladenes Datenpaket
+let vergleichCharListe = null;  // Namen der eigenen Charaktere für die Dropdowns, null = noch nicht geladen
+let vergleichListePending = false;
+let vergleichOptionNames = [];  // Zuordnung Dropdown-Index -> Charaktername (verhindert Probleme mit Sonderzeichen)
+
+function ensureVergleichListe(){
+  if(!isLoggedIn || vergleichCharListe !== null || vergleichListePending) return;
+  vergleichListePending = true;
+  apiListCharacters().then(list=>{
+    vergleichCharListe = list.map(c=>c.name);
+    vergleichListePending = false;
+    renderUebersicht();
+  }).catch(()=>{ vergleichListePending = false; vergleichCharListe = []; });
+}
+function setVergleichAuswahl(which, name){
+  vergleichAuswahl[which] = name;
+  if(name && name !== '__current__' && !vergleichBundles[name]){
+    apiGetCharacter(name).then(res=>{
+      const data = res.data || {};
+      // Gleiche Migration wie beim normalen Laden: alte "Verstärkung"-Werte übernehmen.
+      if(data.sourceInputs && data.sourceInputs['Verstärkung'] && !data.sourceInputs['Kampfverzauberung']){
+        data.sourceInputs['Kampfverzauberung'] = data.sourceInputs['Verstärkung'];
+        delete data.sourceInputs['Verstärkung'];
+      }
+      vergleichBundles[name] = data;
+      renderUebersicht();
+    }).catch(e=>{ vergleichBundles[name] = {__error: e.message}; renderUebersicht(); });
+  }
+  renderUebersicht();
+}
+function vergleichSlot(sel){
+  if(sel === '__current__') return { label: currentChar || 'Aktuell (ungespeichert)', bundle: getCharDataBundle(), status:'ok' };
+  if(!sel) return { label:'', status:'none' };
+  const b = vergleichBundles[sel];
+  if(!b) return { label: sel, status:'loading' };
+  if(b.__error) return { label: sel, status:'error', error: b.__error };
+  return { label: sel, bundle: b, status:'ok' };
+}
+
+// Kennzahlen (Waffenschaden, Gesamtschaden, Heilung, eHP) für ein beliebiges
+// Charakter-Datenpaket - identische Formeln wie in den Tabellen der Schadens-,
+// Heilungs- und Tank-Berechnung, aber ohne die +X%-Vergleichsspalten.
+function computeKennzahlenForData(bundle){
+  const g = (bundle && bundle.grunddaten) || {};
+  const results = computeAllForData(g, bundle && bundle.baseInputs, bundle && bundle.sourceInputs);
+  const P = uebersichtParams;
+  const itemlevel = Number(g.itemlevel)||0;
+  const klassenFaktor = g.klassentyp==='DPS' ? 1.2 : (g.klassentyp==='Heiler' ? 1.1 : 1.0);
+  let waffenschaden;
+  try{ waffenschaden = math.evaluate(formulas.dmgWaffenschaden, {itemlevel, klassenFaktor}); }
+  catch(e){ waffenschaden = itemlevel/10 * klassenFaktor; }
+
+  const rawF = id => { const r = results[id]; return (r && r.F!==null && r.F!==undefined) ? r.F : 0; };
+  const capOf = id => { const s = ALL_STATS.find(x=>x.id===id); const m = s ? getMaxPr(s) : null; return m ? m*100 : null; };
+  const frac = id => { const c = capOf(id); const v = rawF(id); return (c!==null ? Math.min(v, c) : v)/100; };
+
+  // Schaden (wie dmgFaktoren/dmgTotal in der Schadensberechnung, ohne plusStat)
+  const kraftPct = frac('kraft')*100, zgPct = frac('zielgenauigkeit')*100, kvPct = frac('kampfvorteil')*100;
+  const kwPct = frac('kritwert')*100, ksPct = frac('kritschaden')*100, bonusPct = frac('bonusschaden')*100;
+  let kraftF, zgF, kvF, kritF, bonusF;
+  try{ kraftF = math.evaluate(formulas.dmgKraftFaktor, {kraft:kraftPct}); }catch(e){ kraftF = 1 + kraftPct/100; }
+  try{ zgF = math.evaluate(formulas.dmgZgFaktor, {zielgenauigkeit:zgPct, gegnerDeflect:P.gegnerDeflect, gegnerDeflectSev:P.gegnerDeflectSev}); }
+  catch(e){ zgF = 1 / Math.max(0.0001, 1 + (P.gegnerDeflect/100) * (P.gegnerDeflectSev/100 - zgPct/100)); }
+  try{ kvF = math.evaluate(formulas.dmgKvFaktor, {kampfvorteil:kvPct, gegnerAwareness:P.gegnerAwareness}); }
+  catch(e){ kvF = 1 + (kvPct - P.gegnerAwareness)/100; }
+  try{ kritF = math.evaluate(formulas.dmgKritFaktor, {kritwert:kwPct, kritschaden:ksPct, gegnerKritvermeidung:P.gegnerKritvermeidung}); }
+  catch(e){ kritF = 1 + (kwPct/100) * (ksPct/100 - P.gegnerKritvermeidung/100); }
+  try{ bonusF = math.evaluate(formulas.dmgBonusFaktor, {bonusschaden:bonusPct}); }catch(e){ bonusF = 1 + bonusPct/100; }
+  let totalDmg;
+  try{
+    totalDmg = math.evaluate(formulas.dmgTotal, {
+      waffenschaden, kraftF, zgF, kvF, kritF, bonusF,
+      gegnerDefensive: P.gegnerDefensive, faehigkeit: P.faehigkeit,
+    });
+  }catch(e){
+    totalDmg = waffenschaden * kraftF * zgF * kvF * kritF / (1 + P.gegnerDefensive/100) * (P.faehigkeit/100) * bonusF;
+  }
+
+  // Heilung (Kritischer Trefferschaden zählt bei Heilung nur zur Hälfte, siehe Heilungsberechnung)
+  const heilTotal = results['gesamtheilung'] && results['gesamtheilung'].E !== null ? results['gesamtheilung'].E : 0;
+  const healKritF = 1 + frac('kritwert') * (frac('kritschaden')/2);
+  const heilWert = waffenschaden * kraftF * healKritF * (1 + heilTotal/100) * (P.faehigkeit/100);
+
+  // Tank/eHP (wie Tank-Berechnung)
+  const tp = results['trefferpunkte'] && results['trefferpunkte'].E !== null ? results['trefferpunkte'].E : 0;
+  const vert = cappedF(results,'verteidigung');
+  const wahr = cappedF(results,'wahrnehmung');
+  const kvm = cappedF(results,'kritvermeidung');
+  const rob = cappedF(results,'robustheit');
+  const robS = cappedF(results,'robustheitstaerke');
+  const sr = Math.min(cappedF(results,'schadensreduzierung'), 99);
+  const vertF = 1 / (1 + vert/100);
+  const wahrF = 1 + (P.gegnerKampfvorteil - wahr)/100;
+  const kvmF = 1 + (P.gegnerKritwert/100) * (P.gegnerKritschaden - kvm)/100;
+  const robF = 1 + (rob/100) * ((1/(1+robS/100)) - 1);
+  const srF = 1 - sr/100;
+  const ehp = tp / (vertF * wahrF * kvmF * robF * srF);
+
+  return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF };
+}
+
+// Baut den kompletten "Charakter-Vergleich"-Abschnitt (Accordion) für die
+// Schadensberechnung-Seite. Wird bei jedem renderUebersicht() mit erzeugt.
+function renderVergleichSection(){
+  ensureVergleichListe();
+  let inner;
+  if(!isLoggedIn){
+    inner = '<p class="helptext">Zum Vergleichen zweier Charaktere musst du oben rechts angemeldet sein und mindestens einen gespeicherten Charakter haben.</p>';
+  } else {
+    const names = vergleichCharListe || [];
+    vergleichOptionNames = names;
+    const selHtml = which => {
+      const sel = vergleichAuswahl[which];
+      const opts = [
+        `<option value="" ${sel===''?'selected':''}>&ndash; wählen &ndash;</option>`,
+        `<option value="__current__" ${sel==='__current__'?'selected':''}>Aktuell geladen${currentChar ? ' ('+escapeHtml(currentChar)+')' : ''}</option>`,
+        ...names.map((n,i)=>`<option value="c${i}" ${sel===n?'selected':''}>${escapeHtml(n)}</option>`),
+      ].join('');
+      return `<select data-vgl="${which}">${opts}</select>`;
+    };
+    const A = vergleichSlot(vergleichAuswahl.a), B = vergleichSlot(vergleichAuswahl.b);
+    const statusMsg = s => s.status==='loading' ? `<p class="helptext">Lade "${escapeHtml(s.label)}" ...</p>`
+      : (s.status==='error' ? `<p class="helptext" style="color:var(--off);">Fehler beim Laden von "${escapeHtml(s.label)}": ${escapeHtml(s.error)}</p>` : '');
+
+    let bodyHtml = '';
+    if(A.status !== 'ok' || B.status !== 'ok'){
+      bodyHtml = statusMsg(A) + statusMsg(B) +
+        ((A.status==='none' || B.status==='none') ? '<p class="helptext">Wähle oben zwei Charaktere aus, um sie nebeneinander zu vergleichen.</p>' : '');
+    } else {
+      const kA = computeKennzahlenForData(A.bundle), kB = computeKennzahlenForData(B.bundle);
+      const nameA = escapeHtml(A.label), nameB = escapeHtml(B.label);
+      // Relative Differenz (B gegenüber A) in % - für Kennzahlen wie Schaden/eHP.
+      const relCell = (a, b) => {
+        if(!a || !isFinite(a) || b===null || b===undefined || !isFinite(b)) return '<span class="muted">&ndash;</span>';
+        const d = b/a - 1;
+        const cls = d > 0.0005 ? 'delta-pos' : (d < -0.0005 ? 'delta-neg' : 'muted');
+        return `<span class="${cls}">${d>0?'+':''}${fmt(d*100)} %</span>`;
+      };
+      // Differenz in Prozentpunkten (B minus A) - für die einzelnen Stat-Prozente.
+      const ppCell = (a, b) => {
+        const d = b - a;
+        const cls = d > 0.005 ? 'delta-pos' : (d < -0.005 ? 'delta-neg' : 'muted');
+        return `<span class="${cls}">${d>0?'+':''}${fmt(d)} %</span>`;
+      };
+      const klasseTxt = g => {
+        const t = [g.klasse, g.vorbildpfad].filter(Boolean).join(' · ');
+        return t ? t : '–';
+      };
+      const row = cells => `<tr><td class="statname">${cells[0]}</td><td style="text-align:right;">${cells[1]}</td><td style="text-align:right;">${cells[2]}</td><td style="text-align:right;">${cells[3]}</td></tr>`;
+      const headerRow = label => `<tr><td colspan="4" style="background:var(--panel-2);font-weight:700;font-size:0.85rem;padding:8px 10px;">${label}</td></tr>`;
+      const pctRow = id => row([statLabel(id), fmt(kA.frac(id)*100)+' %', fmt(kB.frac(id)*100)+' %', ppCell(kA.frac(id)*100, kB.frac(id)*100)]);
+
+      const kennRows = [
+        row(['Gegenstandsstufe', formatWerte(kA.itemlevel), formatWerte(kB.itemlevel), relCell(kA.itemlevel, kB.itemlevel)]),
+        row(['Klasse / Vorbildpfad', escapeHtml(klasseTxt(kA.grunddaten)), escapeHtml(klasseTxt(kB.grunddaten)), '<span class="muted">&ndash;</span>']),
+        row(['Waffenschaden', formatWerte(kA.waffenschaden), formatWerte(kB.waffenschaden), relCell(kA.waffenschaden, kB.waffenschaden)]),
+        row(['Gesamtschaden der Fähigkeit', formatWerte(kA.totalDmg), formatWerte(kB.totalDmg), relCell(kA.totalDmg, kB.totalDmg)]),
+        row(['Heilung der Fähigkeit', formatWerte(kA.heilWert), formatWerte(kB.heilWert), relCell(kA.heilWert, kB.heilWert)]),
+        row(['Effektive Trefferpunkte (eHP)', formatWerte(kA.ehp), formatWerte(kB.ehp), relCell(kA.ehp, kB.ehp)]),
+      ].join('');
+      const statRows = [
+        headerRow('Offensive (genutzt/gecappt)'),
+        ...['kraft','zielgenauigkeit','kampfvorteil','kritwert','kritschaden','bonusschaden'].map(pctRow),
+        headerRow('Defensive (genutzt/gecappt)'),
+        ...['verteidigung','wahrnehmung','kritvermeidung','robustheit','robustheitstaerke','schadensreduzierung'].map(pctRow),
+        row([statLabel('trefferpunkte'), formatWerte(kA.tp), formatWerte(kB.tp), relCell(kA.tp, kB.tp)]),
+        headerRow('Heilung'),
+        row([statLabel('gesamtheilung'), fmt(kA.heilTotal)+' %', fmt(kB.heilTotal)+' %', ppCell(kA.heilTotal, kB.heilTotal)]),
+      ].join('');
+
+      bodyHtml = `<div class="wide-table-scroll" style="margin-top:12px;">
+        <table>
+          <thead><tr><th>Wert</th><th style="text-align:right;">${nameA}</th><th style="text-align:right;">${nameB}</th><th style="text-align:right;">${nameB} vs. ${nameA}</th></tr></thead>
+          <tbody>${kennRows}${statRows}</tbody>
+        </table>
+      </div>
+      <p class="helptext" style="margin-top:10px;">Beide Charaktere werden mit denselben Fähigkeits- und Gegner-Werten (siehe "Fähigkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. Bei den Kennzahlen zeigt die letzte Spalte die relative Differenz, bei den einzelnen Stats die Differenz in Prozentpunkten. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter Änderungen.</p>`;
+    }
+    inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander.</p>
+      <div class="grunddaten-grid" style="max-width:620px;">
+        <div><label>Charakter A</label>${selHtml('a')}</div>
+        <div><label>Charakter B</label>${selHtml('b')}</div>
+      </div>
+      ${bodyHtml}`;
+  }
+  return `<div class="accordion" id="acc-dmg-vergleich" style="margin-top:16px;">
+    <button type="button" onclick="toggleDmgAccordion('vergleich')">
+      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Vergleich</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">${inner}</div>
+  </div>`;
+}
 function renderUebersicht(){
   const el = document.getElementById('uebersichtContent');
   if(!el) return;
@@ -2367,6 +2600,8 @@ function renderUebersicht(){
     <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
   </div>
 
+  ${renderVergleichSection()}
+
   <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('schaden')">
       <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
@@ -2470,6 +2705,16 @@ function renderUebersicht(){
       uebersichtParams[e.target.dataset.uparam] = Number(e.target.value)||0;
       queueSave();
       renderUebersicht();
+    });
+  });
+
+  // Dropdowns des Charakter-Vergleichs: Auswahl über den Options-Index auf den
+  // Namen abbilden (verhindert Probleme mit Anführungszeichen in Charakternamen).
+  el.querySelectorAll('select[data-vgl]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const v = e.target.value;
+      const name = v === '' ? '' : (v === '__current__' ? '__current__' : (vergleichOptionNames[Number(v.slice(1))] || ''));
+      setVergleichAuswahl(e.target.dataset.vgl, name);
     });
   });
 
