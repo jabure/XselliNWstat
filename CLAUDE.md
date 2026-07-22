@@ -113,28 +113,46 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     (v0.15.0) automatisch in die neue Struktur um - beim Ändern dieser
     Struktur erneut IMMER eine Migration mitliefern, alte shared.json-Stände
     dürfen nicht crashen.
-    **Seit v0.15.2: echte Pulver-Bedarfsrechnung.** Insignien verwerten
-    (=salvage) liefert Insignien-Pulver (INSIGNIE_PULVER_VERWERTET pro Stufe,
-    fest); jede Stufen-Aufwertung braucht pauschal 2500 Pulver. WICHTIGE
-    ERKENNTNIS (nicht wieder falsch machen): verwertet man ALLE benötigten
-    Start-Insignien, entsteht daraus GENAU so viel Pulver wie für die
-    GESAMTE Kette bis zur Ziel-Qualität nötig ist (geschlossener Kreislauf,
-    das auf Zwischenstufen neu entstehende Pulver wird 1:1 weiterverwendet,
-    kein Verlust). Deshalb: pulverBenoetigt = anzahlBenoetigt *
-    INSIGNIE_PULVER_VERWERTET[startIdx] - NICHT eine Summe über alle
-    Zwischenstufen einzeln (das ergab beim ersten Versuch eine zu hohe,
-    falsche Zahl, siehe Verifikation mit grün->legendär: 15.625.000 grün
-    liefern exakt 31.250.000 Pulver für die komplette Kette bis legendär).
-    "Insignien-Pulver, das du schon hast" (insigniePulverVorhanden, rein
-    lokaler UI-State wie insignieMenge, nicht geteilt/gespeichert) reduziert
-    pulverBenoetigt; die verbleibende Differenz geteilt durch
-    INSIGNIE_PULVER_VERWERTET[startIdx] ergibt exakt, wie viele Start-
-    Insignien weniger gebraucht werden (bei 0 Pulver muss das genau
-    anzahlBenoetigt ergeben - guter Selbsttest bei künftigen Änderungen).
-    Referenztabelle wurde kompakter gemacht (Nutzerwunsch "platzsparender"):
-    "Pulver (verwertet)" und "Gesamt Pulver"-Spalten entfernt (waren rein
-    dekorativ), nur noch Qualität/Benötigte Insignien/Preis AH/Direktkauf/
-    Gesamtkosten - 5 statt 7 Spalten.
+    **v0.15.2 war NOCHMAL FALSCH und wurde in v0.15.3 komplett ersetzt -
+    Lehre daraus unten, damit das nicht ein drittes Mal passiert.**
+
+    **Seit v0.15.3: das komplett neue, vom Nutzer explizit verifizierte
+    Pulver-Modell.** Insignien verwerten (=salvage) liefert Insignien-Pulver
+    (INSIGNIE_PULVER_VERWERTET pro Qualität, fest: [2,10,50,250,1250,1500]).
+    JEDE Stufen-Aufwertung kostet ihren EIGENEN Pulver-Betrag
+    (INSIGNIE_PULVER_KOSTEN = [10,50,250,1250,2500] für grün..mystisch,
+    KEIN pauschaler Wert wie in v0.15.2 fälschlich angenommen!). Für eine
+    Kette Start->Ziel mit Menge Stück: pulverBenoetigt = Menge * SUMME
+    (nicht Produkt/Multiplikation!) von INSIGNIE_PULVER_KOSTEN[i] für
+    i=startIdx..zielIdx-1. Verifiziert am Nutzerbeispiel: mystisch->
+    celestisch (1 Stufe) braucht 2500 Pulver, gedeckt durch 1250 grüne
+    Insignien (2500/2) - GENAU der vom Nutzer vorgerechnete Wert.
+
+    Die alte v0.9-v0.15.2-Vorstellung einer "Fusion/Hochstufen-Kette per
+    RATIO-Multiplikation" (INSIGNIE_RATIO, 1250*250*50*... kaskadierend)
+    EXISTIERT SO NICHT und wurde ENTFERNT - sie ergab bei mehrstufigen
+    Ketten astronomisch falsche Zahlen (grün->legendär: 15,6 Millionen
+    grüne Insignien / 29,7 Milliarden AD, statt real ~155 grüne / ~300.000
+    AD). Nur für den einzelnen Sonderfall "genau eine Stufe, Fuel-Qualität
+    = Start-Qualität" kamen beide Modelle zufällig auf dieselbe Zahl - das
+    hat die falsche Mehrstufen-Version lange unentdeckt gelassen. LEHRE:
+    bei Spielmechanik-Rechnereien IMMER mit einem MEHRSTUFIGEN Testfall
+    gegenrechnen, ein Einzelstufen-Beispiel reicht nicht zur Validierung.
+
+    Die "Verwertungs-Qualität" (aus welcher Qualität man das Pulver
+    gewinnt) ist FREI wählbar und unabhängig von Start-Qualität (Nutzer-
+    Beispiel: mystisch hochstufen, aber grün als Pulver-Quelle nutzen!).
+    Statt eines Dropdowns zeigt die Ergebnis-Tabelle ALLE 6 Qualitäten als
+    mögliche Pulver-Quelle nebeneinander (benötigte Menge + Gesamtkosten
+    inkl. der Start-Insignie(n) selbst) und markiert die günstigste
+    (.best-row CSS). "Insignien-Pulver, das du schon hast"
+    (insigniePulverVorhanden, rein lokaler UI-State, nicht geteilt/
+    gespeichert) wird direkt von pulverBenoetigt abgezogen, bevor die
+    Tabelle die benötigten Mengen pro Qualität berechnet.
+    Referenztabelle wurde kompakter gemacht (Nutzerwunsch "platzsparender")
+    und ist jetzt die Ergebnistabelle selbst (kein separater Info-Block
+    mehr mit "Pulver (verwertet)"/"Gesamt Pulver"-Spalten - die waren
+    dekorativ und sind komplett raus).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

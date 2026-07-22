@@ -492,47 +492,47 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
 
     win.showApp('insignien'); await wait(300);
-    const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge');
-    insStart.value = 'Blau'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
-    insZiel.value = 'legendär'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
-    insMenge.value = '2'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
-    await wait(150);
-    // Blau->episch->legendär: 250 * 10 = 2500 pro legendär, ×2 Menge = 5000 benötigte blaue Insignien
-    check('Insignienrechner: Kette über zwei Zwischenstufen korrekt (5.000)', doc.getElementById('insignienContent').textContent.includes('5.000'), doc.getElementById('insignienContent').textContent.slice(0, 200));
-    // Referenz-Szenario (vom Nutzer per Screenshot bestätigt): mystisch -> celestisch, Menge 1
-    // -> 2 benötigte mystische Insignien, 2.300.000 Hochstufen vs. 2.499.999 Direktkauf (AH-Preis
-    // celestisch 2.000.000 UND Direktkaufpreis 2.499.999 sind bewusst zwei getrennte Zahlen).
+    const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');
+
+    // Nutzer-Referenzbeispiel: mystisch -> celestisch (1 Stufe, kostet 2500 Pulver),
+    // 1 Stück, ohne vorhandenes Pulver: 1250 grüne Insignien nötig (2500 / 2 Pulver-
+    // Ertrag pro grün) - exakt der vom Nutzer bestätigte Wert.
     insStart.value = 'mystisch'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
     insZiel.value = 'celestisch'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
     insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
+    insPulver.value = '0'; insPulver.dispatchEvent(new win.Event('input', { bubbles: true }));
     await wait(150);
-    const insRefText = doc.getElementById('insignienContent').textContent;
-    check('Insignienrechner: Referenz-Szenario Hochstufen 2.300.000', insRefText.includes('2.300.000'), insRefText.slice(0, 300));
-    check('Insignienrechner: Referenz-Szenario Direktkauf 2.499.999 (getrennt vom AH-Preis)', insRefText.includes('2.499.999'), insRefText.slice(0, 300));
-    const ahInput = doc.querySelector('input[data-insprice="celestisch"][data-field="ah"]');
-    const direktInput = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
-    check('Insignienrechner: AH-Preis und Direktkaufpreis sind unabhängige Felder', ahInput && direktInput && ahInput.value !== direktInput.value, ahInput && direktInput && [ahInput.value, direktInput.value]);
+    let insText = doc.getElementById('insignienContent').textContent;
+    check('Insignienrechner: Pulver-Bedarf mystisch->celestisch = 2.500', insText.includes('2.500'), insText.slice(0, 300));
+    check('Insignienrechner: Referenzbeispiel 1.250 grün (Nutzer-bestätigt)', insText.includes('1.250'), insText.slice(0, 600));
 
-    // Pulver-Bedarf über eine mehrstufige Kette (grün -> legendär, Menge 1):
-    // 15.625.000 grün benötigt, die verwertet exakt das Pulver für die ganze Kette
-    // liefern (2 Pulver/grün -> 31.250.000). Ohne vorhandenes Pulver muss die
-    // "noch nötige Insignien"-Anzeige exakt der "Benötigte Insignien"-Zahl entsprechen.
+    // Mehrstufige Kette (grün -> legendär, 3 Zwischenstufen: 10+50+250=310 Pulver/Stück)
+    // muss additiv sein, NICHT multiplikativ (das war der gemeldete Fehler) - ein
+    // realistischer dreistelliger Pulver-Wert statt Millionen/Milliarden.
     insStart.value = 'grün'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
     insZiel.value = 'legendär'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
     insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
     await wait(150);
-    let pulverText = doc.getElementById('insignienContent').textContent;
-    check('Pulver-Bedarf (Kette grün->legendär) korrekt: 31.250.000', pulverText.includes('31.250.000'), pulverText.slice(0, 400));
-    check('Ohne vorhandenes Pulver: "weitere Insignien" = volle Menge (15.625.000)', pulverText.includes('≈ 15.625.000 weitere grün-Insignien'), pulverText.slice(0, 400));
-    const insPulverInput = doc.getElementById('insPulver');
-    insPulverInput.value = '1000000'; insPulverInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    insText = doc.getElementById('insignienContent').textContent;
+    check('Insignienrechner: mehrstufige Kette addiert (310), nicht multipliziert', insText.includes('310'), insText.slice(0, 300));
+    check('Insignienrechner: mehrstufige Kette bleibt realistisch klein (keine Millionen)', !insText.slice(0, 300).match(/\d{1,3}\.\d{3}\.\d{3}/));
+
+    // Vorhandenes Pulver reduziert den Bedarf: bei mystisch->celestisch (2500 nötig)
+    // mit 2000 vorhanden bleiben 500 fehlend.
+    insStart.value = 'mystisch'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insZiel.value = 'celestisch'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
+    insPulver.value = '2000'; insPulver.dispatchEvent(new win.Event('input', { bubbles: true }));
     await wait(150);
-    pulverText = doc.getElementById('insignienContent').textContent;
-    // 1.000.000 Pulver / 2 (Ertrag grün) = 500.000 weniger grün nötig -> 15.125.000
-    check('Vorhandenes Pulver reduziert den Bedarf korrekt (15.125.000)', pulverText.includes('15.125.000'), pulverText.slice(0, 400));
-    insPulverInput.value = '999999999'; insPulverInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    check('Insignienrechner: vorhandenes Pulver reduziert den Fehlbetrag (500)', doc.getElementById('insignienContent').textContent.includes('500'));
+    insPulver.value = '999999'; insPulver.dispatchEvent(new win.Event('input', { bubbles: true }));
     await wait(150);
-    check('Mehr als genug Pulver: Hinweis statt negativer Zahl', doc.getElementById('insignienContent').textContent.includes('genug Pulver vorhanden'));
+    check('Insignienrechner: mehr als genug Pulver -> Hinweis statt negativer Zahl', doc.getElementById('insignienContent').textContent.includes('genug Pulver vorhanden'));
+
+    // Getrennte AH-/Direktkaufpreise bleiben unabhängig editierbar (v0.15.1-Fix).
+    const ahInput = doc.querySelector('input[data-insprice="celestisch"][data-field="ah"]');
+    const direktInput = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
+    check('Insignienrechner: AH-Preis und Direktkaufpreis sind unabhängige Felder', ahInput && direktInput && ahInput.value !== direktInput.value, ahInput && direktInput && [ahInput.value, direktInput.value]);
 
     win.showApp('stats'); await wait(200);
     check('Zurück zum Statrechner funktioniert', doc.getElementById('appStats').style.display !== 'none');

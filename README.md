@@ -127,15 +127,14 @@ frühere CDN nicht erreichbar ist.
 unabhängige Werkzeuge neben dem Statrechner, über einen Umschalter oben
 erreichbar. Aktuell noch in der Planung und deshalb nur für Rolle Moderator
 und höher sichtbar (wird später für alle geöffnet).
-- **Insignienrechner:** zeigt für eine Start-/Ziel-Qualität und eine Menge,
-  ob es günstiger ist, Insignien einer niedrigeren Qualität zu kaufen und
-  hochzustufen, oder die Zielqualität direkt zu kaufen. Pro Qualität gibt es
-  zwei getrennte, editierbare Preise: den Preis zum Kaufen+Hochstufen und den
-  Preis für den Direktkauf einer fertigen Insignie dieser Qualität - beide
-  können am Markt unterschiedlich sein. Zeigt außerdem, wie viel Insignien-
-  Pulver für die gesamte Kette gebraucht wird; bereits vorhandenes Pulver
-  kann eingetragen werden und reduziert die Anzahl benötigter Insignien
-  entsprechend.
+- **Insignienrechner:** rechnet aus, wie viel Insignien-Pulver es kostet,
+  eine Insignie von einer Start- auf eine Ziel-Qualität in einer bestimmten
+  Menge hochzustufen, und mit welcher Qualität sich dieses Pulver am
+  günstigsten gewinnen ("verwerten") lässt - die Ergebnistabelle zeigt alle
+  6 Qualitäten als mögliche Pulver-Quelle nebeneinander und markiert die
+  günstigste. Bereits vorhandenes Pulver kann eingetragen werden und
+  reduziert direkt, wie viel noch verwertet werden muss. Am Ende steht ein
+  Vergleich mit dem Direktkauf einer fertigen Insignie der Ziel-Qualität.
 - **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
   pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-
