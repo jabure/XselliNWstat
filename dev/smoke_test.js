@@ -59,6 +59,16 @@ function loadFrontend(extraLocalStorage) {
   return dom;
 }
 const input = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Event('input', { bubbles: true })); };
+// Wartet aktiv, bis die Statusmeldung den erwarteten Text enthält (fixe Wartezeiten
+// sind beim Optimierer zu fragil: die Rechenzeit verschiebt alle nachgelagerten Timer).
+const waitForStatus = async (d, substr, ms = 6000) => {
+  const t0 = Date.now();
+  while(Date.now() - t0 < ms){
+    if(d.getElementById('saveStatus').textContent.includes(substr)) return true;
+    await wait(120);
+  }
+  return false;
+};
 const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Event('change', { bubbles: true })); };
 
 (async () => {
@@ -212,24 +222,38 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.querySelector('input[data-src="Kopf"][data-stat="kraft"][data-field="prozent"]'), '2,5');
     await wait(200);
     check('Komma-Eingabe "2,5 %" rechnet korrekt (55 -> 57,5)', doc.getElementById('F-kraft').textContent.startsWith('57,5'), doc.getElementById('F-kraft').textContent);
-    // Buff-Food-Optimierer: soll die Kraft-% erhöhen (Kraft ist weit unterm Cap),
-    // Utility-Slots aber unangetastet lassen
+    // Buff-Food-Optimierer: klassenbewusst (DPS -> Schaden), Utility bleibt unangetastet
     {
       const fVorher = num(doc.getElementById('F-kraft').textContent);
       win.optimizeBuffFood();
-      await wait(1200); // 30ms-Verzögerung + Rechnen + Re-Render
+      const gemeldet = await waitForStatus(doc, 'Bestes Buff Food gesetzt');
+      check('Optimierer meldet die Auswahl', gemeldet, doc.getElementById('saveStatus').textContent.slice(0, 90));
       const fNachher = num(doc.getElementById('F-kraft').textContent);
       check('Buff-Food-Optimierer erhöht die Kraft-%', fNachher > fVorher, fVorher + ' -> ' + fNachher);
-      check('Optimierer meldet die Auswahl', doc.getElementById('saveStatus').textContent.includes('Bestes Buff Food'), doc.getElementById('saveStatus').textContent.slice(0, 60));
       const utilSelects = Array.from(doc.querySelectorAll('#sourceAccordions select')).filter(sel => {
         const card = sel.closest('.slot-card');
         return card && /Utility/.test(card.textContent);
       });
       check('Utility-Slots bleiben unverändert (Leer)', utilSelects.length === 2 && utilSelects.every(sel => sel.value === 'Leer'), utilSelects.map(sel=>sel.value).join('/'));
+      check('DPS: Meldung nennt Gesamtschaden als Ziel', doc.getElementById('saveStatus').textContent.includes('Gesamtschaden (DPS)'), doc.getElementById('saveStatus').textContent.slice(0, 90));
       // Zweiter Lauf: keine weitere Verbesserung -> "bereits die bestmögliche"
+      await wait(800); // Meldungs-Timer des ersten Laufs abklingen lassen
       win.optimizeBuffFood();
-      await wait(900);
-      check('Zweiter Lauf erkennt: bereits optimal', doc.getElementById('saveStatus').textContent.includes('bereits die bestmögliche'), doc.getElementById('saveStatus').textContent.slice(0, 60));
+      check('Zweiter Lauf erkennt: bereits optimal', await waitForStatus(doc, 'bereits die bestmögliche'), doc.getElementById('saveStatus').textContent.slice(0, 90));
+
+      // Klassenbewusst: als Tank optimiert der Knopf auf eHP - erst alle Essen leeren,
+      // dann muss er Trefferpunkte-/Defensiv-Essen wählen statt der DPS-Auswahl
+      change(win, doc.getElementById('vorbildpfad'), 'Wächter (Tank)'); await wait(150);
+      input(win, doc.querySelector('input[data-role="H"][data-stat="trefferpunkte"]'), '500000'); await wait(150);
+      ['Buff Food – Event-Food','Buff Food – Hauptgericht','Buff Food – Elixier','Buff Food – Sonderbuff','Buff Food – Gürtel Item'].forEach(k => win.loadFoodPreset(k, 'Leer'));
+      await wait(200);
+      const tpVorher = num(doc.getElementById('E-trefferpunkte').textContent);
+      win.optimizeBuffFood();
+      check('Tank: Meldung nennt eHP als Ziel', await waitForStatus(doc, 'eHP (Tank)'), doc.getElementById('saveStatus').textContent.slice(0, 90));
+      const tpNachher = num(doc.getElementById('E-trefferpunkte').textContent);
+      check('Tank: Optimierer wählt Trefferpunkte-/Defensiv-Essen', tpNachher > tpVorher, tpVorher + ' -> ' + tpNachher);
+      // zurück auf DPS für die folgenden Checks
+      change(win, doc.getElementById('vorbildpfad'), 'Schwertmeister (DPS)'); await wait(300);
     }
     // Alles auf-/zuklappen
     win.setAllStatSubgroups('stats', true);

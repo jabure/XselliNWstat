@@ -2094,8 +2094,8 @@ function renderFoodWerteTable(cat){
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
     <div class="btnrow" style="margin:0 0 12px 0;">
-      <button type="button" class="action gold" title="Probiert alle Kombinationen durch und wählt die, die am meisten Richtung Caps bringt - was über dem Cap liegt, zählt dabei nicht. Die beiden Utility-Slots bleiben unverändert." onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
-      <span class="helptext" style="margin:0;align-self:center;">wählt automatisch die Kombination mit dem größten Fortschritt Richtung Caps (Utility bleibt unverändert)</span>
+      <button type="button" class="action gold" title="Probiert alle Kombinationen durch und wählt je nach Klassentyp die mit dem meisten Gesamtschaden (DPS), der meisten Heilung (Heiler) bzw. den höchsten effektiven Trefferpunkten (Tank). Boni über dem Cap bringen dabei korrekt nichts. Die beiden Utility-Slots bleiben unverändert." onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
+      <span class="helptext" style="margin:0;align-self:center;">optimiert je nach Klassentyp auf Schaden (DPS), Heilung (Heiler) oder eHP (Tank) - Utility bleibt unverändert</span>
     </div>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="accordion" id="acc-admin-food-manuell">
@@ -2105,14 +2105,18 @@ function renderFoodWerteTable(cat){
       <div class="body">${renderManualTable(cat)}</div>
     </div>`;
 }
-/* ---------- Buff-Food-Optimierer ----------
+/* ---------- Buff-Food-Optimierer (klassenbewusst) ----------
    Probiert für alle Nicht-Utility-Slots (Event-Essen, Festungsessen, Elixier,
    Trank, Gürtel Item) die möglichen Essen durch und wählt die Kombination, die
-   am meisten Richtung Caps bringt. Bewertung: Summe der gecappten % über alle
-   Softcap-Stats (was über dem Cap liegt, zählt nicht - verschenkte Boni werden
-   also automatisch vermieden); Wehrhaftigkeit-Umverteilung und Softcap-Formeln
-   rechnen dabei ganz normal mit (computeAllForData). Trefferpunkte dienen nur
-   als winziger Gleichstand-Entscheider. Die Utility-Slots bleiben unangetastet. */
+   die für den Klassentyp entscheidende Kennzahl maximiert:
+   DPS -> Gesamtschaden der Fähigkeit, Heiler -> Heilung der Fähigkeit,
+   Tank -> effektive Trefferpunkte (eHP). Gerechnet wird mit derselben Engine wie
+   die Schadensberechnung (computeKennzahlenForData) - Caps, Wehrhaftigkeit-
+   Umverteilung, Waffenschaden-Bonus und die editierbaren Formeln fließen also
+   automatisch ein, und Boni über dem Cap bringen dort korrekt nichts mehr.
+   Bei Gleichstand (oder wenn noch keine Klasse gewählt ist) entscheidet der
+   größte Fortschritt Richtung Caps, dann die Trefferpunkte.
+   Die beiden Utility-Slots bleiben grundsätzlich unangetastet. */
 function optimizeBuffFood(){
   document.getElementById('saveStatus').textContent = 'Suche bestes Buff Food ...';
   setTimeout(runBuffFoodOptimierung, 30); // erst die Meldung zeichnen lassen, dann rechnen
@@ -2120,7 +2124,10 @@ function optimizeBuffFood(){
 function runBuffFoodOptimierung(){
   const slots = FOOD_SLOTS.filter(fs => fs.category !== 'Utility');
   const options = slots.map(fs => ['Leer', ...foodSlotItems(fs)]);
+  const typ = grunddaten.klassentyp; // 'DPS' | 'Heiler' | 'Tank' | ''
 
+  // Score = {primary, secondary}: primary ist die Klassen-Kennzahl (Schaden/Heilung/eHP),
+  // secondary der Fortschritt Richtung Caps (+ Trefferpunkte als Mini-Tiebreaker).
   const scoreOf = assign => {
     const sIn = Object.assign({}, sourceInputs);
     slots.forEach(fs => {
@@ -2134,24 +2141,25 @@ function runBuffFoodOptimierung(){
       }
       sIn[fs.key] = bucket;
     });
-    const results = computeAllForData(grunddaten, baseInputs, sIn);
-    let sum = 0;
+    const k = computeKennzahlenForData({ grunddaten, baseInputs, sourceInputs: sIn, uebersichtParams });
+    let capSum = 0;
     for(const stat of ALL_STATS){
       if(stat.type !== 'softcap') continue;
       const maxPr = getMaxPr(stat);
       if(!maxPr) continue;
-      const r = results[stat.id];
-      if(r && r.F !== null && r.F !== undefined) sum += Math.min(r.F, maxPr*100);
+      capSum += Math.min(k.frac(stat.id) * 100, maxPr * 100);
     }
-    const tp = (results['trefferpunkte'] && results['trefferpunkte'].E) || 0;
-    return sum + tp/1e9;
+    const primary = typ === 'Tank' ? k.ehp : (typ === 'Heiler' ? k.heilWert : (typ === 'DPS' ? k.totalDmg : 0));
+    return { primary: isFinite(primary) ? primary : 0, secondary: capSum + (k.tp || 0)/1e9 };
   };
+  const besser = (a, b) => (a.primary > b.primary + 1e-6) ||
+    (Math.abs(a.primary - b.primary) <= 1e-6 && a.secondary > b.secondary + 1e-12);
 
   const currentAssign = {};
   slots.forEach(fs => { currentAssign[fs.key] = getSlotSelection(fs.key); });
   const baseScore = scoreOf(currentAssign);
 
-  let best = null, bestScore = -Infinity;
+  let best = null, bestScore = { primary: -Infinity, secondary: -Infinity };
   const total = options.reduce((p, o) => p * o.length, 1);
   if(total <= 4000){
     // Alle Kombinationen durchprobieren (bei den üblichen Listengrößen wenige hundert)
@@ -2160,7 +2168,7 @@ function runBuffFoodOptimierung(){
       const assign = {};
       slots.forEach((fs, i) => { assign[fs.key] = options[i][idx[i]]; });
       const sc = scoreOf(assign);
-      if(sc > bestScore + 1e-12){ bestScore = sc; best = assign; }
+      if(besser(sc, bestScore)){ bestScore = sc; best = assign; }
       let p = 0;
       while(p < idx.length){ idx[p]++; if(idx[p] < options[p].length) break; idx[p] = 0; p++; }
       if(p === idx.length) break;
@@ -2172,11 +2180,11 @@ function runBuffFoodOptimierung(){
     slots.forEach(fs => { assign[fs.key] = 'Leer'; });
     for(let pass = 0; pass < 2; pass++){
       slots.forEach((fs, i) => {
-        let bi = 'Leer', bs = -Infinity;
+        let bi = 'Leer', bs = { primary: -Infinity, secondary: -Infinity };
         options[i].forEach(name => {
           assign[fs.key] = name;
           const sc = scoreOf(assign);
-          if(sc > bs + 1e-12){ bs = sc; bi = name; }
+          if(besser(sc, bs)){ bs = sc; bi = name; }
         });
         assign[fs.key] = bi;
       });
@@ -2186,8 +2194,10 @@ function runBuffFoodOptimierung(){
   }
 
   const statusEl = document.getElementById('saveStatus');
-  if(!best || bestScore <= baseScore + 1e-9){
-    statusEl.textContent = 'Deine aktuelle Buff-Food-Auswahl ist bereits die bestmögliche (Utility unberücksichtigt).';
+  if(!best || !besser(bestScore, baseScore)){
+    statusEl.textContent = 'Deine aktuelle Buff-Food-Auswahl ist bereits die bestmögliche' +
+      (typ ? ` für ${typ === 'Tank' ? 'maximale eHP (Tank)' : (typ === 'Heiler' ? 'maximale Heilung (Heiler)' : 'maximalen Schaden (DPS)')}` : '') +
+      ' - Utility unberücksichtigt.';
     setTimeout(()=>{ if(statusEl.textContent.startsWith('Deine aktuelle Buff-Food')) statusEl.textContent = ''; }, 6000);
     return;
   }
@@ -2195,8 +2205,18 @@ function runBuffFoodOptimierung(){
   queueSave();
   renderSourceAccordions();
   refresh(false);
-  const gewinn = bestScore - baseScore;
-  const msg = 'Bestes Buff Food gesetzt (+' + fmt(gewinn) + ' %-Punkte Richtung Caps): '
+
+  const zielTxt = typ === 'Tank' ? 'maximale eHP (Tank)'
+    : (typ === 'Heiler' ? 'maximale Heilung (Heiler)'
+    : (typ === 'DPS' ? 'maximalen Gesamtschaden (DPS)' : 'größten Fortschritt Richtung Caps (keine Klasse gewählt)'));
+  let gewinnTxt;
+  if(typ && baseScore.primary > 0){
+    const einheit = typ === 'Tank' ? 'eHP' : (typ === 'Heiler' ? 'Heilung' : 'Schaden');
+    gewinnTxt = '+' + fmt((bestScore.primary / baseScore.primary - 1) * 100) + ' % ' + einheit;
+  } else {
+    gewinnTxt = '+' + fmt(bestScore.secondary - baseScore.secondary) + ' %-Punkte Richtung Caps';
+  }
+  const msg = `Bestes Buff Food gesetzt - optimiert auf ${zielTxt}, ${gewinnTxt}: `
     + slots.map(fs => `${fs.label}: ${best[fs.key]}`).join(' · ')
     + ' - Utility-Slots unverändert.';
   const show = ()=>{ statusEl.textContent = msg; };
