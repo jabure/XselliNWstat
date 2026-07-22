@@ -306,6 +306,28 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       }
     }
 
+    // Charakter-Übersicht: laden, beide Charaktere sichtbar, bester Wert markiert,
+    // Klick auf einen Namen übernimmt den Charakter in den Vergleich
+    {
+      await win.loadAlleChars(); await wait(400);
+      const ovw = doc.getElementById('acc-dmg-allechars');
+      ovw.classList.add('open');
+      check('Übersicht: beide Charaktere in der Tabelle', ovw.textContent.includes(cA) && ovw.textContent.includes(cB));
+      check('Übersicht: aktueller Charakter als live markiert', ovw.textContent.includes('(aktuell)') && ovw.textContent.includes('jetzt (live)'));
+      check('Übersicht: bester Wert gold markiert', ovw.querySelectorAll('.best').length >= 3, ovw.querySelectorAll('.best').length);
+      const rowsO = Array.from(ovw.querySelectorAll('tbody tr')).map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()));
+      const ilRow = rowsO.find(r => r[0] === 'Gegenstandsstufe');
+      check('Übersicht: Gegenstandsstufen stimmen', ilRow && num(ilRow[1]) === 100000 && num(ilRow[2]) === 100000, ilRow && ilRow.slice(1, 3).join('/'));
+      const dmgRowO = rowsO.find(r => r[0] === 'Gesamtschaden der Fähigkeit');
+      check('Übersicht: B (mit Waffenbonus) hat den besseren Schaden markiert', dmgRowO && ovw.querySelectorAll('tbody tr')[1].querySelectorAll('td')[2].querySelector('.best') !== null, dmgRowO && dmgRowO.slice(1, 3).join('/'));
+      // Klick auf B-Spaltenkopf -> Vergleich B = cB
+      const btns = ovw.querySelectorAll('.ovw-charbtn');
+      btns[1].click(); await wait(700);
+      const selBAfter = doc.querySelector('select[data-vgl="b"]');
+      const chosen = Array.from(selBAfter.options).find(o => o.selected);
+      check('Übersicht: Klick übernimmt Charakter in den Vergleich', chosen && chosen.textContent.includes('Beta_'), chosen && chosen.textContent);
+    }
+
     // Snapshot ("Vorher/Nachher"): Stand einfrieren, Kraft erhöhen, Unterschied sichtbar
     win.freezeVergleichSnapshot(); await wait(300);
     const selA2 = doc.querySelector('select[data-vgl="a"]');

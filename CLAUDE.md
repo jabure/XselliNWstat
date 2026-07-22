@@ -73,6 +73,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   'eigene Werte' zurück). Gast-Eingaben können bei "Neuer Charakter" als
   Vorlage __guest__ übernommen werden. setAllStatSubgroups('stats'|'sources',
   open) = Alles auf-/zuklappen.
+- **Seit v0.13.0:** Charakter-Übersicht auf der Schadensberechnung-Seite
+  (Accordion acc-dmg-allechars, renderAlleCharsSection): lädt per Knopf alle
+  eigenen Charaktere (uebersichtCharsData), rechnet Kennzahlen über
+  computeKennzahlenForData, aktueller Charakter immer live via
+  getCharDataBundle(), bester Wert pro Zeile gold (.best), Klick auf den
+  Namen setzt Vergleich B. Cache wird in fullUiRefreshAfterProfileSwitch
+  geleert. Ein Cap-Fortschrittsbalken in der Stat-Tabelle wurde bewusst
+  VERWORFEN (Nutzer-Entscheidung: zu viel Platz) - nicht erneut vorschlagen.
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)
 

@@ -265,6 +265,20 @@
   .vgl-bar{height:100%; border-radius:3px 0 0 3px;}
   .vgl-bar-val{flex:0 0 auto; font-size:0.85rem; font-variant-numeric:tabular-nums; font-weight:600; min-width:80px;}
   @media (max-width:700px){ .vgl-bar-name{flex-basis:90px;} }
+  /* Charakter-Übersicht (alle eigenen Charaktere nebeneinander) */
+  .ovw-scroll{overflow-x:auto; padding-bottom:4px;}
+  table.ovw{width:max-content; min-width:100%;}
+  table.ovw th, table.ovw td{white-space:nowrap;}
+  table.ovw thead th:first-child, table.ovw tbody td:first-child{
+    position:sticky; left:0; background:var(--panel); z-index:2; box-shadow:2px 0 4px rgba(0,0,0,0.35);
+  }
+  .typ-badge{display:inline-block; font-size:0.7rem; font-weight:700; border-radius:10px; padding:1px 8px; margin-left:6px;}
+  .typ-dps{background:rgba(201,96,63,0.18); color:var(--off); border:1px solid var(--off);}
+  .typ-tank{background:rgba(63,127,166,0.18); color:var(--def); border:1px solid var(--def);}
+  .typ-heal{background:rgba(74,155,110,0.18); color:var(--sup); border:1px solid var(--sup);}
+  .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:4px; padding:2px 5px;}
+  .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
+  .ovw-charbtn:hover{color:var(--gold); text-decoration:underline;}
   /* Mobil (echte Geräte-Breite dank Viewport-Meta): weniger Außenabstand, Tabs dürfen umbrechen */
   @media (max-width:700px){
     body{padding:12px;}
@@ -1215,6 +1229,7 @@ function fullUiRefreshAfterProfileSwitch(){
   // zusätzlich die Auswahl zurücksetzen.
   vergleichBundles = {};
   vergleichCharListe = null;
+  uebersichtCharsData = null;
   if(!isLoggedIn) vergleichAuswahl = { a:'__current__', b:'' };
   document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
   document.getElementById('klasse').value = grunddaten.klasse;
@@ -2497,6 +2512,102 @@ function computeKennzahlenForData(bundle){
   return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, wsBonus, wsBonusPct, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF, faktoren, tankPct };
 }
 
+/* ---------- Charakter-Übersicht: alle eigenen Charaktere nebeneinander ----------
+   Lädt auf Knopfdruck die gespeicherten Stände aller eigenen Charaktere und zeigt
+   die Kennzahlen (mit den aktuell eingestellten Fähigkeits-/Gegner-Werten gerechnet)
+   in einer Tabelle - der beste Wert pro Zeile ist gold markiert. Der aktuell
+   geladene Charakter wird immer live (inkl. ungespeicherter Änderungen) gerechnet. */
+let uebersichtCharsData = null;   // null = noch nicht geladen; sonst [{name, updatedAt, bundle}]
+let uebersichtCharsLoading = false;
+async function loadAlleChars(){
+  if(uebersichtCharsLoading) return;
+  uebersichtCharsLoading = true;
+  renderUebersicht();
+  try{
+    const list = await apiListCharacters();
+    const result = [];
+    for(const c of list){
+      const res = await apiGetCharacter(c.name);
+      const data = res.data || {};
+      if(data.sourceInputs && data.sourceInputs['Verstärkung'] && !data.sourceInputs['Kampfverzauberung']){
+        data.sourceInputs['Kampfverzauberung'] = data.sourceInputs['Verstärkung'];
+        delete data.sourceInputs['Verstärkung'];
+      }
+      result.push({ name: c.name, updatedAt: c.updatedAt || null, bundle: data });
+    }
+    uebersichtCharsData = result;
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Übersicht laden fehlgeschlagen: ' + e.message;
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
+  }
+  uebersichtCharsLoading = false;
+  renderUebersicht();
+}
+// Klick auf einen Spaltenkopf: diesen Charakter als "B" in den Vergleich übernehmen.
+function uebersichtCharZumVergleich(i){
+  const entry = uebersichtCharsData && uebersichtCharsData[i];
+  if(!entry) return;
+  setVergleichAuswahl('b', entry.name === currentChar ? '__current__' : entry.name);
+  const acc = document.getElementById('acc-dmg-vergleich');
+  if(acc) acc.classList.add('open');
+}
+function renderAlleCharsSection(){
+  let inner;
+  if(!isLoggedIn){
+    inner = '<p class="helptext">Melde dich oben rechts an, um alle deine gespeicherten Charaktere nebeneinander zu sehen.</p>';
+  } else if(uebersichtCharsLoading){
+    inner = '<p class="helptext">Lade Charaktere ...</p>';
+  } else if(uebersichtCharsData === null){
+    inner = `<p class="helptext" style="margin-top:0;">Zeigt alle deine Charaktere nebeneinander - gerechnet mit denselben Fähigkeits- und Gegner-Werten wie oben. Der beste Wert pro Zeile ist gold markiert; ein Klick auf einen Namen übernimmt den Charakter in den Vergleich.</p>
+      <div class="btnrow" style="margin-top:0;"><button type="button" class="action" onclick="loadAlleChars()">Alle Charaktere laden</button></div>`;
+  } else if(!uebersichtCharsData.length){
+    inner = '<p class="helptext">Noch keine gespeicherten Charaktere vorhanden.</p>';
+  } else {
+    // Kennzahlen berechnen; der aktuell geladene Charakter immer mit dem Live-Stand
+    const ks = uebersichtCharsData.map(e => computeKennzahlenForData(e.name === currentChar ? getCharDataBundle() : e.bundle));
+    const typBadge = t => t === 'Tank' ? '<span class="typ-badge typ-tank">Tank</span>'
+      : (t === 'Heiler' ? '<span class="typ-badge typ-heal">Heiler</span>'
+      : (t === 'DPS' ? '<span class="typ-badge typ-dps">DPS</span>' : ''));
+    const head = uebersichtCharsData.map((e, i) => `<th style="text-align:right;">
+      <button type="button" class="ovw-charbtn" title="In den Vergleich übernehmen" onclick="uebersichtCharZumVergleich(${i})">${escapeHtml(e.name)}</button>${typBadge(ks[i].grunddaten.klassentyp)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
+    </th>`).join('');
+    // Eine Zeile: Werte je Charakter, bester Wert (höchste Zahl) gold markiert.
+    const zeile = (label, vals, texts, muted) => {
+      let bestIdx = -1;
+      if(!muted){
+        let best = -Infinity;
+        vals.forEach((v, i) => { if(v !== null && isFinite(v) && v > best && v > 0){ best = v; bestIdx = i; } });
+      }
+      const cells = texts.map((t, i) => `<td style="text-align:right;" class="${muted ? 'muted' : ''}">${i === bestIdx ? `<span class="best">${t}</span>` : t}</td>`).join('');
+      return `<tr><td class="statname">${label}</td>${cells}</tr>`;
+    };
+    const rows = [
+      zeile('Gegenstandsstufe', ks.map(k=>k.itemlevel), ks.map(k=>formatWerte(k.itemlevel))),
+      zeile('Gesamtschaden der Fähigkeit', ks.map(k=>k.totalDmg), ks.map(k=>formatWerte(k.totalDmg))),
+      zeile('Effektive Trefferpunkte (eHP)', ks.map(k=>k.ehp), ks.map(k=>formatWerte(k.ehp))),
+      zeile('Heilung der Fähigkeit', ks.map(k=>k.heilWert), ks.map(k=>formatWerte(k.heilWert))),
+      zeile('Kraft (genutzt)', ks.map(k=>k.frac('kraft')), ks.map(k=>fmt(k.frac('kraft')*100)+' %')),
+      zeile('Kritwert / Kritschaden', ks.map(k=>k.frac('kritwert')+k.frac('kritschaden')), ks.map(k=>fmt(k.frac('kritwert')*100)+' % / '+fmt(k.frac('kritschaden')*100)+' %')),
+      zeile('Verteidigung (genutzt)', ks.map(k=>k.frac('verteidigung')), ks.map(k=>fmt(k.frac('verteidigung')*100)+' %')),
+      zeile('zuletzt bearbeitet', [], uebersichtCharsData.map(e => e.name === currentChar ? 'jetzt (live)' : (e.updatedAt ? formatUpdatedAt(e.updatedAt) : '–')), true),
+    ].join('');
+    inner = `<div class="btnrow" style="margin:0 0 10px 0;">
+        <button type="button" class="action small" onclick="loadAlleChars()">Neu laden</button>
+      </div>
+      <div class="ovw-scroll"><table class="ovw">
+        <thead><tr><th>Wert</th>${head}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="helptext" style="margin-top:10px;">Gerechnet mit den aktuellen Fähigkeits-/Gegner-Werten. Der beste Wert pro Zeile ist gold markiert. Klick auf einen Namen übernimmt den Charakter als "B" in den Vergleich. "${escapeHtml(currentChar || 'Aktuell')}" wird live inklusive ungespeicherter Änderungen gerechnet; die anderen zeigen den zuletzt gespeicherten Stand ("Neu laden" holt frische Daten).</p>`;
+  }
+  return `<div class="accordion" id="acc-dmg-allechars" style="margin-top:8px;">
+    <button type="button" onclick="toggleDmgAccordion('allechars')">
+      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Übersicht</span><span class="chevron">&#9656;</span>
+    </button>
+    <div class="body">${inner}</div>
+  </div>`;
+}
+
 // Baut den kompletten "Charakter-Vergleich"-Abschnitt (Accordion) für die
 // Schadensberechnung-Seite. Wird bei jedem renderUebersicht() mit erzeugt.
 function renderVergleichSection(){
@@ -3094,6 +3205,8 @@ function renderUebersicht(){
   </div>
 
   ${renderVergleichSection()}
+
+  ${renderAlleCharsSection()}
 
   <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('schaden')">
