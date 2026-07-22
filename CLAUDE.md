@@ -103,6 +103,38 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Umbauen der Kopfzeile künftig genau pruefen, dass keine Duplikate entstehen.
   - Insignienrechner: rein clientseitig, INSIGNIE_RATIO (feste Spielmechanik,
     NICHT editierbar) + insigniePreise (editierbar, Presets-Endpunkt).
+    **Seit v0.15.1 (Nutzer-Referenz-Screenshot deckte Fehler auf):**
+    insigniePreise[q] ist ein Objekt {ah, direkt} statt einer einzelnen Zahl -
+    "ah" fließt in die Kettenrechnung ein (Preis, um diese Qualität zu kaufen
+    und hochzustufen), "direkt" wird NUR verwendet, wenn genau diese Qualität
+    als Ziel gewählt ist (Preis, um sie fertig zu kaufen). Beide können am
+    Markt bewusst unterscheiden (Referenzwerte: celestisch ah=2.000.000 vs.
+    direkt=2.499.999). migrateInsigniePreise() wandelt alte flache Zahlen
+    (v0.15.0) automatisch in die neue Struktur um - beim Ändern dieser
+    Struktur erneut IMMER eine Migration mitliefern, alte shared.json-Stände
+    dürfen nicht crashen.
+    **Seit v0.15.2: echte Pulver-Bedarfsrechnung.** Insignien verwerten
+    (=salvage) liefert Insignien-Pulver (INSIGNIE_PULVER_VERWERTET pro Stufe,
+    fest); jede Stufen-Aufwertung braucht pauschal 2500 Pulver. WICHTIGE
+    ERKENNTNIS (nicht wieder falsch machen): verwertet man ALLE benötigten
+    Start-Insignien, entsteht daraus GENAU so viel Pulver wie für die
+    GESAMTE Kette bis zur Ziel-Qualität nötig ist (geschlossener Kreislauf,
+    das auf Zwischenstufen neu entstehende Pulver wird 1:1 weiterverwendet,
+    kein Verlust). Deshalb: pulverBenoetigt = anzahlBenoetigt *
+    INSIGNIE_PULVER_VERWERTET[startIdx] - NICHT eine Summe über alle
+    Zwischenstufen einzeln (das ergab beim ersten Versuch eine zu hohe,
+    falsche Zahl, siehe Verifikation mit grün->legendär: 15.625.000 grün
+    liefern exakt 31.250.000 Pulver für die komplette Kette bis legendär).
+    "Insignien-Pulver, das du schon hast" (insigniePulverVorhanden, rein
+    lokaler UI-State wie insignieMenge, nicht geteilt/gespeichert) reduziert
+    pulverBenoetigt; die verbleibende Differenz geteilt durch
+    INSIGNIE_PULVER_VERWERTET[startIdx] ergibt exakt, wie viele Start-
+    Insignien weniger gebraucht werden (bei 0 Pulver muss das genau
+    anzahlBenoetigt ergeben - guter Selbsttest bei künftigen Änderungen).
+    Referenztabelle wurde kompakter gemacht (Nutzerwunsch "platzsparender"):
+    "Pulver (verwertet)" und "Gesamt Pulver"-Spalten entfernt (waren rein
+    dekorativ), nur noch Qualität/Benötigte Insignien/Preis AH/Direktkauf/
+    Gesamtkosten - 5 statt 7 Spalten.
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

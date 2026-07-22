@@ -513,6 +513,27 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const direktInput = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
     check('Insignienrechner: AH-Preis und Direktkaufpreis sind unabhängige Felder', ahInput && direktInput && ahInput.value !== direktInput.value, ahInput && direktInput && [ahInput.value, direktInput.value]);
 
+    // Pulver-Bedarf über eine mehrstufige Kette (grün -> legendär, Menge 1):
+    // 15.625.000 grün benötigt, die verwertet exakt das Pulver für die ganze Kette
+    // liefern (2 Pulver/grün -> 31.250.000). Ohne vorhandenes Pulver muss die
+    // "noch nötige Insignien"-Anzeige exakt der "Benötigte Insignien"-Zahl entsprechen.
+    insStart.value = 'grün'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insZiel.value = 'legendär'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await wait(150);
+    let pulverText = doc.getElementById('insignienContent').textContent;
+    check('Pulver-Bedarf (Kette grün->legendär) korrekt: 31.250.000', pulverText.includes('31.250.000'), pulverText.slice(0, 400));
+    check('Ohne vorhandenes Pulver: "weitere Insignien" = volle Menge (15.625.000)', pulverText.includes('≈ 15.625.000 weitere grün-Insignien'), pulverText.slice(0, 400));
+    const insPulverInput = doc.getElementById('insPulver');
+    insPulverInput.value = '1000000'; insPulverInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await wait(150);
+    pulverText = doc.getElementById('insignienContent').textContent;
+    // 1.000.000 Pulver / 2 (Ertrag grün) = 500.000 weniger grün nötig -> 15.125.000
+    check('Vorhandenes Pulver reduziert den Bedarf korrekt (15.125.000)', pulverText.includes('15.125.000'), pulverText.slice(0, 400));
+    insPulverInput.value = '999999999'; insPulverInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await wait(150);
+    check('Mehr als genug Pulver: Hinweis statt negativer Zahl', doc.getElementById('insignienContent').textContent.includes('genug Pulver vorhanden'));
+
     win.showApp('stats'); await wait(200);
     check('Zurück zum Statrechner funktioniert', doc.getElementById('appStats').style.display !== 'none');
 

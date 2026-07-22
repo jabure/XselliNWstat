@@ -132,7 +132,10 @@ und höher sichtbar (wird später für alle geöffnet).
   hochzustufen, oder die Zielqualität direkt zu kaufen. Pro Qualität gibt es
   zwei getrennte, editierbare Preise: den Preis zum Kaufen+Hochstufen und den
   Preis für den Direktkauf einer fertigen Insignie dieser Qualität - beide
-  können am Markt unterschiedlich sein.
+  können am Markt unterschiedlich sein. Zeigt außerdem, wie viel Insignien-
+  Pulver für die gesamte Kette gebraucht wird; bereits vorhandenes Pulver
+  kann eingetragen werden und reduziert die Anzahl benötigter Insignien
+  entsprechend.
 - **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
   pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-

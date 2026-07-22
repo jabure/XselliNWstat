@@ -4712,22 +4712,22 @@ function showApp(name){
    warum das zwei verschiedene Zahlen sind. */
 const INSIGNIE_QUALITAETEN = ['grün','Blau','episch','legendär','mystisch','celestisch'];
 // Wie viele Insignien der Qualität [i] man verwerten muss, um EINE Insignie
-// der Qualität [i+1] zu erhalten (aus der Excel: 2500 Pulver / Pulver-Ertrag je Stufe).
+// der Qualität [i+1] zu erhalten (= 2500 Pulver / Pulver-Ertrag dieser Stufe).
 // Der letzte Wert (celestisch -> eine noch höhere, hier nicht nutzbare Stufe) ist
 // nur der Vollständigkeit halber dabei und wird in der Kettenrechnung nie gebraucht.
 const INSIGNIE_RATIO = [1250, 250, 50, 10, 2, 1.666666667];
-// Rein informative Pulver-Werte aus der Referenztabelle (nicht editierbar, da feste
-// Spielmechanik) - helfen beim Abgleich mit der eigenen Übersicht im Spiel.
+// Pulver-Ertrag beim Verwerten EINER Insignie dieser Qualität (feste Spielmechanik,
+// nicht editierbar) - jede Stufen-Aufwertung braucht pauschal 2500 Pulver, aber das
+// muss für die Rechnung unten gar nicht extra auftauchen (siehe Kommentar dort).
 const INSIGNIE_PULVER_VERWERTET = [2, 10, 50, 250, 1250, 1500];
-const INSIGNIE_GESAMT_PULVER = 2500;
-let insignieStart = 'grün', insignieZiel = 'celestisch', insignieMenge = 1;
+let insignieStart = 'grün', insignieZiel = 'celestisch', insignieMenge = 1, insigniePulverVorhanden = 0;
 
 function renderInsignien(){
   const el = document.getElementById('insignienContent');
   const optionsHtml = sel => INSIGNIE_QUALITAETEN.map(q=>`<option value="${q}" ${sel===q?'selected':''}>${q}</option>`).join('');
 
-  // Vollständige Referenztabelle (eine Zeile pro Qualität) - zwei editierbare Preise:
-  // "Preis pro Stück" wird für die Kettenrechnung verwendet (Insignien dieser Stufe
+  // Kompakte Referenztabelle (eine Zeile pro Qualität) - zwei editierbare Preise:
+  // "Preis pro Stück" fließt in die Kettenrechnung ein (Insignien dieser Stufe
   // kaufen & verwerten), "Direktkaufpreis" nur, wenn genau diese Stufe als Ziel
   // gewählt wird (kann am Markt abweichen, siehe Hinweistext).
   const priceRows = INSIGNIE_QUALITAETEN.map((q,i)=>{
@@ -4736,10 +4736,8 @@ function renderInsignien(){
     return `<tr>
       <td class="statname">${q}</td>
       <td style="text-align:right;">${fmt(INSIGNIE_RATIO[i])}</td>
-      <td style="text-align:right;" class="muted">${INSIGNIE_PULVER_VERWERTET[i]}</td>
-      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:130px;" data-insprice="${q}" data-field="ah" value="${formatWerte(p.ah)}"></td>
-      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:130px;" data-insprice="${q}" data-field="direkt" value="${formatWerte(p.direkt)}"></td>
-      <td style="text-align:right;" class="muted">${INSIGNIE_GESAMT_PULVER}</td>
+      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:110px;" data-insprice="${q}" data-field="ah" value="${formatWerte(p.ah)}"></td>
+      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:110px;" data-insprice="${q}" data-field="direkt" value="${formatWerte(p.direkt)}"></td>
       <td style="text-align:right;" class="computed">${formatWerte(gesamtKosten)}</td>
     </tr>`;
   }).join('');
@@ -4755,6 +4753,18 @@ function renderInsignien(){
     let multiplikator = 1;
     for(let i=startIdx; i<zielIdx; i++) multiplikator *= INSIGNIE_RATIO[i];
     const anzahlBenoetigt = multiplikator * insignieMenge;
+
+    // Pulver-Bedarf: verwertet man alle benötigten Start-Insignien, entsteht daraus
+    // GENAU so viel Pulver, wie für die komplette Kette bis zur Ziel-Qualität nötig
+    // ist (das dabei auf Zwischenstufen zusätzlich entstehende Pulver wird jeweils
+    // direkt für die nächste Stufe weiterverwendet, kein Verlust/keine Lücke). Daher
+    // ist "Pulver benötigt" exakt anzahlBenoetigt * Verwertungs-Ertrag der Start-Qualität -
+    // und das ist auch die korrekte Vergleichsgröße für bereits vorhandenes Pulver:
+    // jedes vorhandene Pulver spart genau so viel Verwerten von Start-Insignien.
+    const pulverBenoetigt = anzahlBenoetigt * INSIGNIE_PULVER_VERWERTET[startIdx];
+    const pulverFehlend = Math.max(0, pulverBenoetigt - insigniePulverVorhanden);
+    const insignienFuerFehlendesPulver = pulverFehlend / INSIGNIE_PULVER_VERWERTET[startIdx];
+
     const preisStart = Number((insigniePreise[insignieStart]||{}).ah)||0;
     const preisZielDirekt = Number((insigniePreise[insignieZiel]||{}).direkt)||0;
     const kostenHochstufen = anzahlBenoetigt * preisStart;
@@ -4766,34 +4776,40 @@ function renderInsignien(){
       : (guenstiger === 'hochstufen'
         ? `<strong class="delta-ok">Hochstufen ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Direktkauf.`
         : `<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Hochstufen.`);
+
+    // Eine kompakte Ergebnis-Tabelle statt mehrerer Text-Absätze - direkt untereinander,
+    // Pulver-Zeilen zuerst (das eigentlich neue), Kosten-Vergleich danach.
     ergebnisHtml = `
       <div class="wide-table-scroll"><table>
-        <thead><tr><th></th><th style="text-align:right;">Hochstufen</th><th style="text-align:right;">Direktkauf</th></tr></thead>
         <tbody>
-          <tr><td class="statname">Benötigte Insignien (${insignieStart})</td><td style="text-align:right;">${formatWerte(anzahlBenoetigt)}</td><td class="muted" style="text-align:right;">&ndash;</td></tr>
-          <tr><td class="statname">Preis pro Stück</td><td style="text-align:right;">${formatWerte(preisStart)} (${insignieStart}, AH)</td><td style="text-align:right;">${formatWerte(preisZielDirekt)} (${insignieZiel}, Direktkauf)</td></tr>
+          <tr><td class="statname">Benötigte Insignien (${insignieStart})</td><td style="text-align:right;" colspan="2">${formatWerte(anzahlBenoetigt)}</td></tr>
+          <tr><td class="statname">Insignien-Pulver benötigt (gesamte Kette)</td><td style="text-align:right;" colspan="2" class="computed">${formatWerte(pulverBenoetigt)}</td></tr>
+          <tr><td class="statname">davon schon vorhanden</td><td style="text-align:right;" colspan="2">${formatWerte(Math.min(insigniePulverVorhanden, pulverBenoetigt))}</td></tr>
+          <tr><td class="statname">Pulver fehlt noch</td><td style="text-align:right;" colspan="2" class="${pulverFehlend>0?'delta-toolittle':'delta-ok'}">${pulverFehlend>0 ? formatWerte(pulverFehlend) + ` (≈ ${formatWerte(insignienFuerFehlendesPulver)} weitere ${insignieStart}-Insignien zum Verwerten)` : 'genug Pulver vorhanden'}</td></tr>
+          <tr><td class="statname"></td><td style="text-align:right;">Hochstufen</td><td style="text-align:right;">Direktkauf</td></tr>
           <tr><td class="statname">Gesamtkosten</td><td style="text-align:right;" class="computed">${formatWerte(kostenHochstufen)}</td><td style="text-align:right;" class="computed">${formatWerte(kostenDirekt)}</td></tr>
         </tbody>
       </table></div>
-      <p style="margin-top:12px;font-size:1.02rem;">${fazit}</p>`;
+      <p style="margin-top:10px;">${fazit}</p>`;
   }
 
   el.innerHTML = `
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Insignienrechner</h2>
-    <p class="helptext">Zeigt, ob es günstiger ist, Insignien einer niedrigeren Qualität am Aktionshaus zu kaufen und zur gewünschten Qualität hochzustufen, oder die gewünschte Qualität direkt zu kaufen.</p>
+    <p class="helptext">Zeigt, wie viele Insignien und wie viel Insignien-Pulver du zum Hochstufen brauchst, und ob Hochstufen oder Direktkauf der Ziel-Qualität günstiger ist.</p>
     <div class="grunddaten-grid">
       <div><label>Start-Qualität (die hast du)</label><select id="insStart">${optionsHtml(insignieStart)}</select></div>
       <div><label>Ziel-Qualität (die willst du)</label><select id="insZiel">${optionsHtml(insignieZiel)}</select></div>
       <div><label>Menge (Ziel-Insignien)</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
+      <div><label>Insignien-Pulver, das du schon hast</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insPulver" value="${formatWerte(insigniePulverVorhanden)}"></div>
     </div>
-    <div style="margin-top:16px;">${ergebnisHtml}</div>
+    <div style="margin-top:14px;">${ergebnisHtml}</div>
   </div>
   <div class="card">
     <h2><span class="dot" style="background:var(--def)"></span>Referenztabelle &amp; Preise pro Qualität</h2>
-    <p class="helptext">"Preis pro Stück" ist der Preis, um eine Insignie dieser Qualität zu kaufen und zur nächsthöheren zu verwerten (fließt in die Kettenrechnung oben ein). "Direktkaufpreis" ist der Preis, um eine fertige Insignie GENAU dieser Qualität zu kaufen - wird nur verwendet, wenn diese Qualität oben als Ziel gewählt ist. Beide Preise können am Markt unterschiedlich sein und sind deshalb getrennt editierbar. "Benötigte Insignien", "Pulver (verwertet)" und "Gesamt Pulver" sind feste Spielwerte (nicht editierbar).</p>
+    <p class="helptext">"Preis pro Stück" fließt in die Kettenrechnung ein, "Direktkaufpreis" nur, wenn diese Qualität oben als Ziel gewählt ist (kann am Markt abweichen). "Benötigte Insignien" ist ein fester Spielwert (Insignien dieser Qualität, um EINE der nächsthöheren zu erhalten).</p>
     <div class="wide-table-scroll"><table>
-      <thead><tr><th>Qualität</th><th style="text-align:right;">Benötigte Insignien</th><th style="text-align:right;">Pulver (verwertet)</th><th style="text-align:right;">Preis pro Stück (AH)</th><th style="text-align:right;">Direktkaufpreis</th><th style="text-align:right;">Gesamt Pulver</th><th style="text-align:right;">Gesamt Kosten</th></tr></thead>
+      <thead><tr><th>Qualität</th><th style="text-align:right;">Benötigte Insignien</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Direktkauf</th><th style="text-align:right;">Gesamtkosten</th></tr></thead>
       <tbody>${priceRows}</tbody>
     </table></div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">Preise speichern (für alle)</button></div>
@@ -4802,6 +4818,7 @@ function renderInsignien(){
   document.getElementById('insStart').addEventListener('change', e=>{ insignieStart = e.target.value; renderInsignien(); });
   document.getElementById('insZiel').addEventListener('change', e=>{ insignieZiel = e.target.value; renderInsignien(); });
   document.getElementById('insMenge').addEventListener('input', e=>{ insignieMenge = parseWerte(e.target.value)||1; renderInsignien(); });
+  document.getElementById('insPulver').addEventListener('input', e=>{ insigniePulverVorhanden = parseWerte(e.target.value)||0; renderInsignien(); });
   attachWerteFormatting(el);
   el.querySelectorAll('input[data-insprice]').forEach(inp=>{
     inp.addEventListener('input', e=>{
@@ -4821,6 +4838,7 @@ async function saveInsigniePreise(){
 }
 
 /* ================================================================
+
    GRUPPENPLANER
    ================================================================ */
 function showGpPage(name){
