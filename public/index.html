@@ -2093,6 +2093,10 @@ function renderFoodWerteTable(cat){
     </div>`;
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
+    <div class="btnrow" style="margin:0 0 12px 0;">
+      <button type="button" class="action gold" title="Probiert alle Kombinationen durch und wählt die, die am meisten Richtung Caps bringt - was über dem Cap liegt, zählt dabei nicht. Die beiden Utility-Slots bleiben unverändert." onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
+      <span class="helptext" style="margin:0;align-self:center;">wählt automatisch die Kombination mit dem größten Fortschritt Richtung Caps (Utility bleibt unverändert)</span>
+    </div>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="accordion" id="acc-admin-food-manuell">
       <button type="button" onclick="toggleAdminAccordion('food-manuell')">
@@ -2101,6 +2105,106 @@ function renderFoodWerteTable(cat){
       <div class="body">${renderManualTable(cat)}</div>
     </div>`;
 }
+/* ---------- Buff-Food-Optimierer ----------
+   Probiert für alle Nicht-Utility-Slots (Event-Essen, Festungsessen, Elixier,
+   Trank, Gürtel Item) die möglichen Essen durch und wählt die Kombination, die
+   am meisten Richtung Caps bringt. Bewertung: Summe der gecappten % über alle
+   Softcap-Stats (was über dem Cap liegt, zählt nicht - verschenkte Boni werden
+   also automatisch vermieden); Wehrhaftigkeit-Umverteilung und Softcap-Formeln
+   rechnen dabei ganz normal mit (computeAllForData). Trefferpunkte dienen nur
+   als winziger Gleichstand-Entscheider. Die Utility-Slots bleiben unangetastet. */
+function optimizeBuffFood(){
+  document.getElementById('saveStatus').textContent = 'Suche bestes Buff Food ...';
+  setTimeout(runBuffFoodOptimierung, 30); // erst die Meldung zeichnen lassen, dann rechnen
+}
+function runBuffFoodOptimierung(){
+  const slots = FOOD_SLOTS.filter(fs => fs.category !== 'Utility');
+  const options = slots.map(fs => ['Leer', ...foodSlotItems(fs)]);
+
+  const scoreOf = assign => {
+    const sIn = Object.assign({}, sourceInputs);
+    slots.forEach(fs => {
+      const name = assign[fs.key];
+      const db = foodDb[fs.category] || {};
+      const contrib = (name && name !== 'Leer' && db[name]) ? db[name] : {};
+      const bucket = {};
+      for(const statId in contrib){
+        if(statId.startsWith('_')) continue;
+        bucket[statId] = { werte: contrib[statId].werte||0, prozent: contrib[statId].prozent||0 };
+      }
+      sIn[fs.key] = bucket;
+    });
+    const results = computeAllForData(grunddaten, baseInputs, sIn);
+    let sum = 0;
+    for(const stat of ALL_STATS){
+      if(stat.type !== 'softcap') continue;
+      const maxPr = getMaxPr(stat);
+      if(!maxPr) continue;
+      const r = results[stat.id];
+      if(r && r.F !== null && r.F !== undefined) sum += Math.min(r.F, maxPr*100);
+    }
+    const tp = (results['trefferpunkte'] && results['trefferpunkte'].E) || 0;
+    return sum + tp/1e9;
+  };
+
+  const currentAssign = {};
+  slots.forEach(fs => { currentAssign[fs.key] = getSlotSelection(fs.key); });
+  const baseScore = scoreOf(currentAssign);
+
+  let best = null, bestScore = -Infinity;
+  const total = options.reduce((p, o) => p * o.length, 1);
+  if(total <= 4000){
+    // Alle Kombinationen durchprobieren (bei den üblichen Listengrößen wenige hundert)
+    const idx = options.map(() => 0);
+    for(;;){
+      const assign = {};
+      slots.forEach((fs, i) => { assign[fs.key] = options[i][idx[i]]; });
+      const sc = scoreOf(assign);
+      if(sc > bestScore + 1e-12){ bestScore = sc; best = assign; }
+      let p = 0;
+      while(p < idx.length){ idx[p]++; if(idx[p] < options[p].length) break; idx[p] = 0; p++; }
+      if(p === idx.length) break;
+    }
+  } else {
+    // Sicherheitsnetz für sehr große Essens-Listen: Slot für Slot das jeweils beste
+    // Essen wählen, zwei Durchläufe (zweiter korrigiert Wechselwirkungen über die Caps).
+    const assign = {};
+    slots.forEach(fs => { assign[fs.key] = 'Leer'; });
+    for(let pass = 0; pass < 2; pass++){
+      slots.forEach((fs, i) => {
+        let bi = 'Leer', bs = -Infinity;
+        options[i].forEach(name => {
+          assign[fs.key] = name;
+          const sc = scoreOf(assign);
+          if(sc > bs + 1e-12){ bs = sc; bi = name; }
+        });
+        assign[fs.key] = bi;
+      });
+    }
+    best = Object.assign({}, assign);
+    bestScore = scoreOf(best);
+  }
+
+  const statusEl = document.getElementById('saveStatus');
+  if(!best || bestScore <= baseScore + 1e-9){
+    statusEl.textContent = 'Deine aktuelle Buff-Food-Auswahl ist bereits die bestmögliche (Utility unberücksichtigt).';
+    setTimeout(()=>{ if(statusEl.textContent.startsWith('Deine aktuelle Buff-Food')) statusEl.textContent = ''; }, 6000);
+    return;
+  }
+  slots.forEach(fs => { applySlotSelection(fs.key, best[fs.key], foodDb[fs.category] || {}); });
+  queueSave();
+  renderSourceAccordions();
+  refresh(false);
+  const gewinn = bestScore - baseScore;
+  const msg = 'Bestes Buff Food gesetzt (+' + fmt(gewinn) + ' %-Punkte Richtung Caps): '
+    + slots.map(fs => `${fs.label}: ${best[fs.key]}`).join(' · ')
+    + ' - Utility-Slots unverändert.';
+  const show = ()=>{ statusEl.textContent = msg; };
+  show();
+  setTimeout(show, 1200); // überlebt die "zwischengespeichert"-Meldung des Auto-Speicherns
+  setTimeout(()=>{ if(statusEl.textContent === msg) statusEl.textContent = ''; }, 12000);
+}
+
 function loadFoodPreset(src, name){
   const fs = FOOD_SLOTS.find(f=>f.key===src);
   applySlotSelection(src, name, (fs && foodDb[fs.category]) || {});

@@ -212,6 +212,25 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.querySelector('input[data-src="Kopf"][data-stat="kraft"][data-field="prozent"]'), '2,5');
     await wait(200);
     check('Komma-Eingabe "2,5 %" rechnet korrekt (55 -> 57,5)', doc.getElementById('F-kraft').textContent.startsWith('57,5'), doc.getElementById('F-kraft').textContent);
+    // Buff-Food-Optimierer: soll die Kraft-% erhöhen (Kraft ist weit unterm Cap),
+    // Utility-Slots aber unangetastet lassen
+    {
+      const fVorher = num(doc.getElementById('F-kraft').textContent);
+      win.optimizeBuffFood();
+      await wait(1200); // 30ms-Verzögerung + Rechnen + Re-Render
+      const fNachher = num(doc.getElementById('F-kraft').textContent);
+      check('Buff-Food-Optimierer erhöht die Kraft-%', fNachher > fVorher, fVorher + ' -> ' + fNachher);
+      check('Optimierer meldet die Auswahl', doc.getElementById('saveStatus').textContent.includes('Bestes Buff Food'), doc.getElementById('saveStatus').textContent.slice(0, 60));
+      const utilSelects = Array.from(doc.querySelectorAll('#sourceAccordions select')).filter(sel => {
+        const card = sel.closest('.slot-card');
+        return card && /Utility/.test(card.textContent);
+      });
+      check('Utility-Slots bleiben unverändert (Leer)', utilSelects.length === 2 && utilSelects.every(sel => sel.value === 'Leer'), utilSelects.map(sel=>sel.value).join('/'));
+      // Zweiter Lauf: keine weitere Verbesserung -> "bereits die bestmögliche"
+      win.optimizeBuffFood();
+      await wait(900);
+      check('Zweiter Lauf erkennt: bereits optimal', doc.getElementById('saveStatus').textContent.includes('bereits die bestmögliche'), doc.getElementById('saveStatus').textContent.slice(0, 60));
+    }
     // Alles auf-/zuklappen
     win.setAllStatSubgroups('stats', true);
     const statGroupsCount = doc.querySelectorAll('#statGroups .stat-subgroup').length;

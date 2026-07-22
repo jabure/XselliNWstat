@@ -87,7 +87,15 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Klassentyp des geladenen Charakters, Zustand überlebt Rebuilds via
   prevSub-Map in renderUebersicht), klassenrelevante Zellen getönt
   (relev-dps/-tank/-heal; RELEVANTE_GRUPPEN = DPS:offensive, Tank:defensive,
-  Heiler:offensive+support). Ein Cap-Fortschrittsbalken in der Stat-Tabelle wurde bewusst
+  Heiler:offensive+support).
+- **Seit v0.14.0:** Buff-Food-Optimierer (optimizeBuffFood/runBuffFoodOptimierung
+  in index.html): Knopf "Bestes Buff Food wählen" im Buff-Food-Bereich probiert
+  alle Kombinationen der Nicht-Utility-Slots (category !== 'Utility') durch;
+  Score = Summe der GECAPPTEN % über alle Softcap-Stats (Overcap zählt nicht),
+  Trefferpunkte/1e9 als Tiebreaker, gerechnet über computeAllForData (inkl.
+  Wehrhaftigkeit-Umverteilung und editierbarer Formeln). Exhaustiv bis 4000
+  Kombinationen, sonst Greedy in 2 Durchläufen. Utility-Slots werden nie
+  angefasst (explizite Nutzer-Vorgabe). Ein Cap-Fortschrittsbalken in der Stat-Tabelle wurde bewusst
   VERWORFEN (Nutzer-Entscheidung: zu viel Platz) - nicht erneut vorschlagen.
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)
