@@ -217,6 +217,9 @@
     appearance:none; -webkit-appearance:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23c8952e'%3E%3Cpath d='M5.5 7.5l4.5 4.5 4.5-4.5z'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 12px center; padding-right:36px;
+    /* Fest auf eine kompakte Breite begrenzt, statt sich über die Zeile auszudehnen -
+       soll wirklich nur oben links in der Ecke sitzen, der Konto-Button bleibt rechts. */
+    width:auto; max-width:220px; flex:0 0 auto;
   }
   .app-select:focus{outline:none; border-color:var(--gold);}
   /* Oberste Zeile: App-Auswahl links, Konto-Button rechts */
