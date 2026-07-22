@@ -174,8 +174,15 @@ Es gibt kein Test-Framework im Projekt selbst. Mein Vorgehen im Sandbox-Environm
   z. B. Gesamte Gewirkte Heilung aus Gewirkte Heilung).
 - **Delta-Konvention** (seit Update 36): `delta = F - maxPr*100`. Positiv =
   über Cap = zu viel = rot (`delta-toomuch`); negativ = unter Cap = zu wenig =
-  orange (`delta-toolittle`); ±1 Toleranz = grün (`delta-ok`). E- und F-Zelle
-  bekommen dieselbe Ampelfarbe wie das Delta.
+  orange (`delta-toolittle`); ±1 Toleranz = grün (`delta-ok`). F-Zelle trägt
+  dieselbe Ampelfarbe wie das Delta. **Seit v0.14.2 (Nutzerwunsch):** die
+  E-Zelle (Totale Werte) hat eine EIGENE, unabhängige Ampel (`werteAmpel()`)
+  auf Basis des Werte-Caps der softcap-Formel: capC = softcap(1e12) als
+  Plateau; softcap(E) < capC−1 -> orange; softcap(E−1000) >= capC -> rot
+  (Werte >~1pp verschenkt); sonst grün. Formel-unabhängig, mit try/catch-
+  Rückfall auf die %-Ampel. Grund: man kann zu viele WERTE haben, während
+  die % noch unterm Cap liegen (fehlende I/Boni) - beides muss getrennt
+  sichtbar sein. Tooltip an der E-Zelle erklärt den Zustand.
 - **Buff Food** ist nach echten Spielkategorien sortiert (siehe
   nw-hub.com/consumables): `FOOD_CATEGORIES = ['Event-Essen','Festungsessen',
   'Elixier','Trank','Gürtel Item','Utility']`. Utility wird von ZWEI

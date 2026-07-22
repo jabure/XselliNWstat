@@ -1812,11 +1812,20 @@ function updateStatGroups(results){
       else if(r.delta < -1) cls = 'delta-toolittle';
       else cls = 'delta-ok';
       dCell.className = cls;
-      // Wert (E) und Prozent (F) bekommen jeweils EINZELN dieselbe Ampelfarbe (statt der
-      // statischen goldenen "computed"-Farbe), damit auf einen Blick klar ist, welche Stats
-      // noch zu wenig, genau richtig oder verschwendet (zu viel) sind.
-      if(eCell) eCell.className = 'computed ' + cls;
+      // Prozent (F) trägt dieselbe Ampel wie das Delta (beides basiert auf den Gesamt-%).
       if(fCell) fCell.className = 'computed ' + cls;
+      // Die Totalen Werte (E) bekommen ihre EIGENE, unabhängige Ampel auf Basis des
+      // Werte-Caps: man kann bereits zu viele Werte haben (rot), während die % noch
+      // nicht reichen (Delta orange) - oder umgekehrt.
+      if(eCell){
+        const wCls = werteAmpel(stat, r) || cls;
+        eCell.className = 'computed ' + wCls;
+        eCell.title = wCls === 'delta-toomuch'
+          ? 'Zu viele Werte: das Werte-Cap dieses Stats ist überschritten - zusätzliche Werte bringen keine % mehr'
+          : (wCls === 'delta-toolittle'
+            ? 'Werte-Cap noch nicht erreicht - mehr Werte bringen noch %'
+            : 'Werte-Cap genau erreicht');
+      }
     }
   }
 }
@@ -2467,6 +2476,32 @@ function refresh(rebuildInputs){
 /* ---------- Seite: Übersicht (Gesamt-Stats + Schaden/Heilung/Tank) ---------- */
 // Für die Rechnungen wird das berechnete % (F) verwendet. Liegt es über dem Cap,
 // wird es auf das Cap begrenzt - genau wie im Spiel.
+/* Eigene Ampel für die Totalen Werte (E), UNABHÄNGIG von der %-Ampel (F/Delta):
+   Es kann sein, dass die Werte (Rating) ihr eigenes Werte-Cap schon überschreiten
+   (mehr Werte bringen keine % mehr), während die Gesamt-% trotzdem noch unter dem
+   Cap liegen (weil "Aktuelle %"/Boni fehlen) - oder umgekehrt. Formel-unabhängig
+   über die editierbare softcap-Formel bestimmt: capC = Plateau der Funktion
+   (softcap bei riesigem Rating); liegt softcap(E) mehr als 1 %-Punkt darunter ->
+   Werte fehlen (orange); liefert schon E−1000 das volle Plateau -> mehr als
+   ~1 %-Punkt Werte verschenkt (rot); sonst genau richtig (grün). */
+function werteAmpel(stat, r){
+  try{
+    const maxPr = getMaxPr(stat);
+    if(!maxPr || r.E === null || r.E === undefined) return null;
+    const sc = { maxPr, itemlevel: Number(grunddaten.itemlevel)||0 };
+    math.evaluate(`softcap(rating, maxPr, itemlevel) = ${formulas.softcap}`, sc);
+    sc.big = 1e12;
+    sc.E = Number(r.E)||0;
+    sc.Em = Math.max(0, (Number(r.E)||0) - 1000);
+    const capC = math.evaluate('softcap(big, maxPr, itemlevel)', sc);
+    if(!isFinite(capC) || capC <= 0) return null;
+    const sE = math.evaluate('softcap(E, maxPr, itemlevel)', sc);
+    const sEm = math.evaluate('softcap(Em, maxPr, itemlevel)', sc);
+    if(sE < capC - 1) return 'delta-toolittle';
+    if(sEm >= capC - 1e-6) return 'delta-toomuch';
+    return 'delta-ok';
+  }catch(e){ return null; } // z. B. kaputt editierte Formel -> Rückfall auf die %-Ampel
+}
 function cappedF(results, statId){
   const r = results[statId];
   if(!r || r.F === null || r.F === undefined) return 0;

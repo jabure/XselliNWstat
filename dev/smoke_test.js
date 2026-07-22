@@ -222,6 +222,23 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.querySelector('input[data-src="Kopf"][data-stat="kraft"][data-field="prozent"]'), '2,5');
     await wait(200);
     check('Komma-Eingabe "2,5 %" rechnet korrekt (55 -> 57,5)', doc.getElementById('F-kraft').textContent.startsWith('57,5'), doc.getElementById('F-kraft').textContent);
+    // Unabhängige Werte-Ampel: Kraft E=110.000 bei Stufe 100.000 = Werte-Cap exakt
+    // erreicht (grün), während die Gesamt-% weit unterm Cap liegen (Delta orange)
+    {
+      const eKraft = doc.getElementById('E-kraft'), dKraft = doc.getElementById('delta-kraft');
+      check('Werte-Ampel unabhängig: Werte am Cap (grün), % zu wenig (orange)',
+        eKraft.className.includes('delta-ok') && dKraft.className.includes('delta-toolittle'),
+        eKraft.className + ' | ' + dKraft.className);
+      // Werte weit übers Werte-Cap -> E rot, Delta bleibt orange (genau der Fall
+      // "schon zu viele Werte, aber % noch nicht genug")
+      input(win, doc.querySelector('input[data-role="H"][data-stat="kraft"]'), '130000'); await wait(200);
+      check('Werte-Ampel: zu viele Werte (rot) trotz zu wenig % (orange)',
+        doc.getElementById('E-kraft').className.includes('delta-toomuch') && doc.getElementById('delta-kraft').className.includes('delta-toolittle'),
+        doc.getElementById('E-kraft').className + ' | ' + doc.getElementById('delta-kraft').className);
+      check('Werte-Ampel: Tooltip erklärt die Verschwendung', doc.getElementById('E-kraft').title.includes('Zu viele Werte'));
+      input(win, doc.querySelector('input[data-role="H"][data-stat="kraft"]'), '110000'); await wait(200);
+    }
+
     // Buff-Food-Optimierer: klassenbewusst (DPS -> Schaden), Utility bleibt unangetastet
     {
       const fVorher = num(doc.getElementById('F-kraft').textContent);
