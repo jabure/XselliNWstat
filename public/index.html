@@ -688,6 +688,7 @@ const apiRegister = (username, password) => apiRequest('/api/auth/register', {me
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
 const apiListCharacters = () => apiRequest('/api/characters');
+const apiReorderCharacters = (order) => apiRequest('/api/characters/reorder', {method:'PUT', body:JSON.stringify({order})});
 const apiCreateCharacter = (name, copyFrom) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify(copyFrom ? {name, copyFrom} : {name})});
 const apiGetCharacter = (name) => apiRequest('/api/characters/'+encodeURIComponent(name));
 const apiSaveCharacter = (name, data) => apiRequest('/api/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
@@ -771,11 +772,16 @@ async function renderAccountPanel(){
   const list = chars.length ? chars.map((c, i)=>{
     const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
     const statusNote = c.pendingTransferTo ? ` <span class="muted">&middot; Kopie wird gesendet an: ${c.pendingTransferTo}</span>` : '';
+    const updatedNote = c.updatedAt ? ` <span class="muted">&middot; zuletzt bearbeitet: ${formatUpdatedAt(c.updatedAt)}</span>` : '';
     return `<div>
       <div class="char-item">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <button type="button" class="action small" style="padding:2px 6px; ${i===0?'visibility:hidden;':''}" title="Nach oben verschieben" onclick="moveCharacterByIndex(${i},-1)">&#9650;</button>
+          <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="Nach unten verschieben" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
+        </div>
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
           <span class="char-name">${c.name}</span>
-          <span class="char-info">${info}${statusNote}</span>
+          <span class="char-info">${info}${updatedNote}${statusNote}</span>
         </button>
         <button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>
         <button class="action small" type="button" onclick="toggleRenameByIndex(${i})">Umbenennen</button>
@@ -862,6 +868,26 @@ async function cancelSendByIndex(i){
   const charName = myCharacters[i].name;
   try{
     await apiCancelSendCharacter(charName);
+    await renderAccountPanel();
+  }catch(e){ setAccountMsg(e.message); }
+}
+
+// Zeigt das Änderungsdatum eines Charakters kompakt an (Datum + Uhrzeit, deutsches Format).
+function formatUpdatedAt(iso){
+  try{
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE') + ', ' + d.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  }catch(e){ return ''; }
+}
+// Vertauscht einen Charakter mit seinem Nachbarn (dir: -1 = nach oben, +1 = nach unten)
+// und speichert die neue Reihenfolge sofort auf dem Server.
+async function moveCharacterByIndex(i, dir){
+  const j = i + dir;
+  if(j < 0 || j >= myCharacters.length) return;
+  const order = myCharacters.map(c=>c.name);
+  const tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  try{
+    await apiReorderCharacters(order);
     await renderAccountPanel();
   }catch(e){ setAccountMsg(e.message); }
 }

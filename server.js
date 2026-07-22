@@ -158,11 +158,15 @@ app.get('/api/me', authMiddleware, (req, res) => {
 });
 
 // Liefert zu einem Charakter die Kurzinfos (Klasse/Vorbildpfad) aus seinen Daten,
-// damit die Auswahlliste im Frontend mehr als nur den Namen zeigen kann.
+// damit die Auswahlliste im Frontend mehr als nur den Namen zeigen kann. "updatedAt"
+// kommt aus dem Änderungsdatum der Datei (kein separates Feld nötig).
 function charSummary(username, name){
-  const data = readJson(charFile(username, name), {});
+  const file = charFile(username, name);
+  const data = readJson(file, {});
   const g = data.grunddaten || {};
-  return { name, klasse: g.klasse || '', vorbildpfad: g.vorbildpfad || '', klassentyp: g.klassentyp || '' };
+  let updatedAt = null;
+  try{ updatedAt = fs.statSync(file).mtime.toISOString(); }catch(e){ /* Datei evtl. noch nicht geschrieben */ }
+  return { name, klasse: g.klasse || '', vorbildpfad: g.vorbildpfad || '', klassentyp: g.klassentyp || '', updatedAt };
 }
 
 app.get('/api/characters', authMiddleware, (req, res) => {
@@ -174,6 +178,24 @@ app.get('/api/characters', authMiddleware, (req, res) => {
     { owner: req.username, isOwner: true, pendingTransferTo: (transfers[n] && transfers[n].from === req.username) ? transfers[n].to : null }
   ));
   res.json(own);
+});
+
+// Reihenfolge der eigenen Charaktere ändern (z. B. per Hoch/Runter-Pfeil im Frontend).
+// "order" muss exakt dieselben Charakternamen enthalten wie aktuell vorhanden (nur die
+// Reihenfolge darf sich unterscheiden) - so kann darüber nichts hinzugefügt/entfernt werden.
+app.put('/api/characters/reorder', authMiddleware, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  const order = req.body && req.body.order;
+  if(!Array.isArray(order)) return res.status(400).json({ error: 'Ungültige Reihenfolge' });
+  const current = user.characters || [];
+  const sameSet = order.length === current.length &&
+    [...order].sort().join('\u0000') === [...current].sort().join('\u0000');
+  if(!sameSet) return res.status(400).json({ error: 'Die Reihenfolge muss genau dieselben Charaktere enthalten' });
+  user.characters = order;
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true });
 });
 
 // Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
