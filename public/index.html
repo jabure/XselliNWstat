@@ -632,7 +632,11 @@ function defaultGrunddaten(){
 // 0 % Awareness, und die "Was bringt +3 %?"-Spalte.
 function defaultUebersichtParams(){
   return { faehigkeit:800, gegnerDefensive:50, gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0, deltaPct:3,
-    gegnerKraft:90, gegnerZielgenauigkeit:0, gegnerKampfvorteil:90, gegnerKritwert:50, gegnerKritschaden:90 };
+    gegnerKraft:90, gegnerZielgenauigkeit:0, gegnerKampfvorteil:90, gegnerKritwert:50, gegnerKritschaden:90,
+    // Manche Waffen geben zusätzlichen Waffenschaden - fester Bonus (Werte) wird auf den
+    // berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Beides ist eine
+    // Eigenschaft der Waffe und wird deshalb pro Charakter gespeichert.
+    waffenschadenBonus:0, waffenschadenBonusPct:0 };
 }
 let uebersichtParams = defaultUebersichtParams();
 // Pro Stat in Schaden/Heilung/Tank einzeln ein-/ausschaltbar (Button "Aktiv"/"Aus" je Zeile) -
@@ -2108,6 +2112,13 @@ function computeKennzahlenForData(bundle){
   let waffenschaden;
   try{ waffenschaden = math.evaluate(formulas.dmgWaffenschaden, {itemlevel, klassenFaktor}); }
   catch(e){ waffenschaden = itemlevel/10 * klassenFaktor; }
+  // Bonus-Waffenschaden ist eine Eigenschaft der Waffe des jeweiligen Charakters -
+  // deshalb kommen diese beiden Werte aus dem Datenpaket des Charakters selbst,
+  // NICHT aus den aktuellen Einstellungen (die gelten nur für Gegner/Fähigkeit).
+  const bp = (bundle && bundle.uebersichtParams) || {};
+  const wsBonus = Number(bp.waffenschadenBonus)||0;
+  const wsBonusPct = Number(bp.waffenschadenBonusPct)||0;
+  waffenschaden = (waffenschaden + wsBonus) * (1 + wsBonusPct/100);
 
   const rawF = id => { const r = results[id]; return (r && r.F!==null && r.F!==undefined) ? r.F : 0; };
   const capOf = id => { const s = ALL_STATS.find(x=>x.id===id); const m = s ? getMaxPr(s) : null; return m ? m*100 : null; };
@@ -2164,7 +2175,7 @@ function computeKennzahlenForData(bundle){
   };
   const tankPct = { vert, wahr, kvm, rob, robS, sr };
 
-  return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF, faktoren, tankPct };
+  return { results, grunddaten:g, itemlevel, klassenFaktor, waffenschaden, wsBonus, wsBonusPct, totalDmg, heilWert, ehp, heilTotal, tp, frac, rawF, faktoren, tankPct };
 }
 
 // Baut den kompletten "Charakter-Vergleich"-Abschnitt (Accordion) für die
@@ -2283,8 +2294,11 @@ function renderVergleichSection(){
 
       const sections = [];
       const fA_ = kA.faktoren, fB_ = kB.faktoren;
-      const wsRow = metric => ({ label:'Waffenschaden (Stufe × Klasse)',
-        usedA:formatWerte(kA.itemlevel)+' × '+fmt(kA.klassenFaktor).replace('.',','), usedB:formatWerte(kB.itemlevel)+' × '+fmt(kB.klassenFaktor).replace('.',','),
+      const wsUsed = k => formatWerte(k.itemlevel)+' × '+fmt(k.klassenFaktor)
+        + (k.wsBonus ? ' +'+formatWerte(k.wsBonus) : '')
+        + (k.wsBonusPct ? ' +'+fmt(k.wsBonusPct)+' %' : '');
+      const wsRow = () => ({ label:'Waffenschaden (Stufe × Klasse'+((kA.wsBonus||kA.wsBonusPct||kB.wsBonus||kB.wsBonusPct)?' + Bonus':'')+')',
+        usedA:wsUsed(kA), usedB:wsUsed(kB),
         fA:formatWerte(kA.waffenschaden), fB:formatWerte(kB.waffenschaden), impact:rel(kA.waffenschaden, kB.waffenschaden) });
 
       /* --- Bereich Schaden --- */
@@ -2376,9 +2390,13 @@ function renderUebersicht(){
   const P = uebersichtParams;
   const itemlevel = Number(grunddaten.itemlevel)||0;
   const klassenFaktor = grunddaten.klassentyp==='DPS' ? 1.2 : (grunddaten.klassentyp==='Heiler' ? 1.1 : 1.0);
-  let waffenschaden;
-  try{ waffenschaden = math.evaluate(formulas.dmgWaffenschaden, {itemlevel, klassenFaktor}); }
-  catch(e){ waffenschaden = itemlevel/10 * klassenFaktor; }
+  let wsBase;
+  try{ wsBase = math.evaluate(formulas.dmgWaffenschaden, {itemlevel, klassenFaktor}); }
+  catch(e){ wsBase = itemlevel/10 * klassenFaktor; }
+  // Bonus-Waffenschaden der Waffe: fester Bonus wird addiert, %-Bonus danach multipliziert.
+  const wsBonus = Number(P.waffenschadenBonus)||0;
+  const wsBonusPct = Number(P.waffenschadenBonusPct)||0;
+  const waffenschaden = (wsBase + wsBonus) * (1 + wsBonusPct/100);
 
   // Roh-% (F) und Cap pro Stat; das "+X %" wird VOR dem Cap addiert - wer schon
   // am Cap ist, bekommt durch +X % also nichts mehr dazu (genau wie im Excel).
@@ -2466,6 +2484,11 @@ function renderUebersicht(){
   const paramInput = (key, label) => `<div>
     <label>${label}</label>
     <span class="pct-wrap"><input type="number" step="0.5" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]}"><span class="pct-suffix">%</span></span>
+  </div>`;
+  // Wie paramInput, aber für reine Zahlenwerte ohne %-Suffix (z. B. Bonus-Waffenschaden in Werten).
+  const paramInputNum = (key, label) => `<div>
+    <label>${label}</label>
+    <input type="number" step="1" class="num-in" style="width:100%;" data-uparam="${key}" value="${P[key]||0}">
   </div>`;
 
   // "Veränderter Wert": Gesamtschaden neu gerechnet, wobei bei jedem "Aktiv"-Stat die
@@ -2735,8 +2758,11 @@ function renderUebersicht(){
     <div class="grunddaten-grid">
       ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
       ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
+      ${paramInputNum('waffenschadenBonus','Bonus Waffenschaden (Werte)')}
+      ${paramInput('waffenschadenBonusPct','Bonus Waffenschaden')}
     </div>
-    <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})</span></p>
+    <p class="helptext" style="margin:8px 0 0 0;">Bonus Waffenschaden: für Waffen, die zusätzlichen Waffenschaden geben. Der feste Bonus (Werte) wird auf den berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Wird pro Charakter gespeichert und fließt in Schaden, Heilung und den Charakter-Vergleich ein.</p>
+    <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})${wsBonus?` + ${formatWerte(wsBonus)} Bonus`:''}${wsBonusPct?`, × (1 + ${fmt(wsBonusPct)} % Bonus)`:''}</span></p>
   </div>
 
   ${renderVergleichSection()}
