@@ -121,6 +121,12 @@ niemand eine veraltete Seite aus dem Browser-Cache sieht. mathjs liegt lokal
 unter `public/vendor/` bei - der Rechner funktioniert also auch, wenn das
 frühere CDN nicht erreichbar ist.
 
+**Sicherungen im Admin-Bereich:** Auf der Benutzer-Seite gibt es die Karte
+„Sicherungen": Presets/Formeln-Historie ansehen, herunterladen und per Knopf
+wiederherstellen (der jetzige Stand wandert dabei selbst in die Historie),
+Tages-Backups als .tar.gz herunterladen. Die Benutzerliste zeigt außerdem
+„zuletzt aktiv" und ist danach sortiert.
+
 **Tests:** `dev/smoke_test.js` startet eine eigene Server-Instanz und testet
 Server-API + Frontend automatisch (`npm install jsdom` einmalig nötig, dann
 `node dev/smoke_test.js`).

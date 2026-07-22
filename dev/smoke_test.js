@@ -53,6 +53,7 @@ function loadFrontend(extraLocalStorage) {
     beforeParse(window) {
       if (extraLocalStorage) for (const k in extraLocalStorage) window.localStorage.setItem(k, extraLocalStorage[k]);
       window.fetch = (u, o) => fetch(typeof u === 'string' && u.startsWith('/') ? BASE + u : u, o);
+      window.confirm = () => true; // jsdom hat kein echtes confirm - Dirty-Guard-Dialoge immer bestätigen
     },
   });
   return dom;
@@ -128,6 +129,24 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Shared-Historie wird geschrieben', fs.existsSync(histDir) && fs.readdirSync(histDir).length >= 2, fs.existsSync(histDir) && fs.readdirSync(histDir).length);
     check('Tägliches Backup existiert', fs.existsSync(path.join(dataDir, 'backups', 'daily')) && fs.readdirSync(path.join(dataDir, 'backups', 'daily')).length === 1);
 
+    console.log('\n[3b] Admin: Sicherungen einsehen & wiederherstellen');
+    r = await api('/api/admin/backups', {}, admToken);
+    check('Backup-Liste abrufbar', r.status === 200 && Array.isArray(r.data.shared) && Array.isArray(r.data.daily), r.status);
+    check('Shared-Historie enthält Stände', r.data.shared.length >= 2, r.data.shared.length);
+    check('Tages-Backup gelistet', r.data.daily.length === 1, r.data.daily.length);
+    const histFile = r.data.shared[r.data.shared.length - 1].file; // ältester Stand (vor dem Smoke-Eintrag)
+    let dl = await fetch(BASE + '/api/admin/backups/shared/' + encodeURIComponent(histFile), { headers: { Authorization: 'Bearer ' + admToken } });
+    check('Historie-Stand herunterladbar', dl.status === 200 && (dl.headers.get('content-disposition') || '').includes(histFile));
+    r = await api('/api/admin/backups/shared/' + encodeURIComponent(histFile) + '/restore', { method: 'POST' }, admToken);
+    check('Wiederherstellen liefert neue rev', r.status === 200 && typeof r.data.rev === 'number', r.status);
+    const sharedAfter = (await api('/api/shared')).data;
+    check('Wiederhergestellter Stand hat den Smoke-Eintrag nicht mehr', !(sharedAfter.companionDb && sharedAfter.companionDb.Smoke), JSON.stringify(sharedAfter.companionDb || {}).slice(0, 60));
+    check('rev zählt nach Wiederherstellung weiter hoch', (sharedAfter.rev || 0) > rev0 + 1, sharedAfter.rev);
+    r = await api('/api/admin/backups/shared/..%2F..%2Fusers.json/restore', { method: 'POST' }, admToken);
+    check('Pfad-Trickserei beim Wiederherstellen -> 400/404', r.status === 400 || r.status === 404, r.status);
+    r = await api('/api/admin/users', {}, admToken);
+    check('Benutzerliste enthält updatedAt für Charaktere', r.data.some(u => (u.characters || []).some(c => c.updatedAt)), false);
+
     console.log('\n[4] Cache-Header');
     let res = await fetch(BASE + '/index.html');
     check('HTML: Cache-Control no-cache', (res.headers.get('cache-control') || '').includes('no-cache'), res.headers.get('cache-control'));
@@ -153,6 +172,16 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.querySelector('input[data-src="Kopf"][data-stat="wehrhaftigkeit"][data-field="prozent"]'), '10');
     await wait(200);
     check('Wehrhaftigkeit-Umverteilung (+50 % der Differenz auf Kraft)', doc.getElementById('F-kraft').textContent.startsWith('55'), doc.getElementById('F-kraft').textContent);
+    check('Toast: Statusmeldung wird sichtbar eingeblendet', doc.getElementById('saveStatus').classList.contains('show') || doc.getElementById('saveStatus').textContent === '', undefined);
+    // Klassen-Hinweis: Schadensberechnung ohne gewählte Klasse in einer frischen Instanz
+    {
+      const dg = loadFrontend();
+      await wait(1100);
+      dg.window.showPage('uebersicht'); await wait(200);
+      const t = dg.window.document.getElementById('uebersichtContent').textContent;
+      check('Hinweis bei fehlender Klasse auf der Schadensberechnung', t.includes('keine Klasse gewählt'), t.slice(0, 60));
+      dg.window.close();
+    }
     const guestSaved = win.localStorage.getItem('xselli_guest');
     check('Gast-Daten im Browser gespeichert', !!guestSaved && JSON.parse(guestSaved).grunddaten.itemlevel === 100000, (guestSaved || '').slice(0, 60));
 
@@ -210,8 +239,24 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.toggleVergleichSection('tank', true); await wait(300);
     check('Vergleich: Tank-Bereich zuschaltbar', doc.getElementById('acc-dmg-vergleich').textContent.includes('Tank (effektive Trefferpunkte)'));
 
+    // Snapshot ("Vorher/Nachher"): Stand einfrieren, Kraft erhöhen, Unterschied sichtbar
+    win.freezeVergleichSnapshot(); await wait(300);
+    const selA2 = doc.querySelector('select[data-vgl="a"]');
+    check('Snapshot: Auswahl steht auf Eingefroren vs. Aktuell', selA2 && selA2.value === '__snapshot__' && doc.querySelector('select[data-vgl="b"]').value === '__current__');
+    win.showPage('rechner'); await wait(200);
+    input(win, doc.querySelector('input[data-role="I"][data-stat="kraft"]'), '100'); await wait(200);
+    win.showPage('uebersicht'); await wait(300);
+    const accSnap = doc.getElementById('acc-dmg-vergleich');
+    accSnap.classList.add('open');
+    const snapRows = Array.from(accSnap.querySelectorAll('tbody tr')).map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim()));
+    const snapGesamt = snapRows.find(r => r[0] === 'Gesamt');
+    check('Snapshot: Vorher/Nachher zeigt den Zugewinn', snapGesamt && snapGesamt[5].includes('+'), snapGesamt && snapGesamt[5]);
+
     console.log('\n[8] Passwort-ändern-Formular + Formel-Vorschau');
     win.openAccountPanel(); await wait(400);
+    check('Passwort-Bereich standardmäßig versteckt', doc.getElementById('pwChangeArea').style.display === 'none');
+    win.togglePwChange();
+    check('Passwort-Bereich per Knopf einblendbar', doc.getElementById('pwChangeArea').style.display !== 'none');
     input(win, doc.getElementById('acc_oldpw'), 'pass1234');
     input(win, doc.getElementById('acc_newpw'), 'anders123');
     await win.changePassword(); await wait(300);
@@ -226,7 +271,10 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.openAccountPanel(); await wait(300);
     input(win, doc.getElementById('acc_username'), user);
     input(win, doc.getElementById('acc_password'), 'neu1234');
-    win.loginAccount(); await wait(800);
+    // Login per Enter-Taste statt Knopf
+    doc.getElementById('acc_password').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(800);
+    check('Login per Enter-Taste', doc.getElementById('accountLabel').textContent.includes(user), doc.getElementById('accountLabel').textContent);
     win.closeAccountModal();
     win.showPage('formeln'); await wait(300);
     const preview = doc.getElementById('formelPreview');
@@ -234,6 +282,12 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.getElementById('f_eTotal'), 'H + kaputt(');
     await wait(150);
     check('Formel-Vorschau zeigt Fehler an', doc.getElementById('formelPreview').textContent.includes('Fehler'));
+    check('Ungespeichert-Markierung am Speichern-Knopf', doc.getElementById('btnSaveFormeln').textContent.includes('*'), doc.getElementById('btnSaveFormeln').textContent);
+    let confirmAsked = false;
+    win.confirm = () => { confirmAsked = true; return true; };
+    win.showPage('rechner'); await wait(100);
+    check('Nachfrage beim Verlassen mit ungespeicherten Formeln', confirmAsked);
+    check('Versions-Link "Was ist neu?"', doc.getElementById('versionTag').innerHTML.includes('commits/main'));
     dom.window.close();
   } catch (e) {
     failed++;

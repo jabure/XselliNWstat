@@ -533,6 +533,75 @@ app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (
   res.json({ ok: true });
 });
 
+/* ---------- Admin: Sicherungen einsehen, herunterladen, wiederherstellen ---------- */
+// Listet die automatischen Backups auf: Shared-Historie (einzelne shared.json-Stände
+// vor jedem Presets-/Formeln-Speichern) und die täglichen Voll-Backups.
+app.get('/api/admin/backups', authMiddleware, requireRole('admin'), (req, res) => {
+  const shared = [];
+  try{
+    fs.readdirSync(SHARED_HISTORY_DIR).filter(f=>/^shared-[0-9TZ\-]+\.json$/.test(f)).sort().reverse().forEach(f=>{
+      const st = fs.statSync(path.join(SHARED_HISTORY_DIR, f));
+      shared.push({ file: f, mtime: st.mtime.toISOString(), size: st.size });
+    });
+  }catch(e){ /* Ordner existiert evtl. noch nicht */ }
+  const daily = [];
+  try{
+    fs.readdirSync(DAILY_BACKUP_DIR).filter(f=>/^\d{4}-\d{2}-\d{2}$/.test(f)).sort().reverse().forEach(day=>{
+      let files = 0;
+      try{ files = fs.readdirSync(path.join(DAILY_BACKUP_DIR, day, 'chars')).length + 2; }catch(e){ files = 2; }
+      daily.push({ day, files });
+    });
+  }catch(e){ /* Ordner existiert evtl. noch nicht */ }
+  res.json({ shared, daily });
+});
+
+// Einen Stand der Shared-Historie herunterladen. Der Dateiname wird streng geprüft
+// (nur das bekannte Muster), damit hier niemand beliebige Pfade lesen kann.
+app.get('/api/admin/backups/shared/:file', authMiddleware, requireRole('admin'), (req, res) => {
+  const f = req.params.file;
+  if(!/^shared-[0-9TZ\-]+\.json$/.test(f)) return res.status(400).json({ error: 'Ungültiger Dateiname' });
+  const full = path.join(SHARED_HISTORY_DIR, f);
+  if(!fs.existsSync(full)) return res.status(404).json({ error: 'Sicherung nicht gefunden' });
+  res.setHeader('Content-Disposition', `attachment; filename="${f}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(fs.readFileSync(full));
+});
+
+// Einen Stand der Shared-Historie wiederherstellen: der AKTUELLE Stand wandert dabei
+// selbst in die Historie (nichts geht verloren), und die rev zählt weiter hoch, damit
+// offene Bearbeitungen anderer sauber den 409-Konflikt bekommen statt zu überschreiben.
+app.post('/api/admin/backups/shared/:file/restore', authMiddleware, requireRole('admin'), (req, res) => {
+  const f = req.params.file;
+  if(!/^shared-[0-9TZ\-]+\.json$/.test(f)) return res.status(400).json({ error: 'Ungültiger Dateiname' });
+  const full = path.join(SHARED_HISTORY_DIR, f);
+  if(!fs.existsSync(full)) return res.status(404).json({ error: 'Sicherung nicht gefunden' });
+  const backup = readJson(full, null);
+  if(!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Sicherung ist nicht lesbar' });
+  const current = readJson(SHARED_FILE, {});
+  const currentRev = current.rev || 0;
+  try{
+    fs.mkdirSync(SHARED_HISTORY_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+    fs.copyFileSync(SHARED_FILE, path.join(SHARED_HISTORY_DIR, `shared-${stamp}.json`));
+    const old = fs.readdirSync(SHARED_HISTORY_DIR).filter(x=>x.startsWith('shared-')).sort();
+    while(old.length > 10) fs.unlinkSync(path.join(SHARED_HISTORY_DIR, old.shift()));
+  }catch(e){ console.warn('Shared-Historie konnte nicht geschrieben werden:', e.message); }
+  writeJson(SHARED_FILE, Object.assign({}, backup, { rev: currentRev + 1 }));
+  res.json({ ok: true, rev: currentRev + 1 });
+});
+
+// Ein tägliches Voll-Backup als .tar.gz herunterladen (gestreamt, kein Zwischenspeichern).
+app.get('/api/admin/backups/daily/:day', authMiddleware, requireRole('admin'), (req, res) => {
+  const day = req.params.day;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.status(400).json({ error: 'Ungültiges Datum' });
+  if(!fs.existsSync(path.join(DAILY_BACKUP_DIR, day))) return res.status(404).json({ error: 'Sicherung nicht gefunden' });
+  res.setHeader('Content-Disposition', `attachment; filename="xselli-backup-${day}.tar.gz"`);
+  res.setHeader('Content-Type', 'application/gzip');
+  const tar = require('child_process').spawn('tar', ['-czf', '-', '-C', DAILY_BACKUP_DIR, day]);
+  tar.stdout.pipe(res);
+  tar.on('error', ()=>{ if(!res.headersSent) res.status(500).json({ error: 'tar nicht verfügbar' }); });
+});
+
 // Charakter eines anderen Benutzers in den eigenen Account kopieren (zum Ansehen).
 // Das Original bleibt unangetastet.
 app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware, requireRole('admin'), (req, res) => {

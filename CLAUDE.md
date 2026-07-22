@@ -47,6 +47,17 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Login-Bremse (10 Versuche/15 min, in-memory), POST /api/me/change-password,
   Charakter-PUT mit Schlüssel-Whitelist (CHAR_ALLOWED_KEYS) + 300-KB-Limit,
   Cache-Header (HTML no-cache, /vendor/ immutable).
+- **Seit v0.11.0 zusätzlich:** Admin-Backup-Endpunkte (GET /api/admin/backups,
+  GET .../backups/shared/:file (Download), POST .../restore (legt vorher den
+  aktuellen Stand in die Historie, rev zählt weiter hoch), GET
+  .../backups/daily/:day streamt tar.gz via busybox-tar). Frontend:
+  Statusmeldungen sind ein fixierter Toast unten rechts (MutationObserver auf
+  #saveStatus - Aufrufstellen setzen weiter nur textContent), Presets-/
+  Formeln-Seite hat Dirty-Tracking (presetsDirty/formelnDirty, *-Markierung
+  am Speichern-Knopf, confirm() in showPage, beforeunload), Charakter-
+  Vergleich kann einen Snapshot einfrieren (vergleichSnapshot, Option
+  __snapshot__, auch für Gäste), Passwort-ändern-Bereich ist hinter
+  togglePwChange() versteckt, Login/Kontoformulare reagieren auf Enter.
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)
 

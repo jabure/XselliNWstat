@@ -154,7 +154,13 @@
   .modal{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:360px;}
   .modal p{margin:0 0 16px 0;}
   .modal .btnrow{margin-top:0;}
-  .save-status{font-size:0.78rem; color:var(--text-dim); min-height:16px;}
+  .save-status{
+    position:fixed; right:16px; bottom:16px; z-index:100; display:none;
+    background:var(--panel-2); border:1px solid var(--gold-soft); color:var(--text);
+    padding:10px 14px; border-radius:8px; font-size:0.85rem; line-height:1.4;
+    box-shadow:0 6px 20px rgba(0,0,0,.45); max-width:min(440px, calc(100vw - 32px));
+  }
+  .save-status.show{display:block;}
   .group-tabs{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
   .group-tab{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
@@ -401,7 +407,7 @@
   </div>
 
   <div class="btnrow" style="margin-top:20px;">
-    <button class="action gold" onclick="savePresetsShared()">Presets speichern</button>
+    <button class="action gold" id="btnSavePresets" onclick="savePresetsShared()">Presets speichern</button>
     <button class="action" onclick="resetPresetsToDefault()">Standard wiederherstellen</button>
   </div>
 </div>
@@ -477,7 +483,7 @@
     <div id="formelPreview" class="notice" style="background:var(--panel-2);border-color:var(--border);color:var(--text);font-variant-numeric:tabular-nums;"></div>
 
     <div class="btnrow">
-      <button class="action gold" onclick="saveFormulas()">Formeln speichern</button>
+      <button class="action gold" id="btnSaveFormeln" onclick="saveFormulas()">Formeln speichern</button>
       <button class="action" onclick="resetFormulasToDefault()">Standard wiederherstellen</button>
     </div>
   </div>
@@ -488,6 +494,11 @@
     <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
     <p class="helptext">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
     <div id="userOverview" class="char-list"></div>
+  </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Sicherungen</h2>
+    <p class="helptext">Automatische Backups, direkt hier nutzbar - ohne Serverzugriff. Die Wiederherstellung betrifft nur die geteilten Presets/Formeln; Konten und Charaktere stecken in den Tages-Backups (Wiederherstellung davon weiterhin über den Server-Admin).</p>
+    <div id="backupOverview"></div>
   </div>
 </div>
 </div>
@@ -731,6 +742,8 @@ const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+e
 const apiAdminResetPassword = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/reset-password', {method:'POST'});
 const apiAdminDeleteUser = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'DELETE'});
 const apiAdminCopyCharacter = (username, charname) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/characters/'+encodeURIComponent(charname)+'/copy', {method:'POST'});
+const apiAdminBackups = () => apiRequest('/api/admin/backups');
+const apiAdminRestoreShared = (file) => apiRequest('/api/admin/backups/shared/'+encodeURIComponent(file)+'/restore', {method:'POST'});
 
 function persistLoginLocally(){
   localStorage.setItem('xselli_token', authToken);
@@ -775,8 +788,8 @@ async function renderAccountPanel(){
       <h3>Anmelden oder registrieren</h3>
       <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
       <div class="login-grid">
-        <div><label>Benutzername</label><input type="text" id="acc_username"></div>
-        <div><label>Passwort</label><input type="password" id="acc_password"></div>
+        <div><label>Benutzername</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div><label>Passwort</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
       </div>
       <div id="accMsg" class="helptext" style="color:var(--off);"></div>
       <div class="btnrow">
@@ -841,7 +854,7 @@ async function renderAccountPanel(){
     <div class="login-grid" style="margin-top:12px;">
       <div>
         <label>Neuer Charakter</label>
-        <input type="text" id="acc_newchar" placeholder="Name eingeben...">
+        <input type="text" id="acc_newchar" placeholder="Name eingeben..." onkeydown="if(event.key==='Enter')createCharacter()">
       </div>
       <div>
         <label>Vorlage</label>
@@ -853,15 +866,23 @@ async function renderAccountPanel(){
       <button class="action gold" type="button" onclick="createCharacter()">Charakter anlegen</button>
       <button class="action" type="button" title="Charakter aus einer Export-Datei (.json) wiederherstellen" onclick="document.getElementById('acc_importfile').click()">Charakter importieren</button>
       <input type="file" id="acc_importfile" accept=".json,application/json" style="display:none;" onchange="handleImportFile(event)">
+      <button class="action" type="button" onclick="togglePwChange()">Passwort ändern</button>
       <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
       <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
     </div>
-    <h3 style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">Passwort ändern</h3>
-    <div class="login-grid">
-      <div><label>Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password"></div>
-      <div><label>Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password"></div>
-    </div>
-    <div class="btnrow"><button class="action" type="button" onclick="changePassword()">Passwort ändern</button></div>`;
+    <div id="pwChangeArea" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="login-grid">
+        <div><label>Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+        <div><label>Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+      </div>
+      <div class="btnrow"><button class="action gold" type="button" onclick="changePassword()">Neues Passwort speichern</button></div>
+    </div>`;
+}
+
+// Passwort-ändern-Bereich im Konto-Fenster ein-/ausblenden (standardmäßig versteckt).
+function togglePwChange(){
+  const el = document.getElementById('pwChangeArea');
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 async function changePassword(){
@@ -943,7 +964,7 @@ function toggleSendByIndex(i){
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
       <label style="font-size:0.8rem;">Kopie an einen anderen Benutzer senden</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
-        <input type="text" id="send-input-${i}" placeholder="Benutzername" style="flex:1;">
+        <input type="text" id="send-input-${i}" placeholder="Benutzername" style="flex:1;" onkeydown="if(event.key==='Enter')sendCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="sendCharacterByIndex(${i})">Senden</button>
       </div>
       <div id="send-msg-${i}" class="helptext" style="color:var(--off);"></div>
@@ -1002,7 +1023,7 @@ function toggleRenameByIndex(i){
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
       <label style="font-size:0.8rem;">Charakter umbenennen</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
-        <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;">
+        <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;" onkeydown="if(event.key==='Enter')renameCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="renameCharacterByIndex(${i})">Speichern</button>
       </div>
       <div id="rename-msg-${i}" class="helptext" style="color:var(--off);"></div>
@@ -1250,6 +1271,17 @@ let sourceInputs = {}; // sourceKey -> statId -> {werte, prozent}
 
 let saveTimer = null;
 
+/* Statusmeldungen ("Gespeichert", Fehler, Konflikte) werden jetzt als schwebende
+   Einblendung unten rechts angezeigt statt in einer Zeile ganz oben - so sieht man
+   sie auch, wenn man auf einer langen Seite heruntergescrollt ist. Der Beobachter
+   blendet das Element automatisch ein/aus, sobald irgendwo textContent gesetzt wird
+   (deshalb müssen die vielen bestehenden Aufrufstellen nicht angefasst werden). */
+(function(){
+  const el = document.getElementById('saveStatus');
+  new MutationObserver(()=>{ el.classList.toggle('show', el.textContent.trim() !== ''); })
+    .observe(el, {childList:true, characterData:true, subtree:true});
+})();
+
 /* ---------- Werte-Formatierung (1000er-Punkt) ---------- */
 function formatWerte(n){
   if(n === null || n === undefined || n === '') return '';
@@ -1384,6 +1416,7 @@ async function queueSaveShared(){
   try{
     const r = await apiSetFormulas({ rev: sharedRev, formulas, maxPrOverrides, wehrVerteilung });
     if(r && r.rev !== undefined) sharedRev = r.rev;
+    setDirty('formeln', false);
     document.getElementById('saveStatus').textContent = 'Formeln gespeichert (für alle)';
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -2209,6 +2242,24 @@ let vergleichBundles = {};      // Charaktername -> vom Server geladenes Datenpa
 let vergleichCharListe = null;  // Namen der eigenen Charaktere für die Dropdowns, null = noch nicht geladen
 let vergleichListePending = false;
 let vergleichOptionNames = [];  // Zuordnung Dropdown-Index -> Charaktername (verhindert Probleme mit Sonderzeichen)
+// "Vorher/Nachher": ein eingefrorener Schnappschuss des aktuellen Stands (nur im
+// Speicher, überlebt kein Neuladen). Tiefe Kopie, damit spätere Eingaben ihn nicht verändern.
+let vergleichSnapshot = null; // { bundle, label }
+function freezeVergleichSnapshot(){
+  const zeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  vergleichSnapshot = {
+    bundle: JSON.parse(JSON.stringify(getCharDataBundle())),
+    label: `Eingefroren ${zeit}` + (currentChar ? ` (${currentChar})` : ''),
+  };
+  // Typischer Ablauf: A = eingefrorener Stand, B = live weiterbearbeiteter Stand
+  vergleichAuswahl.a = '__snapshot__';
+  vergleichAuswahl.b = '__current__';
+  renderUebersicht();
+  const acc = document.getElementById('acc-dmg-vergleich');
+  if(acc) acc.classList.add('open');
+  document.getElementById('saveStatus').textContent = 'Stand eingefroren - ändere jetzt Werte/Ausrüstung und beobachte den Unterschied im Vergleich.';
+  setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
+}
 // Welche Bereiche verglichen werden (ankreuzbar). Wird beim ersten Vergleich anhand
 // des Klassentyps von Charakter A vorbelegt (DPS -> Schaden, Heiler -> Heilung, Tank -> Tank).
 let vergleichSections = null;
@@ -2250,6 +2301,10 @@ function setVergleichAuswahl(which, name){
   renderUebersicht();
 }
 function vergleichSlot(sel){
+  if(sel === '__snapshot__'){
+    if(!vergleichSnapshot) return { label:'', status:'none' };
+    return { label: vergleichSnapshot.label, bundle: vergleichSnapshot.bundle, status:'ok' };
+  }
   if(sel === '__current__') return { label: currentChar || 'Aktuell (ungespeichert)', bundle: getCharDataBundle(), status:'ok' };
   if(!sel) return { label:'', status:'none' };
   const b = vergleichBundles[sel];
@@ -2341,9 +2396,9 @@ function computeKennzahlenForData(bundle){
 function renderVergleichSection(){
   ensureVergleichListe();
   let inner;
-  if(!isLoggedIn){
-    inner = '<p class="helptext">Zum Vergleichen zweier Charaktere musst du oben rechts angemeldet sein und mindestens einen gespeicherten Charakter haben.</p>';
-  } else {
+  {
+    // Auch ohne Anmeldung nutzbar: "Aktuell geladen" und der eingefrorene Stand brauchen
+    // keinen Server - nur gespeicherte Charaktere erfordern ein Konto (Hinweis unten).
     const names = vergleichCharListe || [];
     vergleichOptionNames = names;
     const selHtml = which => {
@@ -2351,6 +2406,7 @@ function renderVergleichSection(){
       const opts = [
         `<option value="" ${sel===''?'selected':''}>&ndash; wählen &ndash;</option>`,
         `<option value="__current__" ${sel==='__current__'?'selected':''}>Aktuell geladen${currentChar ? ' ('+escapeHtml(currentChar)+')' : ''}</option>`,
+        ...(vergleichSnapshot ? [`<option value="__snapshot__" ${sel==='__snapshot__'?'selected':''}>${escapeHtml(vergleichSnapshot.label)}</option>`] : []),
         ...names.map((n,i)=>`<option value="c${i}" ${sel===n?'selected':''}>${escapeHtml(n)}</option>`),
       ].join('');
       return `<select data-vgl="${which}">${opts}</select>`;
@@ -2525,12 +2581,17 @@ function renderVergleichSection(){
         (noneChecked ? '<p class="helptext" style="margin-top:10px;">Kreuze oben an, was verglichen werden soll (Schaden, Heilung und/oder Tank).</p>' : sections.join('')) +
         `<p class="helptext" style="margin-top:12px;">Beide Charaktere werden mit denselben Fähigkeits- und Gegner-Werten (siehe "Fähigkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter Änderungen.</p>`;
     }
-    inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander.</p>
+    inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander - oder friere den aktuellen Stand ein, ändere dann Werte/Ausrüstung und sieh live, was die Änderung bringt (Vorher/Nachher).</p>
+      <div class="btnrow" style="margin:0 0 12px 0;">
+        <button type="button" class="action" onclick="freezeVergleichSnapshot()">Aktuellen Stand einfrieren (Vorher/Nachher)</button>
+      </div>
       <div class="grunddaten-grid" style="max-width:620px;">
         <div><label>Charakter A</label>${selHtml('a')}</div>
         <div><label>Charakter B</label>${selHtml('b')}</div>
       </div>
-      ${bodyHtml}`;
+      ${bodyHtml}
+      ${!isLoggedIn ? '<p class="helptext" style="margin-top:8px;">Hinweis: Gespeicherte Charaktere erscheinen in den Dropdowns erst nach der Anmeldung (oben rechts) - als Gast stehen "Aktuell geladen" und der eingefrorene Stand zur Verfügung.</p>' : ''}
+      ${vergleichSnapshot ? '<p class="helptext" style="margin-top:8px;">Der eingefrorene Stand lebt nur in diesem Browser-Tab und geht beim Neuladen verloren.</p>' : ''}`;
   }
   return `<div class="accordion" id="acc-dmg-vergleich" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('vergleich')">
@@ -2909,7 +2970,10 @@ function renderUebersicht(){
   const wasFirstRender = el.children.length === 0;
   const prevOpen = Array.from(el.querySelectorAll('.accordion.open')).map(a=>a.id);
 
-  el.innerHTML = `
+  const klasseHinweis = !grunddaten.klasse
+    ? `<div class="notice" style="margin-bottom:14px;">Es ist noch keine Klasse gewählt - der Waffenschaden wird deshalb mit dem Tank-Faktor 1,0 gerechnet und fällt zu niedrig aus. Bitte zuerst auf der <strong>Rechner</strong>-Seite Klasse und Vorbildpfad wählen.</div>`
+    : '';
+  el.innerHTML = `${klasseHinweis}
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Fähigkeit &amp; Vergleich</h2>
     <p class="helptext">Gilt für Schaden <strong>und</strong> Heilung.</p>
@@ -3036,7 +3100,7 @@ function renderUebersicht(){
   el.querySelectorAll('select[data-vgl]').forEach(sel=>{
     sel.addEventListener('change', e=>{
       const v = e.target.value;
-      const name = v === '' ? '' : (v === '__current__' ? '__current__' : (vergleichOptionNames[Number(v.slice(1))] || ''));
+      const name = v === '' ? '' : ((v === '__current__' || v === '__snapshot__') ? v : (vergleichOptionNames[Number(v.slice(1))] || ''));
       setVergleichAuswahl(e.target.dataset.vgl, name);
     });
   });
@@ -3079,6 +3143,42 @@ function toggleDmgAccordion(key){
   acc.classList.toggle('open');
 }
 
+/* ---------- Ungespeicherte Änderungen auf Presets-/Formeln-Seite ----------
+   Beide Seiten ändern DATEN FÜR ALLE erst beim expliziten Speichern. Damit
+   niemand versehentlich 20 Minuten Pflegearbeit durch Tab-Wechsel oder
+   Schließen verliert: Änderungs-Erkennung (delegierte input/change/click-
+   Listener), *-Markierung am Speichern-Knopf, Nachfrage beim Seitenwechsel
+   und Browser-Warnung beim Schließen des Tabs. */
+let presetsDirty = false, formelnDirty = false;
+function setDirty(kind, val){
+  if(kind === 'presets'){
+    presetsDirty = val;
+    const b = document.getElementById('btnSavePresets');
+    if(b) b.textContent = val ? 'Presets speichern *' : 'Presets speichern';
+  } else {
+    formelnDirty = val;
+    const b = document.getElementById('btnSaveFormeln');
+    if(b) b.textContent = val ? 'Formeln speichern *' : 'Formeln speichern';
+  }
+}
+(function(){
+  const bind = (pageId, kind) => {
+    const el = document.getElementById(pageId);
+    el.addEventListener('input', ()=>setDirty(kind, true));
+    el.addEventListener('change', ()=>setDirty(kind, true));
+    // Hinzufügen/Entfernen von Karten und Stat-Zeilen sind Klicks ohne input-Event
+    el.addEventListener('click', e=>{
+      const b = e.target.closest('button');
+      if(b && /^(\+|Entfernen|✕)/.test(b.textContent.trim())) setDirty(kind, true);
+    });
+  };
+  bind('pagePresets', 'presets');
+  bind('pageFormeln', 'formeln');
+  window.addEventListener('beforeunload', e=>{
+    if(presetsDirty || formelnDirty){ e.preventDefault(); e.returnValue = ''; }
+  });
+})();
+
 /* ---------- Seiten-Navigation ---------- */
 const ROLE_RANK = { user:0, moderator:1, coadmin:2, admin:3 };
 function hasRole(minRole){
@@ -3103,6 +3203,15 @@ function updateAdminTabVisibility(){
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function showPage(name){
+  const openNow = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
+  if(openNow === 'presets' && name !== 'presets' && presetsDirty){
+    if(!confirm('Du hast ungespeicherte Preset-Änderungen. Ohne Speichern verlassen?')) return;
+    setDirty('presets', false);
+  }
+  if(openNow === 'formeln' && name !== 'formeln' && formelnDirty){
+    if(!confirm('Du hast ungespeicherte Formel-Änderungen. Ohne Speichern verlassen?')) return;
+    setDirty('formeln', false);
+  }
   if(PAGE_MIN_ROLE[name] !== 'user' && !hasRole(PAGE_MIN_ROLE[name])){
     document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+PAGE_MIN_ROLE[name]+'".';
     return;
@@ -3116,13 +3225,16 @@ function showPage(name){
   }
   if(name==='presets'){
     fillPresetFields();
+    setDirty('presets', false); // frisch befüllt = noch nichts geändert
   }
   if(name==='formeln'){
     renderMaxPrGrid();
     fillFormulaFields();
+    setDirty('formeln', false); // frisch befüllt = noch nichts geändert
   }
   if(name==='users'){
     renderUserOverview();
+    renderBackupsCard();
   }
 }
 
@@ -3138,6 +3250,12 @@ async function renderUserOverview(){
   el.innerHTML = '<p class="helptext">Lade Benutzer ...</p>';
   try{
     const users = await apiAdminListUsers();
+    // "Zuletzt aktiv" = jüngstes Änderungsdatum über alle Charaktere des Benutzers;
+    // danach absteigend sortieren (Karteileichen rutschen ans Ende).
+    users.forEach(u => {
+      u.lastActive = (u.characters || []).reduce((m, c) => (c.updatedAt && c.updatedAt > (m || '')) ? c.updatedAt : m, null);
+    });
+    users.sort((a, b) => (b.lastActive || '').localeCompare(a.lastActive || ''));
     adminUsers = users;
     const roleOptions = ['user','moderator','coadmin','admin'];
     const roleLabel = {user:'Nutzer', moderator:'Moderator', coadmin:'Coadmin', admin:'Admin'};
@@ -3158,6 +3276,7 @@ async function renderUserOverview(){
           <button type="button" class="user-toggle" onclick="toggleUserChars('${slug}')">
             <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${u.username}
             <span class="muted">(${u.characters.length} Charakter${u.characters.length===1?'':'e'})</span>
+            <span class="muted" style="font-size:0.76rem;">${u.lastActive ? '&middot; zuletzt aktiv: '+formatUpdatedAt(u.lastActive) : '&middot; noch keine Aktivität'}</span>
           </button>
           <select ${isSelf?'disabled':''} onchange="setUserRoleByIndex(${ui}, this.value)" style="width:auto;">
             ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
@@ -3216,6 +3335,84 @@ async function setUserRole(username, role){
     document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
   }
   renderUserOverview();
+}
+
+/* ---------- Admin: Sicherungen ---------- */
+let adminBackups = { shared: [], daily: [] };
+let pendingBackupFile = null;
+
+async function renderBackupsCard(){
+  const el = document.getElementById('backupOverview');
+  if(!el) return;
+  el.innerHTML = '<p class="helptext">Lade Sicherungen ...</p>';
+  try{
+    adminBackups = await apiAdminBackups();
+    const sharedList = adminBackups.shared.length ? adminBackups.shared.map((b, i)=>`<div class="char-item">
+        <span style="flex:1;">${formatUpdatedAt(b.mtime)} <span class="muted">(${Math.max(1, Math.round(b.size/1024))} KB)</span></span>
+        <button type="button" class="action small" onclick="downloadSharedBackup(${i})">Herunterladen</button>
+        <button type="button" class="action small" onclick="confirmRestoreShared(${i})">Wiederherstellen</button>
+      </div>`).join('') : '<p class="helptext">Noch keine Stände vorhanden (entstehen automatisch bei jedem Presets-/Formeln-Speichern).</p>';
+    const dailyList = adminBackups.daily.length ? adminBackups.daily.map((d, i)=>`<div class="char-item">
+        <span style="flex:1;">${d.day} <span class="muted">(${d.files} Dateien)</span></span>
+        <button type="button" class="action small" onclick="downloadDailyBackup(${i})">Herunterladen (.tar.gz)</button>
+      </div>`).join('') : '<p class="helptext">Noch kein Tages-Backup vorhanden (wird beim Serverstart und danach täglich angelegt).</p>';
+    el.innerHTML = `
+      <h3 style="font-size:0.9rem;margin:8px 0 8px 0;">Presets/Formeln-Historie <span class="muted" style="font-weight:400;">(die letzten 10 Stände, je einer vor jedem Speichern)</span></h3>
+      <div class="char-list">${sharedList}</div>
+      <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Tägliche Voll-Backups <span class="muted" style="font-weight:400;">(die letzten 7 Tage: Konten, Charaktere, Presets/Formeln)</span></h3>
+      <div class="char-list">${dailyList}</div>`;
+  }catch(e){
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+// Download über fetch (statt Link), weil die Endpunkte den Authorization-Header brauchen.
+async function adminDownload(url, filename){
+  try{
+    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + authToken } });
+    if(!res.ok){
+      let d = null; try{ d = await res.json(); }catch(e){ /* kein JSON */ }
+      throw new Error((d && d.error) || ('Serverfehler (' + res.status + ')'));
+    }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Download fehlgeschlagen: ' + e.message;
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
+  }
+}
+function downloadSharedBackup(i){ const b = adminBackups.shared[i]; adminDownload('/api/admin/backups/shared/'+encodeURIComponent(b.file), b.file); }
+function downloadDailyBackup(i){ const d = adminBackups.daily[i]; adminDownload('/api/admin/backups/daily/'+encodeURIComponent(d.day), 'xselli-backup-'+d.day+'.tar.gz'); }
+
+function confirmRestoreShared(i){
+  const b = adminBackups.shared[i];
+  pendingBackupFile = b.file;
+  pendingAction = 'restoreshared';
+  document.getElementById('modalText').textContent = `Presets & Formeln für ALLE auf den Stand vom ${formatUpdatedAt(b.mtime)} zurücksetzen? Der jetzige Stand wandert dabei selbst in die Historie, es geht also nichts verloren.`;
+  document.getElementById('modalConfirm').textContent = 'Ja, wiederherstellen';
+  document.getElementById('modalBg').classList.add('show');
+}
+
+// Geteilte Daten nach einer Wiederherstellung frisch vom Server übernehmen
+// (gleiche Zuweisungen wie beim Seitenstart in init()).
+async function reloadShared(){
+  const shared = await apiGetShared();
+  sharedRev = shared.rev || 0;
+  formulas = {...DEFAULT_FORMULAS, ...(shared.formulas || {})};
+  maxPrOverrides = shared.maxPrOverrides || {};
+  wehrVerteilung = shared.wehrVerteilung || JSON.parse(JSON.stringify(DEFAULT_WEHRVERTEILUNG));
+  companionDb = shared.companionDb || JSON.parse(JSON.stringify(DEFAULT_COMPANION_DB));
+  mountDb = shared.mountDb || JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
+  foodDb = shared.foodDb || JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
+  gefaehrtenPresets = shared.gefaehrtenPresets || JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
+  reittierPresets = shared.reittierPresets || JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
+  if(shared.foodSlots) shared.foodSlots.forEach((def, i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
+  refresh(true);
+  renderUebersicht();
 }
 
 /* ---------- Presets-Seite: Formular-Editor statt JSON ---------- */
@@ -3437,6 +3634,7 @@ async function savePresetsShared(){
       gefaehrtenPresets, reittierPresets,
     });
     if(r && r.rev !== undefined) sharedRev = r.rev;
+    setDirty('presets', false);
     document.getElementById('saveStatus').textContent = 'Presets gespeichert (für alle)';
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -3453,6 +3651,7 @@ function resetPresetsToDefault(){
   gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
   reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
   fillPresetFields();
+  setDirty('presets', true); // Standard ist erst nach "Presets speichern" wirklich für alle aktiv
 }
 
 /* ---------- Admin: Formeln ---------- */
@@ -3484,6 +3683,7 @@ function resetFormulasToDefault(){
   wehrVerteilung = JSON.parse(JSON.stringify(DEFAULT_WEHRVERTEILUNG));
   fillFormulaFields();
   renderMaxPrGrid();
+  setDirty('formeln', true); // Standard ist erst nach "Formeln speichern" wirklich für alle aktiv
 }
 
 /* ---------- Beispielcharakter (Demo-Daten) ---------- */
@@ -3531,6 +3731,20 @@ function confirmAction(type){
 }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); pendingAction = null; }
 document.getElementById('modalConfirm').addEventListener('click', async ()=>{
+  if(pendingAction === 'restoreshared' && pendingBackupFile){
+    try{
+      await apiAdminRestoreShared(pendingBackupFile);
+      await reloadShared();
+      document.getElementById('saveStatus').textContent = 'Stand wiederhergestellt (gilt für alle).';
+      setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
+    }catch(e){
+      document.getElementById('saveStatus').textContent = 'Wiederherstellen fehlgeschlagen: ' + e.message;
+    }
+    pendingBackupFile = null;
+    closeModal();
+    renderBackupsCard();
+    return;
+  }
   if(pendingAction === 'resetpw' && pendingAdminUser){
     try{
       const res = await apiAdminResetPassword(pendingAdminUser);
@@ -3689,7 +3903,8 @@ async function init(){
 
   try{
     const v = await apiRequest('/api/version');
-    document.getElementById('versionTag').textContent = 'Version ' + v.version + ' (Beta)';
+    document.getElementById('versionTag').innerHTML = 'Version ' + v.version + ' (Beta) &middot; ' +
+      '<a href="https://github.com/jabure/XselliNWstat/commits/main" target="_blank" rel="noopener" style="color:var(--gold);" title="Alle Änderungen mit Beschreibung auf GitHub">Was ist neu?</a>';
   }catch(e){ /* Version nicht so wichtig, dass es die Seite blockieren sollte */ }
 
   try{
