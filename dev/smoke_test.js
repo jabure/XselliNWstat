@@ -499,6 +499,19 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     await wait(150);
     // Blau->episch->legendär: 250 * 10 = 2500 pro legendär, ×2 Menge = 5000 benötigte blaue Insignien
     check('Insignienrechner: Kette über zwei Zwischenstufen korrekt (5.000)', doc.getElementById('insignienContent').textContent.includes('5.000'), doc.getElementById('insignienContent').textContent.slice(0, 200));
+    // Referenz-Szenario (vom Nutzer per Screenshot bestätigt): mystisch -> celestisch, Menge 1
+    // -> 2 benötigte mystische Insignien, 2.300.000 Hochstufen vs. 2.499.999 Direktkauf (AH-Preis
+    // celestisch 2.000.000 UND Direktkaufpreis 2.499.999 sind bewusst zwei getrennte Zahlen).
+    insStart.value = 'mystisch'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insZiel.value = 'celestisch'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await wait(150);
+    const insRefText = doc.getElementById('insignienContent').textContent;
+    check('Insignienrechner: Referenz-Szenario Hochstufen 2.300.000', insRefText.includes('2.300.000'), insRefText.slice(0, 300));
+    check('Insignienrechner: Referenz-Szenario Direktkauf 2.499.999 (getrennt vom AH-Preis)', insRefText.includes('2.499.999'), insRefText.slice(0, 300));
+    const ahInput = doc.querySelector('input[data-insprice="celestisch"][data-field="ah"]');
+    const direktInput = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
+    check('Insignienrechner: AH-Preis und Direktkaufpreis sind unabhängige Felder', ahInput && direktInput && ahInput.value !== direktInput.value, ahInput && direktInput && [ahInput.value, direktInput.value]);
 
     win.showApp('stats'); await wait(200);
     check('Zurück zum Statrechner funktioniert', doc.getElementById('appStats').style.display !== 'none');

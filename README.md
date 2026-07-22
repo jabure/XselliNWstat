@@ -129,7 +129,10 @@ erreichbar. Aktuell noch in der Planung und deshalb nur für Rolle Moderator
 und höher sichtbar (wird später für alle geöffnet).
 - **Insignienrechner:** zeigt für eine Start-/Ziel-Qualität und eine Menge,
   ob es günstiger ist, Insignien einer niedrigeren Qualität zu kaufen und
-  hochzustufen, oder die Zielqualität direkt zu kaufen.
+  hochzustufen, oder die Zielqualität direkt zu kaufen. Pro Qualität gibt es
+  zwei getrennte, editierbare Preise: den Preis zum Kaufen+Hochstufen und den
+  Preis für den Direktkauf einer fertigen Insignie dieser Qualität - beide
+  können am Markt unterschiedlich sein.
 - **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
   pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-

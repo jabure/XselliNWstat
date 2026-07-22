@@ -95,6 +95,12 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   in server.js UND Client-Konstante in index.html, beide "moderator" -
   bei Freischaltung für alle BEIDE auf 'user' ändern) gated sowohl die
   Sichtbarkeit der App-Tabs als auch JEDEN /api/gp/*-Aufruf server-seitig.
+  **Seit v0.15.1:** App-Switcher sitzt jetzt GANZ OBEN LINKS in einer
+  gemeinsamen .top-bar-Zeile zusammen mit dem Konto-Button rechts (VOR dem
+  h1-Titel) statt darunter - Nutzerwunsch. Nur EIN #appSwitcher-Element darf
+  existieren; beim Bauen ist versehentlich ein doppelter/kaputter Rest
+  stehengeblieben (leere zweite <div class="app-switcher">) - beim
+  Umbauen der Kopfzeile künftig genau pruefen, dass keine Duplikate entstehen.
   - Insignienrechner: rein clientseitig, INSIGNIE_RATIO (feste Spielmechanik,
     NICHT editierbar) + insigniePreise (editierbar, Presets-Endpunkt).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
