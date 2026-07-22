@@ -173,6 +173,23 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   die Struktur ändern - sonst genau dieser Fokus-Verlust-Bug. Smoke-Test
   prüft das direkt (Marker-Property am DOM-Element muss nach mehreren
   Eingaben erhalten bleiben, sonst wurde das Element neu erzeugt).
+  **Seit v0.15.6 (Nutzerscreenshot zeigte riesige Lücken):** die 4 Kennzahlen
+  (Pulver benötigt/vorhanden/fehlend, Kosten Start-Insignie) sind KEINE
+  Tabelle mehr, sondern .ins-stat-row/.ins-stat-Kacheln (flex-wrap) - der
+  globale table{width:100%} sorgte bei einer 2-Zellen-Zeile (Label +
+  colspan-Wert) für einen riesigen Leerraum, weil die Wert-Zelle den ganzen
+  Rest der 100%-Breite bekam. FAUSTREGEL: für Label-Wert-Paare NIE eine
+  <table> mit colspan verwenden, sondern Kacheln/Grid - Tabellen nur für
+  echte mehrspaltige Daten. Die Vergleichstabelle hat jetzt
+  .ins-table-narrow (max-width:640px) statt voller Breite. Der Direktkauf-
+  preis ist nicht mehr eine eigene Erklär-Zeile am Seitenende, sondern
+  direkt in die Fazit-Zeile eingebettet (spart eine ganze Zeile) - das
+  Eingabefeld selbst gehört zum einmalig gebauten Grundgerüst
+  (renderInsignien), NUR der Text davor (#insFazitText) wird von
+  updateInsignienErgebnis() aktualisiert - sonst wäre der Fokus-Bug hier
+  zurückgekommen (erst reingebaut, dann in genau dieser Session selbst
+  entdeckt und gefixt, bevor es committed wurde - bei ähnlichen "Text +
+  eingebettetes Input"-Konstrukten immer gegenchecken).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

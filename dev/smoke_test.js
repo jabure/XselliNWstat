@@ -539,12 +539,18 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Insignienrechner: vorhandenes Pulver reduziert den Fehlbetrag (500)', doc.getElementById('insignienContent').textContent.includes('500'));
     insPulver.value = '999999'; insPulver.dispatchEvent(new win.Event('input', { bubbles: true }));
     await wait(150);
-    check('Insignienrechner: mehr als genug Pulver -> Hinweis statt negativer Zahl', doc.getElementById('insignienContent').textContent.includes('genug Pulver vorhanden'));
+    check('Insignienrechner: mehr als genug Pulver -> Hinweis statt negativer Zahl', doc.getElementById('insignienContent').textContent.includes('genug vorhanden'));
 
     // Getrennte AH-/Direktkaufpreise bleiben unabhängig editierbar (v0.15.1-Fix).
     const ahInput = doc.querySelector('input[data-insprice="celestisch"][data-field="ah"]');
     const direktInput = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
     check('Insignienrechner: AH-Preis und Direktkaufpreis sind unabhängige Felder', ahInput && direktInput && ahInput.value !== direktInput.value, ahInput && direktInput && [ahInput.value, direktInput.value]);
+    // Direktkauf-Feld sitzt in der Fazit-Zeile - darf beim Tippen ebenfalls nicht neu erzeugt werden.
+    direktInput._focusTestMarker = 'unveraendert';
+    ['1','12','123'].forEach(v=>{ direktInput.value = v; direktInput.dispatchEvent(new win.Event('input', { bubbles: true })); });
+    await wait(50);
+    const direktInputWieder = doc.querySelector('input[data-insprice="celestisch"][data-field="direkt"]');
+    check('Insignienrechner: Direktkauf-Feld in der Fazit-Zeile bleibt beim Tippen dasselbe Element', direktInputWieder._focusTestMarker === 'unveraendert' && direktInputWieder.value === '123');
 
     win.showApp('stats'); await wait(200);
     check('Zurück zum Statrechner funktioniert', doc.getElementById('appStats').style.display !== 'none');

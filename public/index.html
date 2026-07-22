@@ -295,6 +295,17 @@
   .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:4px; padding:2px 5px;}
   /* Insignienrechner: günstigste Pulver-Quelle hervorheben */
   tr.best-row td{background:rgba(200,149,46,0.10); box-shadow:inset 3px 0 0 var(--gold);}
+  /* Insignienrechner: kompakte Kennzahlen-Kacheln statt einer über die volle Breite
+     gestreckten Tabelle (der globale table{width:100%} sorgte bei nur 2 Zellen pro
+     Zeile für riesige Lücken zwischen Label und Wert - siehe Bugmeldung). */
+  .ins-stat-row{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
+  .ins-stat{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; flex:1 1 150px; min-width:150px;
+  }
+  .ins-stat .lbl{display:block; font-size:0.74rem; color:var(--text-dim); margin-bottom:2px;}
+  .ins-stat .val{display:block; font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums;}
+  .ins-table-narrow{max-width:640px;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
   .ovw-charbtn:hover{color:var(--gold); text-decoration:underline;}
   table.ovw .subgroup-header td{position:sticky; left:0; z-index:3; background:var(--panel-2); box-shadow:2px 0 4px rgba(0,0,0,0.35);}
@@ -4753,35 +4764,33 @@ function renderInsignien(){
 
   // Baut das GRUNDGERÜST nur einmal (bei App-Wechsel oder Start-/Ziel-Auswahl) -
   // die eigentlichen Zahlen werden danach von updateInsignienErgebnis() direkt in
-  // die vorhandenen Zellen geschrieben, OHNE das HTML neu aufzubauen. Würde bei
-  // jeder Zifferneingabe in Menge/Pulver/Preis das ganze innerHTML neu gesetzt,
-  // würden die Eingabefelder dabei neu erzeugt und der Fokus/Cursor ginge nach
-  // jedem einzelnen Tastendruck verloren (genau das war der gemeldete Bug).
+  // die vorhandenen Elemente geschrieben, OHNE das HTML neu aufzubauen (sonst
+  // verlieren die Eingabefelder bei jeder Zifferneingabe den Fokus).
   let ergebnisHtml;
   if(zielIdx <= startIdx){
     ergebnisHtml = `<p class="helptext">Die Ziel-Qualität muss höher sein als die Start-Qualität.</p>`;
   } else {
+    // Kompakte Kennzahlen als Kacheln statt einer über die volle Breite gestreckten
+    // Tabelle (das sorgte vorher für riesige Lücken zwischen Label und Wert).
     const rowsHtml = INSIGNIE_QUALITAETEN.map(q => `<tr id="insRow-${q}">
       <td class="statname" id="insLabel-${q}">${q}</td>
-      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:110px;" data-insprice="${q}" data-field="ah" value="${formatWerte((insigniePreise[q]||{}).ah)}"></td>
+      <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${q}" data-field="ah" value="${formatWerte((insigniePreise[q]||{}).ah)}"></td>
       <td style="text-align:right;" id="insBenoetigt-${q}"></td>
       <td style="text-align:right;" class="computed" id="insKosten-${q}"></td>
     </tr>`).join('');
     ergebnisHtml = `
-      <div class="wide-table-scroll"><table>
-        <tbody>
-          <tr><td class="statname">Insignien-Pulver benötigt (<span id="insKettenText"></span>)</td><td style="text-align:right;" colspan="2" class="computed" id="insPulverBenoetigt"></td></tr>
-          <tr><td class="statname">davon schon vorhanden</td><td style="text-align:right;" colspan="2" id="insPulverVorhandenAnzeige"></td></tr>
-          <tr><td class="statname">Pulver fehlt noch</td><td style="text-align:right;" colspan="2" id="insPulverFehlend"></td></tr>
-          <tr><td class="statname" id="insKostenStartLabel"></td><td style="text-align:right;" colspan="2" id="insKostenStart"></td></tr>
-        </tbody>
-      </table></div>
-      <p class="helptext" style="margin-top:12px;margin-bottom:4px;">Fehlendes Pulver decken durch Verwerten von:</p>
-      <div class="wide-table-scroll"><table>
-        <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt zum Verwerten</th><th style="text-align:right;" id="insGesamtHeader"></th></tr></thead>
+      <div class="ins-stat-row">
+        <div class="ins-stat"><span class="lbl" id="insKettenText"></span><span class="val computed" id="insPulverBenoetigt"></span></div>
+        <div class="ins-stat"><span class="lbl">davon schon vorhanden</span><span class="val" id="insPulverVorhandenAnzeige"></span></div>
+        <div class="ins-stat"><span class="lbl">Pulver fehlt noch</span><span class="val" id="insPulverFehlend"></span></div>
+        <div class="ins-stat"><span class="lbl" id="insKostenStartLabel"></span><span class="val" id="insKostenStart"></span></div>
+      </div>
+      <p class="helptext" style="margin:10px 0 4px 0;">Fehlendes Pulver decken durch Verwerten von:</p>
+      <div class="wide-table-scroll ins-table-narrow"><table>
+        <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;" id="insGesamtHeader"></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
-      <p style="margin-top:10px;" id="insFazit"></p>`;
+      <p style="margin-top:10px;"><span id="insFazitText"></span> <span class="muted">(Direktkauf ${insignieZiel}: <input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${insignieZiel}" data-field="direkt" value="${formatWerte((insigniePreise[insignieZiel]||{}).direkt)}"> AD)</span></p>`;
   }
 
   el.innerHTML = `
@@ -4794,9 +4803,8 @@ function renderInsignien(){
       <div><label>Menge (Start-Insignien, die du hochstufst)</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
       <div><label>Insignien-Pulver, das du schon hast</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insPulver" value="${formatWerte(insigniePulverVorhanden)}"></div>
     </div>
-    <div style="margin-top:14px;">${ergebnisHtml}</div>
+    <div style="margin-top:10px;">${ergebnisHtml}</div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">Preise speichern (für alle)</button></div>
-    <p class="helptext" style="margin-top:10px;" id="insDirektpreisZeile"></p>
   </div>`;
 
   // Start/Ziel-Auswahl ändert die STRUKTUR (Fehlermeldung <-> Tabelle) -> volles Neu-Rendern ist hier ok.
@@ -4819,7 +4827,7 @@ function renderInsignien(){
 }
 
 // Schreibt die berechneten Zahlen direkt in die vom Grundgerüst vorbereiteten
-// Zellen (per ID) - fasst dabei NIE das innerHTML des ganzen Blocks an, damit
+// Elemente (per ID) - fasst dabei NIE das innerHTML des ganzen Blocks an, damit
 // Eingabefelder beim Tippen nicht neu erzeugt werden und den Fokus behalten.
 function updateInsignienErgebnis(){
   const startIdx = INSIGNIE_QUALITAETEN.indexOf(insignieStart);
@@ -4846,18 +4854,18 @@ function updateInsignienErgebnis(){
     return { q, i, benoetigt, gesamt };
   });
 
-  document.getElementById('insKettenText').textContent = `${insignieStart} → ${insignieZiel}, ${formatWerte(insignieMenge)}×`;
+  document.getElementById('insKettenText').textContent = `Pulver benötigt (${insignieStart}→${insignieZiel}, ${formatWerte(insignieMenge)}×)`;
   document.getElementById('insPulverBenoetigt').textContent = formatWerte(pulverBenoetigt);
   document.getElementById('insPulverVorhandenAnzeige').textContent = formatWerte(Math.min(insigniePulverVorhanden, pulverBenoetigt));
   const fehlendCell = document.getElementById('insPulverFehlend');
-  fehlendCell.textContent = pulverFehlend>0 ? formatWerte(pulverFehlend) : 'genug Pulver vorhanden';
-  fehlendCell.className = pulverFehlend>0?'delta-toolittle':'delta-ok';
-  document.getElementById('insKostenStartLabel').textContent = `Kosten der ${formatWerte(insignieMenge)} ${insignieStart}-Insignie(n) selbst`;
+  fehlendCell.textContent = pulverFehlend>0 ? formatWerte(pulverFehlend) : 'genug vorhanden';
+  fehlendCell.className = 'val ' + (pulverFehlend>0?'delta-toolittle':'delta-ok');
+  document.getElementById('insKostenStartLabel').textContent = `Kosten ${formatWerte(insignieMenge)}× ${insignieStart}-Insignie(n)`;
   document.getElementById('insKostenStart').textContent = formatWerte(kostenStartInsignien);
-  document.getElementById('insGesamtHeader').textContent = `Gesamtkosten (inkl. ${insignieStart}-Insignie(n))`;
+  document.getElementById('insGesamtHeader').textContent = `Gesamt (inkl. ${insignieStart})`;
 
   rows.forEach(r=>{
-    document.getElementById('insLabel-'+r.q).innerHTML = `${r.q}${r.i===bestIdx?' <span class="muted" style="font-size:0.72rem;">(günstigste Quelle)</span>':''}`;
+    document.getElementById('insLabel-'+r.q).innerHTML = `${r.q}${r.i===bestIdx?' <span class="muted" style="font-size:0.72rem;">(günstigste)</span>':''}`;
     document.getElementById('insBenoetigt-'+r.q).textContent = formatWerte(r.benoetigt);
     document.getElementById('insKosten-'+r.q).textContent = formatWerte(r.gesamt);
     document.getElementById('insRow-'+r.q).className = r.i===bestIdx ? 'best-row' : '';
@@ -4868,25 +4876,12 @@ function updateInsignienErgebnis(){
   const fazit = guenstiger === null
     ? `Beide Wege kosten praktisch dasselbe.`
     : (guenstiger === 'hochstufen'
-      ? `<strong class="delta-ok">Hochstufen (mit ${rows[bestIdx].q} als Pulver-Quelle) ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Direktkauf.`
-      : `<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Hochstufen.`);
-  document.getElementById('insFazit').innerHTML = `${fazit} <span class="muted">(Direktkauf: ${formatWerte(kostenDirekt)})</span>`;
-
-  // Direktkaufpreis-Eingabe unten: nur beim STRUKTURELLEN Neu-Rendern neu erzeugen
-  // (siehe renderInsignien), hier nur den umgebenden Text aktualisieren, falls
-  // das Feld schon existiert (Zielqualität hat sich zwischen den Renders nicht
-  // geändert, also ist das Feld noch dasselbe DOM-Element).
-  const direktZeile = document.getElementById('insDirektpreisZeile');
-  if(direktZeile && !direktZeile.querySelector('input')){
-    direktZeile.innerHTML = `"Direktkaufpreis" (Preis für eine fertige Insignie der Ziel-Qualität) wird oben im Fazit verglichen und lässt sich hier ändern: <input type="text" inputmode="decimal" class="num-in werte-in" style="width:120px;" data-insprice="${insignieZiel}" data-field="direkt" value="${formatWerte((insigniePreise[insignieZiel]||{}).direkt)}"> AD für ${insignieZiel}.`;
-    const inp = direktZeile.querySelector('input');
-    attachWerteFormatting(direktZeile);
-    inp.addEventListener('input', e=>{
-      if(!insigniePreise[insignieZiel]) insigniePreise[insignieZiel] = {ah:0, direkt:0};
-      insigniePreise[insignieZiel].direkt = parseWerte(e.target.value);
-      updateInsignienErgebnis();
-    });
-  }
+      ? `<strong class="delta-ok">Hochstufen (mit ${rows[bestIdx].q} als Pulver-Quelle) ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> AD gegenüber dem Direktkauf.`
+      : `<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> AD gegenüber dem Hochstufen.`);
+  // Direktkaufpreis ist Teil des einmalig gebauten Grundgerüsts (siehe renderInsignien) -
+  // hier wird NUR der Fazit-Text aktualisiert, das Eingabefeld bleibt unangetastet
+  // (sonst würde Tippen darin sofort wieder den Fokus verlieren).
+  document.getElementById('insFazitText').innerHTML = fazit;
 }
 
 async function saveInsigniePreise(){
