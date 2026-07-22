@@ -139,15 +139,61 @@ app.post('/api/auth/register', async (req, res) => {
   res.status(201).json({ token, username, role });
 });
 
+// Einfache Bremse gegen Passwort-Durchprobieren: pro Benutzername werden Fehlversuche
+// gezählt (im Speicher, überlebt keinen Neustart - reicht für diesen Zweck). Nach
+// MAX_ATTEMPTS Fehlversuchen ist der Login für LOCK_MINUTES gesperrt; ein
+// erfolgreicher Login setzt den Zähler zurück.
+const loginAttempts = {}; // username -> { count, firstAt }
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_LOCK_MINUTES = 15;
+function loginLockedFor(username){
+  const a = loginAttempts[username];
+  if(!a) return 0;
+  const elapsed = Date.now() - a.firstAt;
+  if(elapsed > LOGIN_LOCK_MINUTES*60*1000){ delete loginAttempts[username]; return 0; }
+  if(a.count < LOGIN_MAX_ATTEMPTS) return 0;
+  return Math.ceil((LOGIN_LOCK_MINUTES*60*1000 - elapsed) / 60000);
+}
+function noteLoginFailure(username){
+  const a = loginAttempts[username];
+  if(!a || Date.now() - a.firstAt > LOGIN_LOCK_MINUTES*60*1000){
+    loginAttempts[username] = { count: 1, firstAt: Date.now() };
+  } else {
+    a.count++;
+  }
+}
+
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
+  const lockedMin = loginLockedFor(username);
+  if(lockedMin > 0){
+    return res.status(429).json({ error: `Zu viele Fehlversuche - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
+  }
   const users = readJson(USERS_FILE, {});
   const user = users[username];
-  if(!user) return res.status(401).json({ error: 'Benutzername oder Passwort falsch' });
+  if(!user){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if(!ok) return res.status(401).json({ error: 'Benutzername oder Passwort falsch' });
+  if(!ok){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
+  delete loginAttempts[username];
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '90d' });
   res.json({ token, username, role: getUserRole(username) });
+});
+
+// Eigenes Passwort ändern (altes Passwort muss stimmen). Wichtig z. B. nachdem ein
+// Admin das Passwort auf den Standardwert zurückgesetzt hat.
+app.post('/api/me/change-password', authMiddleware, async (req, res) => {
+  const { oldPassword, newPassword } = req.body || {};
+  if(!newPassword || newPassword.length < 4){
+    return res.status(400).json({ error: 'Neues Passwort muss mindestens 4 Zeichen haben' });
+  }
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  const ok = await bcrypt.compare(String(oldPassword||''), user.passwordHash);
+  if(!ok) return res.status(401).json({ error: 'Das aktuelle Passwort ist falsch' });
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true });
 });
 
 /* ---------- Charaktere (pro Benutzer, benötigt Login) ---------- */
@@ -241,13 +287,29 @@ app.get('/api/characters/:name', authMiddleware, (req, res) => {
   res.json({ name: req.params.name, data });
 });
 
+// Nur diese Schlüssel dürfen in einer Charakter-Datei landen - alles andere
+// (unbekannte/versehentliche Felder, z. B. aus einem manipulierten Import) wird
+// beim Speichern kommentarlos verworfen.
+const CHAR_ALLOWED_KEYS = ['grunddaten','baseInputs','sourceInputs','slotSelections','raptorCount',
+  'gefaehrtenMode','reittierMode','gefaehrtenActivePreset','reittierActivePreset','uebersichtParams','calcActive'];
+const CHAR_MAX_BYTES = 300000; // ein echter Charakter liegt bei wenigen KB - großzügige Obergrenze
+function sanitizeCharData(body){
+  const clean = {};
+  CHAR_ALLOWED_KEYS.forEach(k => { if(body && k in body) clean[k] = body[k]; });
+  return clean;
+}
+
 app.put('/api/characters/:name', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
-  writeJson(charFile(req.username, req.params.name), req.body || {});
+  const clean = sanitizeCharData(req.body);
+  if(JSON.stringify(clean).length > CHAR_MAX_BYTES){
+    return res.status(413).json({ error: 'Charakterdaten sind unerwartet groß - nicht gespeichert' });
+  }
+  writeJson(charFile(req.username, req.params.name), clean);
   res.json({ ok: true });
 });
 
@@ -388,21 +450,39 @@ app.post('/api/transfers/:name/decline', authMiddleware, (req, res) => {
 app.get('/api/shared', (req, res) => {
   res.json(readJson(SHARED_FILE, {}));
 });
-app.put('/api/shared/presets', authMiddleware, requireRole('moderator'), (req, res) => {
+
+// Gemeinsames Speichern für Presets/Formeln mit zwei Sicherheitsnetzen:
+// 1) Versionszähler (rev): Schickt der Client die rev mit, die er beim Laden bekommen
+//    hat, und hat inzwischen jemand anderes gespeichert, gibt es einen 409 statt
+//    kommentarlosem Überschreiben ("letzter gewinnt").
+// 2) Historie: Vor jedem Überschreiben wird der alte Stand datiert unter
+//    data/backups/shared/ abgelegt (die letzten 10 bleiben erhalten).
+const SHARED_HISTORY_DIR = path.join(DATA_DIR, 'backups', 'shared');
+function saveShared(req, res, allowedKeys){
   const current = readJson(SHARED_FILE, {});
-  const allowed = ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets'];
+  const clientRev = req.body ? req.body.rev : undefined;
+  const currentRev = current.rev || 0;
+  if(clientRev !== undefined && clientRev !== null && Number(clientRev) !== currentRev){
+    return res.status(409).json({ error: 'Jemand anderes hat inzwischen gespeichert - bitte Seite neu laden und Änderung erneut machen', rev: currentRev });
+  }
   const patch = {};
-  allowed.forEach(key => { if(req.body && key in req.body) patch[key] = req.body[key]; });
-  writeJson(SHARED_FILE, Object.assign({}, current, patch));
-  res.json({ ok: true });
+  allowedKeys.forEach(key => { if(req.body && key in req.body) patch[key] = req.body[key]; });
+  try{
+    fs.mkdirSync(SHARED_HISTORY_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-'); // inkl. Millisekunden - zwei Speicherungen in derselben Sekunde überschreiben sich sonst
+    fs.copyFileSync(SHARED_FILE, path.join(SHARED_HISTORY_DIR, `shared-${stamp}.json`));
+    const old = fs.readdirSync(SHARED_HISTORY_DIR).filter(f=>f.startsWith('shared-')).sort();
+    while(old.length > 10) fs.unlinkSync(path.join(SHARED_HISTORY_DIR, old.shift()));
+  }catch(e){ console.warn('Shared-Historie konnte nicht geschrieben werden:', e.message); }
+  const next = Object.assign({}, current, patch, { rev: currentRev + 1 });
+  writeJson(SHARED_FILE, next);
+  res.json({ ok: true, rev: next.rev });
+}
+app.put('/api/shared/presets', authMiddleware, requireRole('moderator'), (req, res) => {
+  saveShared(req, res, ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets']);
 });
 app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, res) => {
-  const current = readJson(SHARED_FILE, {});
-  const allowed = ['formulas', 'maxPrOverrides', 'wehrVerteilung'];
-  const patch = {};
-  allowed.forEach(key => { if(req.body && key in req.body) patch[key] = req.body[key]; });
-  writeJson(SHARED_FILE, Object.assign({}, current, patch));
-  res.json({ ok: true });
+  saveShared(req, res, ['formulas', 'maxPrOverrides', 'wehrVerteilung']);
 });
 
 /* ---------- Admin: Benutzerübersicht & Rollen vergeben ---------- */
@@ -478,8 +558,41 @@ app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware,
   res.status(201).json({ name: target });
 });
 
-// Frontend (die eine HTML-Datei) direkt mit ausliefern - ein Container, ein Port.
-app.use(express.static(path.join(__dirname, 'public')));
+// Frontend direkt mit ausliefern - ein Container, ein Port. HTML wird bei jedem
+// Aufruf gegen den Server geprüft (ETag), damit nach Updates niemand tagelang eine
+// alte Version aus dem Browser-Cache sieht; die versionierte vendor-Datei (mathjs)
+// darf der Browser dagegen lange behalten.
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if(filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    else if(filePath.includes(path.sep + 'vendor' + path.sep)) res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    else res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
+
+// Tägliches automatisches Backup des kompletten data/-Ordners nach data/backups/daily/
+// (users.json, shared.json, alle Charaktere). Die letzten 7 Tage bleiben erhalten.
+// Läuft beim Start und danach stündlich als Prüfung, ob für heute schon eins existiert.
+const DAILY_BACKUP_DIR = path.join(DATA_DIR, 'backups', 'daily');
+function dailyBackup(){
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const target = path.join(DAILY_BACKUP_DIR, today);
+    if(fs.existsSync(target)) return;
+    fs.mkdirSync(target, { recursive: true });
+    if(fs.existsSync(USERS_FILE)) fs.copyFileSync(USERS_FILE, path.join(target, 'users.json'));
+    if(fs.existsSync(SHARED_FILE)) fs.copyFileSync(SHARED_FILE, path.join(target, 'shared.json'));
+    fs.cpSync(CHAR_DIR, path.join(target, 'chars'), { recursive: true });
+    const old = fs.readdirSync(DAILY_BACKUP_DIR).sort();
+    while(old.length > 7){
+      fs.rmSync(path.join(DAILY_BACKUP_DIR, old.shift()), { recursive: true, force: true });
+    }
+    console.log(`Tägliches Backup angelegt: ${target}`);
+  }catch(e){ console.warn('Tägliches Backup fehlgeschlagen:', e.message); }
+}
+dailyBackup();
+setInterval(dailyBackup, 60*60*1000);
 
 app.listen(PORT, () => {
   console.log(`Xselli's Stats-Rechner läuft auf Port ${PORT}`);

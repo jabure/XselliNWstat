@@ -63,10 +63,19 @@ Passwort zurücksetzen, Konten löschen.
 ## Konten & Charaktere
 
 Jeder registriert sich mit Benutzername + Passwort und kann beliebig viele
-eigene Charaktere anlegen, umbenennen, kopieren oder löschen. Charaktere
+eigene Charaktere anlegen, umbenennen, kopieren oder löschen. Das eigene
+**Passwort lässt sich im Konto-Fenster jederzeit selbst ändern** (wichtig,
+nachdem ein Admin es auf den Standardwert zurückgesetzt hat). Charaktere
 lassen sich auch als **Kopie an einen anderen Benutzer senden** - der
 Empfänger muss die Kopie erst annehmen oder ablehnen, bevor sie bei ihm
-auftaucht; das eigene Original bleibt davon immer unberührt.
+auftaucht; das eigene Original bleibt davon immer unberührt. Zusätzlich kann
+jeder Charakter als **JSON-Datei exportiert** (persönliches Backup) und über
+"Charakter importieren" wieder eingelesen werden.
+
+**Ohne Anmeldung (Gast):** Eingaben werden im Browser zwischengespeichert und
+beim nächsten Besuch am selben Gerät automatisch wiederhergestellt - auf dem
+Server landet dabei nichts. Der Knopf **"Beispielcharakter laden"** füllt den
+Rechner mit realistischen Demo-Daten, um das Tool kennenzulernen.
 
 ## Rollen
 
@@ -100,10 +109,24 @@ crontab -e
 **Datendateien unter `data/`:**
 - `users.json` - Konten (Passwort gehasht)
 - `chars/*.json` - je eine Datei pro Charakter
-- `shared.json` - Formeln, Gefährten-/Reittier-/Buff-Food-Datenbank, Presets
+- `shared.json` - Formeln, Gefährten-/Reittier-/Buff-Food-Datenbank, Presets (mit `rev`-Versionszähler gegen gleichzeitiges Überschreiben)
 - `transfers.json` - offene Charakter-Kopie-Angebote
+- `backups/daily/` - automatisches tägliches Backup des kompletten Datenbestands (die letzten 7 Tage)
+- `backups/shared/` - die letzten 10 Stände von `shared.json` (Sicherheitsnetz vor jedem Presets-/Formeln-Speichern)
 
-**Grenzen der einfachen Lösung:** kein „Passwort vergessen" (nur Admin kann
-zurücksetzen); bei sehr vielen gleichzeitigen Speicherungen auf denselben
-Charakter könnte theoretisch die letzte Speicherung gewinnen (in der Praxis
-unproblematisch, da jeder nur an eigenen Charakteren schreibt).
+**Eingebaute Schutzmechanismen:** Login-Bremse (nach 10 Fehlversuchen 15
+Minuten Sperre pro Benutzername), Struktur-Whitelist + Größenlimit beim
+Speichern von Charakterdaten, `Cache-Control`-Header, damit nach Updates
+niemand eine veraltete Seite aus dem Browser-Cache sieht. mathjs liegt lokal
+unter `public/vendor/` bei - der Rechner funktioniert also auch, wenn das
+frühere CDN nicht erreichbar ist.
+
+**Tests:** `dev/smoke_test.js` startet eine eigene Server-Instanz und testet
+Server-API + Frontend automatisch (`npm install jsdom` einmalig nötig, dann
+`node dev/smoke_test.js`).
+
+**Grenzen der einfachen Lösung:** kein „Passwort vergessen" per E-Mail (nur
+Admin kann zurücksetzen, danach Passwort selbst ändern); bei sehr vielen
+gleichzeitigen Speicherungen auf denselben Charakter könnte theoretisch die
+letzte Speicherung gewinnen (in der Praxis unproblematisch, da jeder nur an
+eigenen Charakteren schreibt).

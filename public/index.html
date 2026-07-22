@@ -2,8 +2,11 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Xselli's Stats-Rechner</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2314161c'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- mathjs liegt lokal bei (public/vendor), damit der Rechner auch ohne CDN/Internet-Zugriff funktioniert -->
+<script src="vendor/mathjs-11.8.0.min.js"></script>
 <style>
   :root{
     --bg:#14161c;
@@ -256,6 +259,13 @@
   .vgl-bar{height:100%; border-radius:3px 0 0 3px;}
   .vgl-bar-val{flex:0 0 auto; font-size:0.85rem; font-variant-numeric:tabular-nums; font-weight:600; min-width:80px;}
   @media (max-width:700px){ .vgl-bar-name{flex-basis:90px;} }
+  /* Mobil (echte Geräte-Breite dank Viewport-Meta): weniger Außenabstand, Tabs dürfen umbrechen */
+  @media (max-width:700px){
+    body{padding:12px;}
+    .page-nav{flex-wrap:wrap;}
+    .card{padding:14px 12px;}
+    .grunddaten-grid{grid-template-columns:1fr 1fr;}
+  }
 </style>
 </head>
 <body>
@@ -280,9 +290,10 @@
   <div id="saveStatus" class="save-status"></div>
 
 <div id="pageRechner">
-  <div class="legend">
+  <div class="legend" style="align-items:center;">
     <div class="legend-item"><span class="legend-swatch editable"></span>Selbst eintragen</div>
     <div class="legend-item"><span class="legend-swatch computed"></span>Wird automatisch berechnet</div>
+    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="Füllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gefüllt aussieht" onclick="confirmAction('demo')">Beispielcharakter laden</button>
   </div>
 
   <div class="rechner-grid">
@@ -460,6 +471,10 @@
     <div class="formula-row">
       <textarea id="f_wehr" style="min-height:160px;"></textarea>
     </div>
+
+    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Live-Testrechnung</h3>
+    <p class="helptext">Rechnet die Formeln oben sofort mit festen Beispielwerten durch (H = 100.000 Werte, I = 80 %, Gegenstandsstufe = 95.000, Quellen = +5.000 Werte / +5 %, maxPr = 1,2; Schadensteil: Kraft 95 %, Zielgen. 75 %, KV 92 %, Krit 78 %/98 %, Bonus 6 %, Gegner-Standardwerte, Fähigkeit 800 %). So siehst du VOR dem Speichern, ob eine Änderung Unsinn produziert - Fehler werden rot angezeigt.</p>
+    <div id="formelPreview" class="notice" style="background:var(--panel-2);border-color:var(--border);color:var(--text);font-variant-numeric:tabular-nums;"></div>
 
     <div class="btnrow">
       <button class="action gold" onclick="saveFormulas()">Formeln speichern</button>
@@ -698,6 +713,7 @@ const apiSetFormulas = (partial) => apiRequest('/api/shared/formulas', {method:'
 const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
+const apiChangePassword = (oldPassword, newPassword) => apiRequest('/api/me/change-password', {method:'POST', body:JSON.stringify({oldPassword, newPassword})});
 const apiListCharacters = () => apiRequest('/api/characters');
 const apiReorderCharacters = (order) => apiRequest('/api/characters/reorder', {method:'PUT', body:JSON.stringify({order})});
 const apiCreateCharacter = (name, copyFrom) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify(copyFrom ? {name, copyFrom} : {name})});
@@ -736,9 +752,9 @@ function updateAccountLabel(){
   if(gdName) gdName.textContent = currentChar ? `– ${currentChar}` : '';
   updateAdminTabVisibility();
 }
-function setAccountMsg(msg){
+function setAccountMsg(msg, ok){
   const el = document.getElementById('accMsg');
-  if(el) el.textContent = msg;
+  if(el){ el.textContent = msg; el.style.color = ok ? 'var(--sup)' : 'var(--off)'; }
 }
 function openAccountPanel(){
   renderAccountPanel();
@@ -806,6 +822,7 @@ async function renderAccountPanel(){
         ${c.pendingTransferTo
           ? `<button class="action small" type="button" onclick="cancelSendByIndex(${i})">Senden abbrechen</button>`
           : `<button class="action small" type="button" onclick="toggleSendByIndex(${i})">Senden</button>`}
+        <button class="action small" type="button" title="Als JSON-Datei herunterladen (Backup)" onclick="exportCharacterByIndex(${i})">Export</button>
         <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>
       </div>
       <div id="rename-panel-${i}" style="display:none;"></div>
@@ -834,9 +851,72 @@ async function renderAccountPanel(){
     <div id="accMsg" class="helptext" style="color:var(--off);"></div>
     <div class="btnrow">
       <button class="action gold" type="button" onclick="createCharacter()">Charakter anlegen</button>
+      <button class="action" type="button" title="Charakter aus einer Export-Datei (.json) wiederherstellen" onclick="document.getElementById('acc_importfile').click()">Charakter importieren</button>
+      <input type="file" id="acc_importfile" accept=".json,application/json" style="display:none;" onchange="handleImportFile(event)">
       <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
       <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
-    </div>`;
+    </div>
+    <h3 style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">Passwort ändern</h3>
+    <div class="login-grid">
+      <div><label>Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password"></div>
+      <div><label>Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password"></div>
+    </div>
+    <div class="btnrow"><button class="action" type="button" onclick="changePassword()">Passwort ändern</button></div>`;
+}
+
+async function changePassword(){
+  const oldP = document.getElementById('acc_oldpw').value;
+  const newP = document.getElementById('acc_newpw').value;
+  if(!newP){ setAccountMsg('Bitte ein neues Passwort eingeben.'); return; }
+  try{
+    await apiChangePassword(oldP, newP);
+    document.getElementById('acc_oldpw').value = '';
+    document.getElementById('acc_newpw').value = '';
+    setAccountMsg('Passwort geändert.', true);
+  }catch(e){ setAccountMsg(e.message); }
+}
+
+// Charakter als JSON-Datei herunterladen (persönliches Backup / Weitergabe).
+async function exportCharacterByIndex(i){
+  const name = myCharacters[i].name;
+  try{
+    const res = await apiGetCharacter(name);
+    const payload = { xselliCharakter: 1, name, exportiert: new Date().toISOString(), data: res.data || {} };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name.replace(/[^\wäöüÄÖÜß \-]/g,'_') + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  }catch(e){ setAccountMsg(e.message); }
+}
+
+// Export-Datei wieder einlesen: legt einen NEUEN Charakter mit den Daten an
+// (bei Namenskollision wird automatisch "(Import)" bzw. "(Import 2)" usw. angehängt).
+async function handleImportFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  try{
+    const obj = JSON.parse(await file.text());
+    if(!obj || typeof obj !== 'object' || !obj.data || typeof obj.data !== 'object'){
+      throw new Error('Das ist keine gültige Charakter-Exportdatei');
+    }
+    const base = String(obj.name || 'Importierter Charakter').slice(0, 60);
+    let created = null;
+    for(let n = 0; n < 20 && !created; n++){
+      const target = n === 0 ? base : (n === 1 ? `${base} (Import)` : `${base} (Import ${n})`);
+      try{ await apiCreateCharacter(target); created = target; }
+      catch(err){
+        const m = String(err.message);
+        if(!(m.includes('gibt es schon') || m.includes('vergeben'))) throw err;
+      }
+    }
+    if(!created) throw new Error('Kein freier Name gefunden - bitte den Charakter in der Datei umbenennen');
+    await apiSaveCharacter(created, obj.data);
+    setAccountMsg(`Importiert als "${created}".`, true);
+    renderAccountPanel();
+  }catch(e){ setAccountMsg('Import fehlgeschlagen: ' + e.message); }
 }
 
 async function acceptTransfer(charName){
@@ -990,7 +1070,8 @@ async function loginAccount(){
 function logoutAccount(){
   clearLoginLocally();
   authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentRole = 'user';
-  applyCharDataBundle({});
+  // Nach dem Abmelden wieder die (Browser-)Gast-Daten anzeigen, falls vorhanden.
+  applyCharDataBundle(loadGuestBundle() || {});
   updateAccountLabel();
   closeAccountModal();
   fullUiRefreshAfterProfileSwitch();
@@ -1161,6 +1242,7 @@ const DEFAULT_FORMULAS = {
 };
 
 let formulas = {...DEFAULT_FORMULAS};
+let sharedRev = 0; // Versionszähler von shared.json - schützt beim Speichern vor "letzter gewinnt"
 let maxPrOverrides = {}; // statId -> number (fraction, e.g. 1.2)
 let grunddaten = { itemlevel:0, klasse:'', vorbildpfad:'', klassentyp:'' };
 let baseInputs = {};   // statId -> {H, I}
@@ -1260,9 +1342,27 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+const GUEST_STORAGE_KEY = 'xselli_guest';
+function loadGuestBundle(){
+  try{
+    const g = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || 'null');
+    if(!g) return null;
+    const hasContent = (g.grunddaten && (g.grunddaten.itemlevel || g.grunddaten.klasse)) ||
+      Object.keys(g.baseInputs || {}).length || Object.keys(g.sourceInputs || {}).length;
+    return hasContent ? g : null;
+  }catch(e){ return null; }
+}
 function queueSave(){
   if(!isLoggedIn || !currentChar){
-    // Gast-Modus oder noch kein Charakter gewählt: nichts wird gespeichert.
+    // Gast-Modus oder noch kein Charakter gewählt: im Browser zwischenspeichern,
+    // damit ein Reload/Absturz die Eingaben nicht verwirft. Landet NICHT auf dem Server.
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>{
+      try{ localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(getCharDataBundle())); }catch(e){ /* z. B. Speicher voll - dann eben nicht */ }
+      const el = document.getElementById('saveStatus');
+      el.textContent = 'Im Browser zwischengespeichert (Gast - nicht auf dem Server)';
+      setTimeout(()=>{ if(el.textContent.startsWith('Im Browser')) el.textContent=''; }, 1800);
+    }, 400);
     return;
   }
   document.getElementById('saveStatus').textContent = 'Speichere ...';
@@ -1282,7 +1382,8 @@ function queueSave(){
 }
 async function queueSaveShared(){
   try{
-    await apiSetFormulas({ formulas, maxPrOverrides, wehrVerteilung });
+    const r = await apiSetFormulas({ rev: sharedRev, formulas, maxPrOverrides, wehrVerteilung });
+    if(r && r.rev !== undefined) sharedRev = r.rev;
     document.getElementById('saveStatus').textContent = 'Formeln gespeichert (für alle)';
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -1999,6 +2100,57 @@ function renderMaxPrGrid(){
   });
 }
 
+// Live-Testrechnung der Formeln-Seite: wertet die aktuellen Textarea-Inhalte mit
+// festen Beispielwerten aus, damit ein Coadmin Fehler sieht, BEVOR er für alle speichert.
+const FORMEL_PREVIEW_IDS = ['f_eTotal','f_softcap','f_fPercent','f_fSimple','f_delta',
+  'f_dmgWaffenschaden','f_dmgKraftFaktor','f_dmgZgFaktor','f_dmgKvFaktor','f_dmgKritFaktor','f_dmgBonusFaktor','f_dmgTotal'];
+function updateFormelPreview(){
+  const el = document.getElementById('formelPreview');
+  if(!el) return;
+  const fe = id => document.getElementById(id).value;
+  const lines = [];
+  const zeile = (label, fn, suffix) => {
+    try{
+      const v = fn();
+      lines.push(`${label}: <strong>${typeof v === 'number' ? fmt(v) : v}</strong>${suffix||''}`);
+      return v;
+    }catch(e){
+      lines.push(`${label}: <span style="color:var(--off);">Fehler - ${escapeHtml(e.message)}</span>`);
+      return null;
+    }
+  };
+  // Rechner-Basis (Beispiel: H=100000, I=80, itemlevel=95000, Quellen +5000/+5%, maxPr=1.2)
+  const b = { H:100000, I:80, itemlevel:95000, sourcesWerte:5000, sourcesProzent:5, maxPr:1.2 };
+  const E = zeile('Totale Werte (E)', ()=> math.evaluate(fe('f_eTotal'), {H:b.H, sourcesWerte:b.sourcesWerte}));
+  const scope = Object.assign({}, b, { E: (E===null ? b.H + b.sourcesWerte : E) });
+  zeile('Softcap von H', ()=>{
+    const sc = Object.assign({}, scope);
+    math.evaluate(`softcap(rating, maxPr, itemlevel) = ${fe('f_softcap')}`, sc);
+    return math.evaluate('softcap(H, maxPr, itemlevel)', sc);
+  }, ' %');
+  const F = zeile('Aktuelle % mit Softcap (F)', ()=>{
+    const sc = Object.assign({}, scope);
+    math.evaluate(`softcap(rating, maxPr, itemlevel) = ${fe('f_softcap')}`, sc);
+    return math.evaluate(fe('f_fPercent'), sc);
+  }, ' %');
+  zeile('Einfache Summe (F simple)', ()=> math.evaluate(fe('f_fSimple'), {I:b.I, sourcesProzent:b.sourcesProzent}), ' %');
+  zeile('Delta', ()=> math.evaluate(fe('f_delta'), {maxPr:b.maxPr, F: (F===null ? b.I : F)}), ' %');
+  // Schadensteil (Beispiel: DPS mit Stufe 95000, Standard-Gegnerwerte, Fähigkeit 800 %)
+  const d = { itemlevel:95000, klassenFaktor:1.2, kraft:95, zielgenauigkeit:75, kampfvorteil:92,
+    kritwert:78, kritschaden:98, bonusschaden:6,
+    gegnerDeflect:50, gegnerDeflectSev:90, gegnerAwareness:0, gegnerKritvermeidung:0, gegnerDefensive:50, faehigkeit:800 };
+  const ws = zeile('Waffenschaden', ()=> math.evaluate(fe('f_dmgWaffenschaden'), {itemlevel:d.itemlevel, klassenFaktor:d.klassenFaktor}));
+  const kraftF = zeile('Kraft-Faktor', ()=> math.evaluate(fe('f_dmgKraftFaktor'), {kraft:d.kraft}));
+  const zgF = zeile('Zielgenauigkeit-Faktor', ()=> math.evaluate(fe('f_dmgZgFaktor'), {zielgenauigkeit:d.zielgenauigkeit, gegnerDeflect:d.gegnerDeflect, gegnerDeflectSev:d.gegnerDeflectSev}));
+  const kvF = zeile('Kampfvorteil-Faktor', ()=> math.evaluate(fe('f_dmgKvFaktor'), {kampfvorteil:d.kampfvorteil, gegnerAwareness:d.gegnerAwareness}));
+  const kritF = zeile('Krit-Faktor', ()=> math.evaluate(fe('f_dmgKritFaktor'), {kritwert:d.kritwert, kritschaden:d.kritschaden, gegnerKritvermeidung:d.gegnerKritvermeidung}));
+  const bonusF = zeile('Bonus-Faktor', ()=> math.evaluate(fe('f_dmgBonusFaktor'), {bonusschaden:d.bonusschaden}));
+  zeile('Gesamtschaden', ()=>{
+    if([ws,kraftF,zgF,kvF,kritF,bonusF].some(v=>v===null)) throw new Error('ein Faktor oben ist fehlerhaft');
+    return math.evaluate(fe('f_dmgTotal'), {waffenschaden:ws, kraftF, zgF, kvF, kritF, bonusF, gegnerDefensive:d.gegnerDefensive, faehigkeit:d.faehigkeit});
+  });
+  el.innerHTML = lines.join('<br>');
+}
 function fillFormulaFields(){
   document.getElementById('f_eTotal').value = formulas.eTotal;
   document.getElementById('f_softcap').value = formulas.softcap;
@@ -2013,6 +2165,12 @@ function fillFormulaFields(){
   document.getElementById('f_dmgBonusFaktor').value = formulas.dmgBonusFaktor;
   document.getElementById('f_dmgTotal').value = formulas.dmgTotal;
   document.getElementById('f_wehr').value = JSON.stringify(wehrVerteilung, null, 2);
+  // Live-Testrechnung: bei jeder Eingabe in einer Formel sofort neu durchrechnen.
+  FORMEL_PREVIEW_IDS.forEach(id=>{
+    const t = document.getElementById(id);
+    if(t && !t.dataset.previewBound){ t.dataset.previewBound = '1'; t.addEventListener('input', updateFormelPreview); }
+  });
+  updateFormelPreview();
 }
 
 function refresh(rebuildInputs){
@@ -3273,10 +3431,12 @@ async function savePresetsShared(){
   reittierPresets = collectPresetEditor('reittierPresetEditor');
 
   try{
-    await apiSetPresets({
+    const r = await apiSetPresets({
+      rev: sharedRev,
       companionDb, mountDb, foodDb,
       gefaehrtenPresets, reittierPresets,
     });
+    if(r && r.rev !== undefined) sharedRev = r.rev;
     document.getElementById('saveStatus').textContent = 'Presets gespeichert (für alle)';
   }catch(e){
     document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
@@ -3326,17 +3486,47 @@ function resetFormulasToDefault(){
   renderMaxPrGrid();
 }
 
+/* ---------- Beispielcharakter (Demo-Daten) ---------- */
+// Füllt den Rechner mit einem realistischen DPS-Beispiel (Kämpfer/Schwertmeister,
+// Stufe 95.000) inklusive Gefährten-/Reittier-Preset und etwas Buff Food - damit
+// Erstbesucher sofort sehen, wie das Tool gefüllt aussieht.
+function loadDemoCharacter(){
+  applyCharDataBundle({
+    grunddaten: { itemlevel: 95000, klasse: 'Kämpfer', vorbildpfad: 'Schwertmeister (DPS)', klassentyp: 'DPS' },
+    baseInputs: {
+      kraft:{H:138000, I:95}, zielgenauigkeit:{H:84000, I:75}, kampfvorteil:{H:112000, I:92},
+      kritwert:{H:86000, I:78}, kritschaden:{H:118000, I:98}, bonusschaden:{H:0, I:6},
+      verteidigung:{H:92000, I:80}, wahrnehmung:{H:72000, I:62}, kritvermeidung:{H:64000, I:55},
+      robustheit:{H:66000, I:57}, robustheitstaerke:{H:82000, I:68}, trefferpunkte:{H:620000, I:0},
+      schadensreduzierung:{H:0, I:10}, wehrhaftigkeit:{H:70000, I:55},
+      kontrollresistenz:{H:40000, I:35}, empfheilung:{H:30000, I:25},
+    },
+  });
+  fullUiRefreshAfterProfileSwitch();
+  // Boni dazu, damit auch "Ausrüstung & Boni" gefüllt aussieht (nutzt die echten Presets).
+  applyCatPreset('gefaehrten', '5er Standard');
+  applyCatPreset('reittier', '5er Standard');
+  FOOD_SLOTS.slice(0, 2).forEach(fs => {
+    if(fs.items && fs.items.length) applySlotSelection(fs.key, fs.items[0], foodDb);
+  });
+  setRaptorCount(1);
+  document.getElementById('saveStatus').textContent = 'Beispielcharakter geladen - alle Werte sind frei änderbar.';
+  setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 5000);
+}
+
 /* ---------- Reset Modal ---------- */
 let pendingAction = null;
 function confirmAction(type){
   pendingAction = type;
+  const demoZiel = (isLoggedIn && currentChar) ? `die Daten des aktuell geladenen Charakters "${currentChar}"` : 'deine aktuellen Eingaben';
   const text = {
     werte: 'Alle "Aktuelle Werte" und "Aktuelle %" Eingaben zurücksetzen?',
     ausruestung: 'Alle Ausrüstungs- und Bonus-Eingaben zurücksetzen?',
     alles: 'Wirklich ALLES zurücksetzen, inklusive Grunddaten?',
+    demo: `Beispielcharakter laden? Das überschreibt ${demoZiel}.`,
   }[type];
   document.getElementById('modalText').textContent = text;
-  document.getElementById('modalConfirm').textContent = 'Ja, zurücksetzen';
+  document.getElementById('modalConfirm').textContent = type === 'demo' ? 'Ja, laden' : 'Ja, zurücksetzen';
   document.getElementById('modalBg').classList.add('show');
 }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); pendingAction = null; }
@@ -3377,6 +3567,11 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
     updateAccountLabel();
     renderAccountPanel();
     pendingDeleteChar = null;
+    closeModal();
+    return;
+  }
+  if(pendingAction === 'demo'){
+    loadDemoCharacter();
     closeModal();
     return;
   }
@@ -3499,6 +3694,7 @@ async function init(){
 
   try{
     const shared = await apiGetShared();
+    sharedRev = shared.rev || 0;
     if(shared.formulas) formulas = {...DEFAULT_FORMULAS, ...shared.formulas};
     if(shared.maxPrOverrides) maxPrOverrides = shared.maxPrOverrides;
     if(shared.wehrVerteilung) wehrVerteilung = shared.wehrVerteilung;
@@ -3526,11 +3722,18 @@ async function init(){
         applyCharDataBundle(res.data);
       }
     }catch(e){
-      // Token abgelaufen oder ungültig -> zurück zu Gast
+      // Token abgelaufen oder ungültig -> zurück zu Gast, mit Hinweis statt kommentarlosem Rauswurf
       clearLoginLocally();
       authToken = null; currentUser = null; isLoggedIn = false; currentChar = null; currentRole = 'user';
       applyCharDataBundle({});
+      loginExpiredHint = true;
     }
+  }
+
+  // Gast ohne Login: zuletzt im Browser zwischengespeicherte Eingaben wiederherstellen.
+  if(!isLoggedIn){
+    const g = loadGuestBundle();
+    if(g){ applyCharDataBundle(g); guestRestoredHint = true; }
   }
 
   document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
@@ -3540,7 +3743,16 @@ async function init(){
 
   bindGrunddaten();
   refresh(true);
+
+  if(loginExpiredHint){
+    document.getElementById('saveStatus').textContent = 'Deine Anmeldung ist abgelaufen - bitte oben rechts neu anmelden.';
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 10000);
+  } else if(guestRestoredHint){
+    document.getElementById('saveStatus').textContent = 'Gast-Eingaben aus dem Browser wiederhergestellt ("Alles zurücksetzen" verwirft sie).';
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 8000);
+  }
 }
+let loginExpiredHint = false, guestRestoredHint = false;
 init();
 </script>
 </body>

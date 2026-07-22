@@ -39,6 +39,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
 - Ändert sich `server.js` oder `package.json`, braucht der Nutzer-Server einen
   **Rebuild** (`docker compose up -d --build`), nicht nur einen Neustart -
   sein `update.sh`-Cronjob macht das automatisch bei jedem Git-Änderung.
+- **Seit v0.10.0 im Server eingebaut** (nicht wieder entfernen/vergessen):
+  `rev`-Versionszähler in shared.json (PUT presets/formulas schickt die
+  geladene rev mit, 409 bei Konflikt, Antwort enthält neue rev - Frontend
+  hält sie in `sharedRev`), Shared-Historie unter data/backups/shared/
+  (letzte 10), tägliches Voll-Backup unter data/backups/daily/ (letzte 7),
+  Login-Bremse (10 Versuche/15 min, in-memory), POST /api/me/change-password,
+  Charakter-PUT mit Schlüssel-Whitelist (CHAR_ALLOWED_KEYS) + 300-KB-Limit,
+  Cache-Header (HTML no-cache, /vendor/ immutable).
 
 ## Wie ich hier teste (bevor ich etwas rausgebe)
 
@@ -85,12 +93,22 @@ Es gibt kein Test-Framework im Projekt selbst. Mein Vorgehen im Sandbox-Environm
    - Charakternamen sind global eindeutig - bei mehreren Testläufen mit derselben
      `data/`-Datenbank IMMER eindeutige Namen verwenden oder die `data/`-Datenbank
      vorher wirklich leeren.
-3. Es gibt eine wachsende `smoke_test.js` in `/home/claude` (mein Sandbox,
-   NICHT im Repo!) mit vielen Regressions-Checks. Die lebt nur in meiner
-   aktuellen Konversation und ist beim nächsten Mal weg. **Idee für später:**
-   einen minimalen Test-Snapshot tatsächlich ins Repo committen (z. B. unter
-   `dev/smoke_test.js`), damit zukünftige Sessions nicht bei null anfangen -
-   bisher aber nicht gemacht, da nicht explizit gewünscht.
+3. **Es gibt jetzt `dev/smoke_test.js` IM REPO** (seit v0.10.0): startet selbst
+   eine Server-Instanz (Temp-DATA_DIR, zufälliger Port), testet Server-API
+   (Auth, Passwort ändern, Login-Bremse, Daten-Whitelist, rev-Konflikt,
+   Cache-Header) und Frontend in jsdom (Rechner, Wehrhaftigkeit, Gast-
+   Zwischenspeicher, Beispielcharakter, Charakter-Vergleich inkl.
+   Waffenschaden-Bonus, Passwort-Formular, Formel-Vorschau). Vorher einmalig
+   `npm install jsdom` in der Sandbox, dann `node dev/smoke_test.js` aus dem
+   Repo-Hauptverzeichnis. **VOR JEDEM PUSH LAUFEN LASSEN und bei neuen
+   Features um passende Checks ERWEITERN** - nicht mehr ad-hoc-Testdateien in
+   /home/claude anlegen. mathjs muss nicht mehr ersetzt/installiert werden:
+   liegt lokal unter `public/vendor/mathjs-11.8.0.min.js` (das Frontend lädt
+   es von dort, nicht mehr vom CDN).
+   WICHTIG Sandbox-Falle: `pkill -9 -f server.js` am ANFANG eines
+   Tool-Aufrufs bricht den ganzen Aufruf ab (returncode -1, nichts wird
+   ausgeführt) - Server-Prozesse lieber vom Test selbst beenden lassen
+   (macht dev/smoke_test.js) oder pkill als einzigen Befehl absetzen.
 
 ## Datenmodell-Eigenheiten
 
