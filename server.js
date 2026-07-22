@@ -14,6 +14,11 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'bitte-in-der-.env-aendern';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const CHAR_DIR = path.join(DATA_DIR, 'chars');
+// Gruppenplaner: komplett eigener Datentopf, absichtlich getrennt von den
+// Stats-Charakteren (chars/) - andere Inhalte (Klasse/Rollen/Besitz-Checklisten),
+// andere Lebensdauer, andere Zugriffsregeln.
+const GP_CHAR_DIR = path.join(DATA_DIR, 'gpchars');
+const GP_PLAN_DIR = path.join(DATA_DIR, 'gpplans');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SHARED_FILE = path.join(DATA_DIR, 'shared.json');
 const TRANSFERS_FILE = path.join(DATA_DIR, 'transfers.json');
@@ -23,6 +28,8 @@ if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
 }
 
 fs.mkdirSync(CHAR_DIR, { recursive: true });
+fs.mkdirSync(GP_CHAR_DIR, { recursive: true });
+fs.mkdirSync(GP_PLAN_DIR, { recursive: true });
 if(!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
 if(!fs.existsSync(SHARED_FILE)) fs.writeFileSync(SHARED_FILE, '{}');
 if(!fs.existsSync(TRANSFERS_FILE)) fs.writeFileSync(TRANSFERS_FILE, '{}');
@@ -43,6 +50,12 @@ function safeName(s){
 }
 function charFile(username, charname){
   return path.join(CHAR_DIR, `${safeName(username)}__${safeName(charname)}.json`);
+}
+function gpCharFile(username, charname){
+  return path.join(GP_CHAR_DIR, `${safeName(username)}__${safeName(charname)}.json`);
+}
+function gpPlanFile(planname){
+  return path.join(GP_PLAN_DIR, `${safeName(planname)}.json`);
 }
 
 /* ---------- Charakter-Übergabe (Senden/Annehmen/Ablehnen) ----------
@@ -467,6 +480,131 @@ app.post('/api/transfers/:name/decline', authMiddleware, (req, res) => {
    Lesen bleibt für alle offen (jeder Charakter-Rechner braucht die
    Gefährten-/Reittier-/Buff-Food-Datenbank und die Formeln, um zu rechnen).
    Schreiben ist rollenabhängig: Presets ab Moderator, Formeln ab Coadmin. */
+/* ---------- Gruppenplaner ----------
+   Bewusst komplett getrennt von den Stats-Charakteren: eigener Ordner, eigene
+   Whitelist, eigene Endpunkte unter /api/gp/*. Solange sich das Feature noch
+   in der Planungsphase befindet, ist es (wie der Insignienrechner) für alle
+   Endpunkte auf Rolle 'moderator' beschränkt - GP_MIN_ROLE ist bewusst eine
+   einzelne Konstante, damit das Freischalten für alle später ein Ein-Zeiler ist. */
+const GP_MIN_ROLE = 'moderator';
+const gpRoleGate = requireRole(GP_MIN_ROLE);
+
+// Eigene Gruppenplaner-Charaktere (Klasse/Rollen/Besitz-Checklisten) - EIN Konto
+// kann mehrere davon haben, genau wie bei den Stats-Charakteren, aber komplett
+// getrennt gespeichert. Für die Aufstellung braucht man die Charaktere ALLER
+// Benutzer (um sie in Slots zu ziehen), daher gibt es nur ein "alle anzeigen".
+app.get('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const result = [];
+  Object.keys(users).forEach(owner => {
+    (users[owner].gpCharacters || []).forEach(name => {
+      const data = readJson(gpCharFile(owner, name), {});
+      result.push({ owner, name, isOwner: owner === req.username, data });
+    });
+  });
+  res.json(result);
+});
+
+app.post('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
+  const name = req.body && req.body.name && String(req.body.name).trim();
+  if(!name) return res.status(400).json({ error: 'Name erforderlich' });
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  if(!user.gpCharacters) user.gpCharacters = [];
+  if(user.gpCharacters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter hast du schon angelegt' });
+  user.gpCharacters.push(name);
+  writeJson(USERS_FILE, users);
+  writeJson(gpCharFile(req.username, name), { klasse: '', rollen: { dps: false, heal: false, tank: false }, besitz: {} });
+  res.status(201).json({ name });
+});
+
+const GP_CHAR_ALLOWED_KEYS = ['klasse', 'rollen', 'besitz'];
+const GP_CHAR_MAX_BYTES = 50000; // reine Checklisten - deutlich kleiner als Stats-Charaktere
+app.put('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !(user.gpCharacters || []).includes(req.params.name)){
+    return res.status(404).json({ error: 'Charakter nicht gefunden (oder gehört dir nicht)' });
+  }
+  const clean = {};
+  GP_CHAR_ALLOWED_KEYS.forEach(k => { if(req.body && k in req.body) clean[k] = req.body[k]; });
+  if(JSON.stringify(clean).length > GP_CHAR_MAX_BYTES){
+    return res.status(413).json({ error: 'Daten sind unerwartet groß - nicht gespeichert' });
+  }
+  writeJson(gpCharFile(req.username, req.params.name), clean);
+  res.json({ ok: true });
+});
+
+app.delete('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  user.gpCharacters = (user.gpCharacters || []).filter(c => c !== req.params.name);
+  writeJson(USERS_FILE, users);
+  try{ fs.unlinkSync(gpCharFile(req.username, req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
+  res.json({ ok: true });
+});
+
+// Geteilte, benannte Aufstellungs-Pläne (z. B. "Trial Sonntag 20 Uhr"). Mehrere
+// Pläne gleichzeitig möglich; jeder Plan enthält beliebig viele Gruppen mit
+// DPS/Heiler/Tank-Slots. Bearbeiten ist Moderator-Sache (wie Presets).
+function readGpPlanList(){
+  let files;
+  try{ files = fs.readdirSync(GP_PLAN_DIR).filter(f => f.endsWith('.json')); }
+  catch(e){ return []; }
+  // Anzeigename kommt aus dem gespeicherten "name"-Feld (siehe unten), NICHT aus dem
+  // (sanitisierten) Dateinamen - sonst gingen Leerzeichen/Sonderzeichen beim Auflisten verloren.
+  return files.map(f => {
+    const data = readJson(path.join(GP_PLAN_DIR, f), {});
+    return data.name || f.slice(0, -5);
+  });
+}
+app.get('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
+  const list = readGpPlanList().map(name => {
+    let updatedAt = null;
+    try{ updatedAt = fs.statSync(gpPlanFile(name)).mtime.toISOString(); }catch(e){ /* egal */ }
+    return { name, updatedAt };
+  });
+  res.json(list);
+});
+app.post('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
+  const name = req.body && req.body.name && String(req.body.name).trim();
+  if(!name) return res.status(400).json({ error: 'Name erforderlich' });
+  if(fs.existsSync(gpPlanFile(name))) return res.status(409).json({ error: 'Diesen Plan gibt es schon' });
+  writeJson(gpPlanFile(name), { name, groups: [] });
+  res.status(201).json({ name });
+});
+app.get('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+  if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
+  res.json({ name: req.params.name, data: readJson(gpPlanFile(req.params.name), { name: req.params.name, groups: [] }) });
+});
+const GP_PLAN_MAX_BYTES = 2000000; // ein Plan mit vielen Gruppen/Slots kann größer werden als ein Charakter
+app.put('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+  if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
+  const clean = { name: req.params.name, groups: (req.body && Array.isArray(req.body.groups)) ? req.body.groups : [] };
+  if(JSON.stringify(clean).length > GP_PLAN_MAX_BYTES){
+    return res.status(413).json({ error: 'Plan ist unerwartet groß - nicht gespeichert' });
+  }
+  writeJson(gpPlanFile(req.params.name), clean);
+  res.json({ ok: true });
+});
+app.delete('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+  try{ fs.unlinkSync(gpPlanFile(req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
+  res.json({ ok: true });
+});
+app.post('/api/gp/plans/:name/rename', authMiddleware, gpRoleGate, (req, res) => {
+  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
+  if(fs.existsSync(gpPlanFile(newName))) return res.status(409).json({ error: 'Diesen Namen gibt es schon' });
+  const data = readJson(gpPlanFile(req.params.name), { groups: [] });
+  data.name = newName;
+  writeJson(gpPlanFile(req.params.name), data);
+  fs.renameSync(gpPlanFile(req.params.name), gpPlanFile(newName));
+  res.json({ ok: true, name: newName });
+});
+
 app.get('/api/shared', (req, res) => {
   res.json(readJson(SHARED_FILE, {}));
 });
@@ -499,7 +637,11 @@ function saveShared(req, res, allowedKeys){
   res.json({ ok: true, rev: next.rev });
 }
 app.put('/api/shared/presets', authMiddleware, requireRole('moderator'), (req, res) => {
-  saveShared(req, res, ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets', 'gegnerProfile']);
+  saveShared(req, res, ['companionDb', 'mountDb', 'foodDb', 'foodSlots', 'gefaehrtenPresets', 'reittierPresets', 'gegnerProfile',
+    // Gruppenplaner-Referenzlisten und Insignien-Marktpreise - bewusst über denselben
+    // Presets-Endpunkt (Moderator, gleicher rev-Schutz/Historie), aber eigene Schlüssel,
+    // komplett getrennt von den Stats-Datenbanken oben.
+    'gpArtefakte', 'gpMounts', 'gpMountBonus', 'gpGefaehrten', 'gpGefaehrtenVerstaerkung', 'insigniePreise']);
 });
 app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, res) => {
   saveShared(req, res, ['formulas', 'maxPrOverrides', 'wehrVerteilung']);
@@ -676,6 +818,8 @@ function dailyBackup(){
     if(fs.existsSync(USERS_FILE)) fs.copyFileSync(USERS_FILE, path.join(target, 'users.json'));
     if(fs.existsSync(SHARED_FILE)) fs.copyFileSync(SHARED_FILE, path.join(target, 'shared.json'));
     fs.cpSync(CHAR_DIR, path.join(target, 'chars'), { recursive: true });
+    fs.cpSync(GP_CHAR_DIR, path.join(target, 'gpchars'), { recursive: true });
+    fs.cpSync(GP_PLAN_DIR, path.join(target, 'gpplans'), { recursive: true });
     const old = fs.readdirSync(DAILY_BACKUP_DIR).sort();
     while(old.length > 7){
       fs.rmSync(path.join(DAILY_BACKUP_DIR, old.shift()), { recursive: true, force: true });

@@ -88,6 +88,43 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   prevSub-Map in renderUebersicht), klassenrelevante Zellen getönt
   (relev-dps/-tank/-heal; RELEVANTE_GRUPPEN = DPS:offensive, Tank:defensive,
   Heiler:offensive+support).
+- **Seit v0.15.0: Gruppenplaner + Insignienrechner als DRITTE/VIERTE eigene App.**
+  Oberster App-Switcher (showApp('stats'|'gruppenplaner'|'insignien'),
+  #appStats/#appGruppenplaner/#appInsignien) - komplett unabhängig vom
+  Statrechner, eigene Datentöpfe. GP_MIN_ROLE='moderator' (Server-Konstante
+  in server.js UND Client-Konstante in index.html, beide "moderator" -
+  bei Freischaltung für alle BEIDE auf 'user' ändern) gated sowohl die
+  Sichtbarkeit der App-Tabs als auch JEDEN /api/gp/*-Aufruf server-seitig.
+  - Insignienrechner: rein clientseitig, INSIGNIE_RATIO (feste Spielmechanik,
+    NICHT editierbar) + insigniePreise (editierbar, Presets-Endpunkt).
+  - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
+    Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
+    Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner
+    data/gpplans/ (mehrere benannte, geteilte Pläne). WICHTIG: Der Plan-
+    Anzeigename MUSS im JSON-Dokument selbst stehen (data.name), NICHT aus
+    dem safeName-sanitisierten Dateinamen zurückgewonnen werden - sonst gehen
+    Leerzeichen/Sonderzeichen beim Auflisten verloren (genau dieser Bug ist
+    beim Bauen aufgetreten und wurde gefixt - nicht wiederholen).
+  - 5 geteilte Referenzlisten (gpArtefakte/gpMounts/gpMountBonus/gpGefaehrten/
+    gpGefaehrtenVerstaerkung) reiten NICHT auf einem neuen Endpunkt, sondern
+    einfach als zusätzliche Schlüssel auf dem bestehenden PUT /api/shared/
+    presets (gleicher rev-Schutz/gleiche Historie wie companionDb & co.) -
+    einmalig aus der vom Nutzer hochgeladenen Gruppenplaner-Excel importiert
+    (DEFAULT_GP_*-Konstanten in index.html).
+  - Board (renderGpPlanBoard): pro Zeile ein Charakter aus ALLEN gp-Charakteren
+    aller Nutzer wählbar (gpCharKey = "owner::name"); die Artefakt-/Mount-/
+    Gefährten-Dropdowns filtern sich dynamisch auf das, was GENAU dieser
+    Charakter unter "besitz" angekreuzt hat (gpOptionsFor) - ohne Charakter
+    oder ohne Besitzeinträge fällt es auf die volle Referenzliste zurück.
+    Charakterwechsel setzt die 5 abhängigen Felder zurück (gpUpdateRowChar),
+    sonst blieben unsichtbare/nicht mehr passende Altwerte gespeichert.
+    "Trial"-Haken pro Gruppe zeigt die Party-A/B-Spalte, "Weapon/Ausrüstung
+    anzeigen"-Haken die beiden sonst versteckten Spalten (Nutzerwunsch:
+    ausblendbar, solange ungenutzt).
+  - TEST-FALLE (mehrfach reingelaufen): `<input>`-WERTE tauchen NICHT in
+    `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
+    Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
+    `element.textContent.includes(...)`.
 - **Seit v0.14.0:** Buff-Food-Optimierer (optimizeBuffFood/runBuffFoodOptimierung
   in index.html): Knopf "Bestes Buff Food wählen" im Buff-Food-Bereich probiert
   alle Kombinationen der Nicht-Utility-Slots (category !== 'Utility') durch;

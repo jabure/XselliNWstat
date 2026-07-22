@@ -208,6 +208,15 @@
     padding:9px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:0.92rem; font-weight:700;
   }
   .page-tab.active{color:var(--gold); border-color:var(--gold-soft); background:var(--panel);}
+  /* Oberster Umschalter zwischen den drei unabhängigen Werkzeugen (Statrechner/
+     Gruppenplaner/Insignienrechner) - bewusst deutlich größer/prominenter als die
+     page-tabs darunter, damit klar ist, dass hier etwas Grundsätzliches wechselt. */
+  .app-switcher{display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;}
+  .app-tab{
+    background:var(--panel); border:1px solid var(--border); color:var(--text-dim);
+    padding:10px 20px; border-radius:10px; cursor:pointer; font-size:1rem; font-weight:700;
+  }
+  .app-tab.active{color:var(--bg); background:var(--gold); border-color:var(--gold);}
   .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
   .entry-head{display:flex; gap:8px; margin-bottom:10px; align-items:center;}
   .entry-head .entry-name{flex:1; font-weight:700;}
@@ -304,6 +313,13 @@
   Für Gefährten und Reittiere stehen Presets zur Verfügung. Änderungswünsche oder Feedback sind jederzeit willkommen – der Rechner befindet sich aktuell noch in der Beta.</p>
   <p class="version-tag" id="versionTag"></p>
 
+  <div class="app-switcher" id="appSwitcher">
+    <button class="app-tab active" id="apptab-stats" onclick="showApp('stats')" type="button">Statrechner</button>
+    <button class="app-tab" id="apptab-gruppenplaner" onclick="showApp('gruppenplaner')" type="button" style="display:none;">Gruppenplaner</button>
+    <button class="app-tab" id="apptab-insignien" onclick="showApp('insignien')" type="button" style="display:none;">Insignienrechner</button>
+  </div>
+
+  <div id="appStats">
   <div class="page-nav">
     <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
     <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button">Schadensberechnung</button>
@@ -535,7 +551,49 @@
     <div id="backupOverview"></div>
   </div>
 </div>
-</div>
+</div><!-- /appStats -->
+
+<div id="appGruppenplaner" style="display:none;">
+  <div class="notice" style="margin-bottom:14px;">Der Gruppenplaner befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar. Er wird später für alle geöffnet.</div>
+  <div class="page-nav">
+    <button class="page-tab active" id="gptab-charaktere" onclick="showGpPage('charaktere')" type="button">Meine Charaktere</button>
+    <button class="page-tab" id="gptab-planung" onclick="showGpPage('planung')" type="button">Planung</button>
+    <button class="page-tab" id="gptab-referenz" onclick="showGpPage('referenz')" type="button">Referenzlisten</button>
+  </div>
+
+  <div id="gpPageCharaktere">
+    <div class="card">
+      <h2><span class="dot" style="background:var(--gold)"></span>Meine Gruppenplaner-Charaktere</h2>
+      <p class="helptext">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
+      <div id="gpCharList"></div>
+      <div class="btnrow" style="margin-top:12px;">
+        <input type="text" id="gpNewCharName" placeholder="Name eingeben..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
+        <button type="button" class="action gold" onclick="gpCreateCharacter()">Charakter anlegen</button>
+      </div>
+    </div>
+    <div id="gpCharEditor"></div>
+  </div>
+
+  <div id="gpPagePlanung" style="display:none;">
+    <div class="card">
+      <h2><span class="dot" style="background:var(--gold)"></span>Aufstellungs-Pläne</h2>
+      <p class="helptext">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar für alle mit Moderator-Rolle oder höher.</p>
+      <div id="gpPlanList"></div>
+      <div class="btnrow" style="margin-top:12px;">
+        <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
+        <button type="button" class="action gold" onclick="gpCreatePlan()">Plan anlegen</button>
+      </div>
+    </div>
+    <div id="gpPlanBoard"></div>
+  </div>
+
+  <div id="gpPageReferenz" style="display:none;"></div>
+</div><!-- /appGruppenplaner -->
+
+<div id="appInsignien" style="display:none;">
+  <div class="notice" style="margin-bottom:14px;">Der Insignienrechner befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar. Er wird später für alle geöffnet.</div>
+  <div id="insignienContent"></div>
+</div><!-- /appInsignien -->
 
 <div class="modal-bg" id="modalBg">
   <div class="modal">
@@ -559,6 +617,72 @@ const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte S
 
 // Aus deiner Excel importiert: "Presets" Tab (Gefährten AJ3:DC27, Reittiere AJ51:DC75) und
 // "Buff food Sammlung" Tab (Blöcke bei Zeile 2/31/60/90/120). Werte pro Stat: {werte, prozent}.
+// Referenzlisten fuer den Gruppenplaner - einmalig aus der Gruppenplaner-Excel importiert,
+// danach von Moderatoren ueber die 'Referenzlisten'-Unterseite pflegbar (geteilt, wie Presets).
+const DEFAULT_GP_ARTEFAKTE = [
+  {name:"Demogorgon's Reach", buff:10.56},
+  {name:"Xeleth's Blast Scepter / Halaster's", buff:6.0},
+  {name:"Mythallar Fragment", buff:6.0},
+  {name:"Frozen Storyteller's Journal", buff:5.26},
+  {name:"Nightflame Censer", buff:4.8},
+  {name:"Wyvern Knives / Dragonbone Blades", buff:4.8},
+  {name:"Assassin's Dice", buff:4.77},
+  {name:"Tentacle Rod", buff:4.23},
+  {name:"Crystal of Soul's Flight", buff:4.0},
+  {name:"Marco's Mystic Marker", buff:4.0},
+  {name:"Beacon of Meteor / Token of Chromatic", buff:4.0},
+  {name:"Spelljammer / Lantern", buff:4.0},
+  {name:"Heart of Volcano / Black Dragon", buff:4.0},
+  {name:"Black Dragon's Mark", buff:4.0},
+  {name:"Charm of the Serpent", buff:4.0},
+  {name:"Marilith Mask", buff:3.0},
+  {name:"Broken Halo", buff:3.9},
+];
+const DEFAULT_GP_MOUNTS = [
+  {name:"Zauberkessel der Vettel", faehigkeit:"Riskanter Verwandlungstrank", dmgBonus:9.41},
+  {name:"Pegasus", faehigkeit:"Grosse/Hervorragende Inspiration", dmgBonus:7.89},
+  {name:"Roter Drache", faehigkeit:"Brüllen des mächtigen Drachen", dmgBonus:7.46},
+  {name:"Glorreicher Untoter Löwe", faehigkeit:"Nekrotisches Brüllen", dmgBonus:6.4},
+  {name:"Zweifach-Bleiche Erle", faehigkeit:"Ätherwirbel", dmgBonus:6.4},
+  {name:"Phantompanther", faehigkeit:"Trügerischer Sog", dmgBonus:6.4},
+  {name:"Schwarm", faehigkeit:"Fledermausschwarm", dmgBonus:6.0},
+  {name:"Verfinsteter Löwe", faehigkeit:"Verfinsterte Bewaffnung", dmgBonus:6.0},
+  {name:"T-Rex", faehigkeit:"Aggrosaurus Rex", dmgBonus:6.0},
+  {name:"Gehirndieb-Drache", faehigkeit:"Psionischer Stoss", dmgBonus:6.0},
+  {name:"Bestialischer Feuerarchon", faehigkeit:"Heisse Serie", dmgBonus:6.0},
+];
+const DEFAULT_GP_MOUNTBONUS = [
+  {name:"Mystische Aura", beschreibung:"gibt Kraft und verteidigung"},
+  {name:"Runische Aura", beschreibung:"gibt kraft und Zielgenauigkeit"},
+  {name:"Rudelstrategien", beschreibung:"gibt kampfvorteil und wahrnehmung ( stackt mit einer abnemenden effektivität (100/50/35/12,5...))"},
+];
+const DEFAULT_GP_GEFAEHRTEN = [
+  {name:"Skorpion", beschreibung:"lässt sein Ziel einen Kampfvorteil gewähren, 100% ontime (außer Mechanik)"},
+  {name:"Flapjack", beschreibung:"+5% Kampfvorteil für alle Verbündeten innerhalb von 80ft."},
+  {name:"Tutor", beschreibung:"+5% Kampfvorteil in einer vollen Gruppe innerhalb von 50ft"},
+  {name:"Spined devil", beschreibung:"+10% Schadensschwächung bei einem gegnerischen Treffer, dauert 10s, mit etwa 66% Uptime"},
+  {name:"Portobello", beschreibung:"+3,5% Kraft und Kampfvorteil in einer vollen Gruppe innerhalb von 50ft."},
+  {name:"Minsc", beschreibung:"+2% Kampfvorteil und eingehende Heilung für alle Verbündeten innerhalb von 80 Fuß"},
+  {name:"Drizzt Do'Urden", beschreibung:"Multiplikativer 3%-Schadensverstärker für alle Verbündeten innerhalb von 80ft."},
+  {name:"Blue fire eye", beschreibung:"+3% Kritischer Treffer für alle Verbündeten"},
+  {name:"Etrien", beschreibung:"+2% Kraft und kritischer Treffer für alle Verbündeten, 100% Uptime"},
+  {name:"Stalwart Lion", beschreibung:"+4% zusätzlicher Trefferschaden für 10s alle 15s, also 66% Uptime"},
+  {name:"Harfner Barde", beschreibung:"+2% Kraft und kritischer Treffer für alle Verbündeten, 100% Uptime"},
+  {name:"Captian Sartell", beschreibung:""},
+];
+const DEFAULT_GP_GEFAEHRTEN_VERSTAERKUNG = [
+  {name:"Rüstungsbruch", beschreibung:"15 sek - 9% verteidigung"},
+  {name:"Verwundbarkeit", beschreibung:"15 sekunden - 9% kritvermeidung"},
+  {name:"Verlangsamte Reaktionen", beschreibung:"15 sekunden - 9% robustheid"},
+  {name:"Getrübte Sinne", beschreibung:"15 sekunden -9 Wahrnehmung"},
+];
+// Insignien-Rechner: Aktionshaus-Marktpreise pro Qualitaetsstufe (editierbar, geteilt).
+// Die Rate (wie viele Insignien einer Stufe man zum Verwerten fuer EINE der naechsthoeheren
+// Stufe braucht) ist dagegen eine feste Spielmechanik und deshalb NICHT editierbar - siehe
+// INSIGNIE_RATIO weiter unten im Code.
+const DEFAULT_INSIGNIE_PREISE = {
+  'grün': 1900, 'Blau': 6000, 'episch': 46000, 'legendär': 230000, 'mystisch': 1150000, 'celestisch': 2000000,
+};
 const DEFAULT_COMPANION_DB = {
   'Skorpion': {},
   'Flapjack': { kampfvorteil:{werte:0,prozent:5} },
@@ -616,6 +740,25 @@ const DEFAULT_FOOD_DB = {
 let companionDb = JSON.parse(JSON.stringify(DEFAULT_COMPANION_DB));
 let mountDb = JSON.parse(JSON.stringify(DEFAULT_MOUNT_DB));
 let foodDb = JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
+
+// Gruppenplaner & Insignienrechner: komplett eigene, geteilte Referenzlisten
+// (nicht dieselben wie companionDb/mountDb oben, auch wenn sich Namen überschneiden).
+let gpArtefakte = JSON.parse(JSON.stringify(DEFAULT_GP_ARTEFAKTE));
+let gpMounts = JSON.parse(JSON.stringify(DEFAULT_GP_MOUNTS));
+let gpMountBonus = JSON.parse(JSON.stringify(DEFAULT_GP_MOUNTBONUS));
+let gpGefaehrten = JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN));
+let gpGefaehrtenVerstaerkung = JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN_VERSTAERKUNG));
+let insigniePreise = JSON.parse(JSON.stringify(DEFAULT_INSIGNIE_PREISE));
+// Laufzeit-Zustand des Gruppenplaners (nicht persistiert, wird bei Bedarf vom Server geladen)
+let gpCharacters = null;      // alle GP-Charaktere aller Nutzer, vom Server geladen: [{owner,name,isOwner,data}]
+let gpCharListLoading = false;
+let gpEditingCharName = null; // welcher EIGENE Charakter gerade im Editor unten offen ist
+let gpPlans = null;           // [{name, updatedAt}]
+let gpPlanListLoading = false;
+let currentGpPlanName = null;
+let currentGpPlanData = null; // { groups: [...] }
+let currentApp = 'stats';     // 'stats' | 'gruppenplaner' | 'insignien'
+let currentGpPage = 'charaktere';
 
 const GEFAEHRTEN_SLOTS = Array.from({length:10}, (_,i)=>`Gefährte ${i+1}`);
 // Raptor-Reittiere zählen als Gefährten-Zusatz: jeder gibt einen festen Kraft-Bonus.
@@ -785,6 +928,18 @@ const apiRegister = (username, password) => apiRequest('/api/auth/register', {me
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
 const apiChangePassword = (oldPassword, newPassword) => apiRequest('/api/me/change-password', {method:'POST', body:JSON.stringify({oldPassword, newPassword})});
+
+/* ---------- API-Hilfsfunktionen: Gruppenplaner (komplett eigener Datentopf) ---------- */
+const apiGpCharacters = () => apiRequest('/api/gp/characters');
+const apiGpCreateCharacter = (name) => apiRequest('/api/gp/characters', {method:'POST', body:JSON.stringify({name})});
+const apiGpSaveCharacter = (name, data) => apiRequest('/api/gp/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
+const apiGpDeleteCharacter = (name) => apiRequest('/api/gp/characters/'+encodeURIComponent(name), {method:'DELETE'});
+const apiGpPlans = () => apiRequest('/api/gp/plans');
+const apiGpCreatePlan = (name) => apiRequest('/api/gp/plans', {method:'POST', body:JSON.stringify({name})});
+const apiGpGetPlan = (name) => apiRequest('/api/gp/plans/'+encodeURIComponent(name));
+const apiGpSavePlan = (name, data) => apiRequest('/api/gp/plans/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
+const apiGpDeletePlan = (name) => apiRequest('/api/gp/plans/'+encodeURIComponent(name), {method:'DELETE'});
+const apiGpRenamePlan = (name, newName) => apiRequest('/api/gp/plans/'+encodeURIComponent(name)+'/rename', {method:'POST', body:JSON.stringify({newName})});
 const apiListCharacters = () => apiRequest('/api/characters');
 const apiReorderCharacters = (order) => apiRequest('/api/characters/reorder', {method:'PUT', body:JSON.stringify({order})});
 const apiCreateCharacter = (name, copyFrom) => apiRequest('/api/characters', {method:'POST', body:JSON.stringify(copyFrom ? {name, copyFrom} : {name})});
@@ -824,6 +979,7 @@ function updateAccountLabel(){
   const gdName = document.getElementById('grunddatenCharName');
   if(gdName) gdName.textContent = currentChar ? `– ${currentChar}` : '';
   updateAdminTabVisibility();
+  updateAppSwitcherVisibility();
 }
 function setAccountMsg(msg, ok){
   const el = document.getElementById('accMsg');
@@ -3852,6 +4008,12 @@ async function reloadShared(){
   gefaehrtenPresets = shared.gefaehrtenPresets || JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
   reittierPresets = shared.reittierPresets || JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
   gegnerProfile = shared.gegnerProfile || JSON.parse(JSON.stringify(DEFAULT_GEGNER_PROFILE));
+  gpArtefakte = shared.gpArtefakte || JSON.parse(JSON.stringify(DEFAULT_GP_ARTEFAKTE));
+  gpMounts = shared.gpMounts || JSON.parse(JSON.stringify(DEFAULT_GP_MOUNTS));
+  gpMountBonus = shared.gpMountBonus || JSON.parse(JSON.stringify(DEFAULT_GP_MOUNTBONUS));
+  gpGefaehrten = shared.gpGefaehrten || JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN));
+  gpGefaehrtenVerstaerkung = shared.gpGefaehrtenVerstaerkung || JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN_VERSTAERKUNG));
+  insigniePreise = shared.insigniePreise || JSON.parse(JSON.stringify(DEFAULT_INSIGNIE_PREISE));
   if(shared.foodSlots) shared.foodSlots.forEach((def, i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
   refresh(true);
   renderUebersicht();
@@ -4406,6 +4568,12 @@ async function init(){
     if(shared.gefaehrtenPresets) gefaehrtenPresets = shared.gefaehrtenPresets;
     if(shared.reittierPresets) reittierPresets = shared.reittierPresets;
     if(shared.gegnerProfile) gegnerProfile = shared.gegnerProfile;
+    if(shared.gpArtefakte) gpArtefakte = shared.gpArtefakte;
+    if(shared.gpMounts) gpMounts = shared.gpMounts;
+    if(shared.gpMountBonus) gpMountBonus = shared.gpMountBonus;
+    if(shared.gpGefaehrten) gpGefaehrten = shared.gpGefaehrten;
+    if(shared.gpGefaehrtenVerstaerkung) gpGefaehrtenVerstaerkung = shared.gpGefaehrtenVerstaerkung;
+    if(shared.insigniePreise) insigniePreise = shared.insigniePreise;
   }catch(e){
     console.warn('Presets/Formeln konnten nicht vom Server geladen werden:', e.message);
   }
@@ -4463,6 +4631,480 @@ async function init(){
   }
 }
 let loginExpiredHint = false, guestRestoredHint = false;
+
+/* ================================================================
+   APP-UMSCHALTER: Statrechner / Gruppenplaner / Insignienrechner
+   ================================================================
+   Drei komplett unabhängige Werkzeuge in derselben Seite. Gruppenplaner und
+   Insignienrechner sind, solange sie sich in der Planungsphase befinden,
+   nur für Rolle >= GP_MIN_ROLE sichtbar (Server gated dieselbe Rolle bei
+   jedem /api/gp/*-Aufruf sowie beim Speichern der neuen Presets-Schlüssel -
+   das Verstecken hier ist zusätzlich, kein Ersatz für die Server-Prüfung). */
+const GP_MIN_ROLE = 'moderator';
+function updateAppSwitcherVisibility(){
+  const show = hasRole(GP_MIN_ROLE);
+  document.getElementById('apptab-gruppenplaner').style.display = show ? '' : 'none';
+  document.getElementById('apptab-insignien').style.display = show ? '' : 'none';
+  // Falls die Rolle nach Ab-/Ummelden nicht mehr reicht, zurück zum Statrechner.
+  if(!show && currentApp !== 'stats') showApp('stats');
+}
+function showApp(name){
+  if((name === 'gruppenplaner' || name === 'insignien') && !hasRole(GP_MIN_ROLE)){
+    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+GP_MIN_ROLE+'".';
+    return;
+  }
+  currentApp = name;
+  document.getElementById('appStats').style.display = name==='stats' ? '' : 'none';
+  document.getElementById('appGruppenplaner').style.display = name==='gruppenplaner' ? '' : 'none';
+  document.getElementById('appInsignien').style.display = name==='insignien' ? '' : 'none';
+  ['stats','gruppenplaner','insignien'].forEach(n=>{
+    document.getElementById('apptab-'+n).classList.toggle('active', n===name);
+  });
+  if(name==='gruppenplaner'){
+    ensureGpCharactersLoaded();
+    ensureGpPlansLoaded();
+    showGpPage(currentGpPage);
+  }
+  if(name==='insignien') renderInsignien();
+}
+
+/* ================================================================
+   INSIGNIENRECHNER
+   ================================================================
+   Zeigt fuer eine Start-/Ziel-Qualitaet und eine gewuenschte Menge, ob
+   Hochstufen (Insignien der Start-Qualitaet am Aktionshaus kaufen und
+   verwerten) oder der Direktkauf der Ziel-Qualitaet guenstiger ist.
+   Die "Rate" (wie viele Insignien man je Stufe zum Verwerten braucht) ist
+   eine feste Spielmechanik; nur die Aktionshaus-Preise sind editierbar. */
+const INSIGNIE_QUALITAETEN = ['grün','Blau','episch','legendär','mystisch','celestisch'];
+// Wie viele Insignien der Qualität [i] man verwerten muss, um EINE Insignie
+// der Qualität [i+1] zu erhalten (aus der Excel: 2500 Pulver / Pulver-Ertrag).
+const INSIGNIE_RATIO = [1250, 250, 50, 10, 2];
+let insignieStart = 'grün', insignieZiel = 'celestisch', insignieMenge = 1;
+
+function renderInsignien(){
+  const el = document.getElementById('insignienContent');
+  const optionsHtml = sel => INSIGNIE_QUALITAETEN.map(q=>`<option value="${q}" ${sel===q?'selected':''}>${q}</option>`).join('');
+  const priceRows = INSIGNIE_QUALITAETEN.map(q=>`<tr>
+    <td class="statname">${q}</td>
+    <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:140px;" data-insprice="${q}" value="${formatWerte(insigniePreise[q]||0)}"></td>
+  </tr>`).join('');
+
+  let ergebnisHtml;
+  const startIdx = INSIGNIE_QUALITAETEN.indexOf(insignieStart);
+  const zielIdx = INSIGNIE_QUALITAETEN.indexOf(insignieZiel);
+  if(zielIdx <= startIdx){
+    ergebnisHtml = `<p class="helptext">Die Ziel-Qualität muss höher sein als die Start-Qualität.</p>`;
+  } else {
+    // Multiplikator über alle Zwischenstufen: wie viele Insignien der Start-Qualität
+    // braucht man insgesamt für EINE Insignie der Ziel-Qualität?
+    let multiplikator = 1;
+    for(let i=startIdx; i<zielIdx; i++) multiplikator *= INSIGNIE_RATIO[i];
+    const anzahlBenoetigt = multiplikator * insignieMenge;
+    const preisStart = Number(insigniePreise[insignieStart])||0;
+    const preisZiel = Number(insigniePreise[insignieZiel])||0;
+    const kostenHochstufen = anzahlBenoetigt * preisStart;
+    const kostenDirekt = insignieMenge * preisZiel;
+    const diff = kostenDirekt - kostenHochstufen;
+    const guenstiger = Math.abs(diff) < 0.5 ? null : (diff > 0 ? 'hochstufen' : 'direkt');
+    const fazit = guenstiger === null
+      ? `Beide Wege kosten praktisch dasselbe.`
+      : (guenstiger === 'hochstufen'
+        ? `<strong class="delta-ok">Hochstufen ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Direktkauf.`
+        : `<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> Astraldiamanten gegenüber dem Hochstufen.`);
+    ergebnisHtml = `
+      <div class="wide-table-scroll"><table>
+        <thead><tr><th></th><th style="text-align:right;">Hochstufen</th><th style="text-align:right;">Direktkauf</th></tr></thead>
+        <tbody>
+          <tr><td class="statname">Benötigte Insignien (${insignieStart})</td><td style="text-align:right;">${formatWerte(anzahlBenoetigt)}</td><td class="muted" style="text-align:right;">&ndash;</td></tr>
+          <tr><td class="statname">Gesamtkosten</td><td style="text-align:right;" class="computed">${formatWerte(kostenHochstufen)}</td><td style="text-align:right;" class="computed">${formatWerte(kostenDirekt)}</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top:12px;font-size:1.02rem;">${fazit}</p>`;
+  }
+
+  el.innerHTML = `
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Insignienrechner</h2>
+    <p class="helptext">Zeigt, ob es günstiger ist, Insignien einer niedrigeren Qualität am Aktionshaus zu kaufen und zur gewünschten Qualität hochzustufen, oder die gewünschte Qualität direkt zu kaufen.</p>
+    <div class="grunddaten-grid">
+      <div><label>Start-Qualität (die hast du)</label><select id="insStart">${optionsHtml(insignieStart)}</select></div>
+      <div><label>Ziel-Qualität (die willst du)</label><select id="insZiel">${optionsHtml(insignieZiel)}</select></div>
+      <div><label>Menge (Ziel-Insignien)</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
+    </div>
+    <div style="margin-top:16px;">${ergebnisHtml}</div>
+  </div>
+  <div class="card">
+    <h2><span class="dot" style="background:var(--def)"></span>Aktionshaus-Preise pro Qualität</h2>
+    <p class="helptext">Marktpreise für eine einzelne Insignie dieser Qualität (in Astraldiamanten) - geteilt für alle, hier direkt anpassbar.</p>
+    <table><thead><tr><th>Qualität</th><th style="text-align:right;">Preis pro Stück</th></tr></thead><tbody>${priceRows}</tbody></table>
+    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">Preise speichern (für alle)</button></div>
+  </div>`;
+
+  document.getElementById('insStart').addEventListener('change', e=>{ insignieStart = e.target.value; renderInsignien(); });
+  document.getElementById('insZiel').addEventListener('change', e=>{ insignieZiel = e.target.value; renderInsignien(); });
+  document.getElementById('insMenge').addEventListener('input', e=>{ insignieMenge = parseWerte(e.target.value)||1; renderInsignien(); });
+  attachWerteFormatting(el);
+  el.querySelectorAll('input[data-insprice]').forEach(inp=>{
+    inp.addEventListener('input', e=>{ insigniePreise[e.target.dataset.insprice] = parseWerte(e.target.value); renderInsignien(); });
+  });
+}
+async function saveInsigniePreise(){
+  try{
+    const r = await apiSetPresets({ rev: sharedRev, insigniePreise });
+    if(r && r.rev !== undefined) sharedRev = r.rev;
+    document.getElementById('saveStatus').textContent = 'Insignien-Preise gespeichert (für alle).';
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+
+/* ================================================================
+   GRUPPENPLANER
+   ================================================================ */
+function showGpPage(name){
+  currentGpPage = name;
+  ['charaktere','planung','referenz'].forEach(n=>{
+    document.getElementById('gpPage'+capitalize(n)).style.display = n===name ? '' : 'none';
+    document.getElementById('gptab-'+n).classList.toggle('active', n===name);
+  });
+  if(name==='charaktere') renderGpCharList();
+  if(name==='planung') renderGpPlanList();
+  if(name==='referenz') renderGpReferenz();
+}
+function gpCharKey(owner, name){ return owner + '::' + name; }
+function gpFindChar(key){ return (gpCharacters||[]).find(c => gpCharKey(c.owner,c.name) === key); }
+
+async function ensureGpCharactersLoaded(force){
+  if((gpCharacters !== null && !force) || gpCharListLoading) return;
+  gpCharListLoading = true;
+  try{ gpCharacters = await apiGpCharacters(); }
+  catch(e){ gpCharacters = []; document.getElementById('saveStatus').textContent = 'Gruppenplaner-Charaktere laden fehlgeschlagen: ' + e.message; }
+  gpCharListLoading = false;
+  if(currentApp==='gruppenplaner'){
+    if(currentGpPage==='charaktere') renderGpCharList();
+    if(currentGpPage==='planung' && currentGpPlanData) renderGpPlanBoard();
+  }
+}
+async function ensureGpPlansLoaded(force){
+  if((gpPlans !== null && !force) || gpPlanListLoading) return;
+  gpPlanListLoading = true;
+  try{ gpPlans = await apiGpPlans(); }
+  catch(e){ gpPlans = []; document.getElementById('saveStatus').textContent = 'Gruppenplaner-Pläne laden fehlgeschlagen: ' + e.message; }
+  gpPlanListLoading = false;
+  if(currentApp==='gruppenplaner' && currentGpPage==='planung') renderGpPlanList();
+}
+
+/* ---------- Unterseite "Meine Charaktere" ---------- */
+function renderGpCharList(){
+  const el = document.getElementById('gpCharList');
+  if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
+  const mine = gpCharacters.filter(c => c.isOwner);
+  el.innerHTML = mine.length ? mine.map(c => `<div class="char-item">
+      <span style="flex:1;">${escapeHtml(c.name)} <span class="muted">${escapeHtml(c.data.klasse||'')}</span></span>
+      <button type="button" class="action small" onclick="gpEditingCharName=${JSON.stringify(c.name)};renderGpCharEditor();">Bearbeiten</button>
+      <button type="button" class="action danger small" onclick="gpDeleteCharacter(${JSON.stringify(c.name)})">Löschen</button>
+    </div>`).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
+  renderGpCharEditor();
+}
+async function gpCreateCharacter(){
+  const nameEl = document.getElementById('gpNewCharName');
+  const name = nameEl.value.trim();
+  if(!name) return;
+  try{
+    await apiGpCreateCharacter(name);
+    nameEl.value = '';
+    await ensureGpCharactersLoaded(true);
+    gpEditingCharName = name;
+    renderGpCharList();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+async function gpDeleteCharacter(name){
+  if(!confirm(`"${name}" wirklich löschen?`)) return;
+  try{
+    await apiGpDeleteCharacter(name);
+    if(gpEditingCharName === name) gpEditingCharName = null;
+    await ensureGpCharactersLoaded(true);
+    renderGpCharList();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+const GP_KLASSEN = ['Kämpfer','Waldläufer','Schurke','Barbar','Paladin','Kleriker','Hexenmeister','Magier','Barde','-'];
+// Welche Checkliste (Besitz) gegen welche Referenzliste geprüft wird, mit Anzeige-Feldern.
+const GP_BESITZ_KATEGORIEN = [
+  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'' },
+  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'' },
+  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'' },
+  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'' },
+  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'' },
+];
+function renderGpCharEditor(){
+  const el = document.getElementById('gpCharEditor');
+  if(!gpEditingCharName){ el.innerHTML = ''; return; }
+  const rec = gpCharacters.find(c => c.isOwner && c.name === gpEditingCharName);
+  if(!rec){ gpEditingCharName = null; el.innerHTML = ''; return; }
+  const d = rec.data || {};
+  const rollen = d.rollen || {};
+  const besitz = d.besitz || {};
+  const klasseOptions = GP_KLASSEN.map(k=>`<option value="${k}" ${d.klasse===k?'selected':''}>${k}</option>`).join('');
+  const rolleChk = (key,label) => `<label class="slot-check"><input type="checkbox" data-gprolle="${key}" ${rollen[key]?'checked':''}> ${label}</label>`;
+  const kategorien = GP_BESITZ_KATEGORIEN.map(kat => {
+    const owned = besitz[kat.key] || [];
+    const items = kat.liste().map(e => `<label class="slot-check" style="display:block;margin:2px 0;">
+        <input type="checkbox" data-gpbesitz="${kat.key}" value="${escapeHtml(e.name)}" ${owned.includes(e.name)?'checked':''}>
+        ${escapeHtml(e.name)}${kat.sub(e) ? ` <span class="muted" style="font-size:0.75rem;">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}
+      </label>`).join('');
+    return `<div class="accordion" id="acc-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
+        <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
+      </button><div class="body">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="card">
+    <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
+    <div class="grunddaten-grid" style="max-width:500px;">
+      <div><label>Klasse</label><select id="gpEditKlasse">${klasseOptions}</select></div>
+    </div>
+    <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">Rollen, die dieser Charakter spielen kann</label>
+      ${rolleChk('dps','DPS')} ${rolleChk('heal','Heiler')} ${rolleChk('tank','Tank')}
+    </div>
+    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">Besitz (für die Aufstellungs-Dropdowns im Board)</h3>
+    ${kategorien}
+    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">Speichern</button></div>
+  </div>`;
+}
+async function gpSaveCharEditor(){
+  const name = gpEditingCharName;
+  const klasse = document.getElementById('gpEditKlasse').value;
+  const rollen = { dps:false, heal:false, tank:false };
+  document.querySelectorAll('input[data-gprolle]').forEach(cb=>{ rollen[cb.dataset.gprolle] = cb.checked; });
+  const besitz = {};
+  GP_BESITZ_KATEGORIEN.forEach(kat=>{ besitz[kat.key] = []; });
+  document.querySelectorAll('input[data-gpbesitz]').forEach(cb=>{
+    if(cb.checked) besitz[cb.dataset.gpbesitz].push(cb.value);
+  });
+  try{
+    await apiGpSaveCharacter(name, { klasse, rollen, besitz });
+    await ensureGpCharactersLoaded(true);
+    document.getElementById('saveStatus').textContent = `"${name}" gespeichert.`;
+    renderGpCharList();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+
+/* ---------- Unterseite "Referenzlisten" (Moderator pflegt die Stammdaten) ---------- */
+// Generischer Editor: eine Liste von Objekten mit benannten Textfeldern, Zeilen
+// hinzufügen/entfernen. Wird für alle 5 Gruppenplaner-Referenzlisten wiederverwendet.
+function gpRefListEditorHtml(listId, entries, fields){
+  const rows = entries.map((e,i) => `<div class="preset-card" data-idx="${i}">
+    <div class="entry-head">
+      ${fields.map(f=>`<input type="text" class="entry-name gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${String(e[f.key]!==undefined?e[f.key]:'').replace(/"/g,'&quot;')}" style="flex:${f.flex||1};">`).join('')}
+      <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
+    </div>
+  </div>`).join('');
+  return `<div id="${listId}">${rows}</div><div class="btnrow" style="margin-top:8px;">
+    <button type="button" class="action small" onclick="gpAddRefRow('${listId}', ${JSON.stringify(fields).replace(/"/g,'&quot;')})">+ Neuer Eintrag</button>
+  </div>`;
+}
+function gpAddRefRow(listId, fields){
+  const container = document.getElementById(listId);
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<div class="preset-card"><div class="entry-head">
+    ${fields.map(f=>`<input type="text" class="entry-name gpref-field" data-field="${f.key}" placeholder="${f.label}" value="" style="flex:${f.flex||1};">`).join('')}
+    <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
+  </div></div>`;
+  container.appendChild(wrap.firstElementChild);
+}
+function gpCollectRefList(listId, fields){
+  const container = document.getElementById(listId);
+  const out = [];
+  container.querySelectorAll(':scope > .preset-card').forEach(card=>{
+    const obj = {};
+    let hasName = false;
+    fields.forEach(f=>{
+      const inp = card.querySelector(`input[data-field="${f.key}"]`);
+      const val = inp ? inp.value.trim() : '';
+      if(f.key === 'name' && val) hasName = true;
+      obj[f.key] = f.numeric ? parsePct(val) : val;
+    });
+    if(hasName) out.push(obj);
+  });
+  return out;
+}
+const GP_REF_SPECS = [
+  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true}] },
+  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true}] },
+  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
+  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
+];
+function renderGpReferenz(){
+  const el = document.getElementById('gpPageReferenz');
+  const sections = GP_REF_SPECS.map(spec => `<div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>${spec.title}</h2>
+    ${gpRefListEditorHtml('gpref-'+spec.key, spec.get(), spec.fields)}
+  </div>`).join('');
+  el.innerHTML = sections + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">Referenzlisten speichern (für alle)</button></div>`;
+}
+async function gpSaveReferenzlisten(){
+  const patch = { rev: sharedRev };
+  GP_REF_SPECS.forEach(spec => { patch[spec.key] = gpCollectRefList('gpref-'+spec.key, spec.fields); });
+  try{
+    const r = await apiSetPresets(patch);
+    if(r && r.rev !== undefined) sharedRev = r.rev;
+    gpArtefakte = patch.gpArtefakte; gpMounts = patch.gpMounts; gpMountBonus = patch.gpMountBonus;
+    gpGefaehrten = patch.gpGefaehrten; gpGefaehrtenVerstaerkung = patch.gpGefaehrtenVerstaerkung;
+    document.getElementById('saveStatus').textContent = 'Referenzlisten gespeichert (für alle).';
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+
+/* ---------- Unterseite "Planung" (das eigentliche Board) ---------- */
+function renderGpPlanList(){
+  const el = document.getElementById('gpPlanList');
+  if(gpPlans === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
+  el.innerHTML = gpPlans.length ? gpPlans.map(p => `<div class="char-item">
+      <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
+      <button type="button" class="action small" onclick="gpOpenPlan(${JSON.stringify(p.name)})">Öffnen</button>
+      <button type="button" class="action danger small" onclick="gpDeletePlan(${JSON.stringify(p.name)})">Löschen</button>
+    </div>`).join('') : '<p class="helptext">Noch keine Pläne angelegt.</p>';
+  document.getElementById('gpPlanBoard').innerHTML = '';
+}
+async function gpCreatePlan(){
+  const nameEl = document.getElementById('gpNewPlanName');
+  const name = nameEl.value.trim();
+  if(!name) return;
+  try{
+    await apiGpCreatePlan(name);
+    nameEl.value = '';
+    await ensureGpPlansLoaded(true);
+    renderGpPlanList();
+    gpOpenPlan(name);
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+async function gpDeletePlan(name){
+  if(!confirm(`Plan "${name}" wirklich löschen?`)) return;
+  try{
+    await apiGpDeletePlan(name);
+    if(currentGpPlanName === name){ currentGpPlanName = null; currentGpPlanData = null; }
+    await ensureGpPlansLoaded(true);
+    renderGpPlanList();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+async function gpOpenPlan(name){
+  try{
+    const res = await apiGpGetPlan(name);
+    currentGpPlanName = name;
+    currentGpPlanData = res.data && res.data.groups ? res.data : { groups: [] };
+    renderGpPlanBoard();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+function gpNewSlot(){ return { charKey:'', party:'', weapon:'', ausruestung:'', artefakt:'', mount:'', mountBonus:'', gefaehrte:'', gefaehrtenBonus:'' }; }
+function gpAddGroup(){
+  currentGpPlanData.groups.push({ name:'Neue Gruppe', trial:false, showAusruestung:false,
+    rows:[ {rolle:'DPS',...gpNewSlot()},{rolle:'DPS',...gpNewSlot()},{rolle:'DPS',...gpNewSlot()},{rolle:'Heiler',...gpNewSlot()},{rolle:'Tank',...gpNewSlot()} ] });
+  renderGpPlanBoard();
+}
+function gpRemoveGroup(gi){
+  if(!confirm('Diese Gruppe wirklich entfernen?')) return;
+  currentGpPlanData.groups.splice(gi,1);
+  renderGpPlanBoard();
+}
+function gpAddRow(gi, rolle){
+  currentGpPlanData.groups[gi].rows.push({ rolle, ...gpNewSlot() });
+  renderGpPlanBoard();
+}
+function gpRemoveRow(gi, ri){
+  currentGpPlanData.groups[gi].rows.splice(ri,1);
+  renderGpPlanBoard();
+}
+function gpToggleGroupFlag(gi, key){
+  currentGpPlanData.groups[gi][key] = !currentGpPlanData.groups[gi][key];
+  renderGpPlanBoard();
+}
+function gpUpdateGroupName(gi, val){ currentGpPlanData.groups[gi].name = val; }
+function gpUpdateRowField(gi, ri, field, val){ currentGpPlanData.groups[gi].rows[ri][field] = val; }
+// Sonderfall Charakter-Zuweisung: Artefakt-/Mount-/Gefährten-Dropdowns hängen vom
+// gewählten Charakter ab, deshalb hier komplett neu rendern (statt nur den Wert
+// zu setzen wie bei den übrigen Feldern) - sonst zeigen sie noch die alte Auswahl.
+function gpUpdateRowChar(gi, ri, val){
+  const row = currentGpPlanData.groups[gi].rows[ri];
+  row.charKey = val;
+  // Alte Auswahl könnte zum neuen (oder keinem) Charakter nicht mehr passen -
+  // zurücksetzen statt einen unsichtbaren, nicht mehr gültigen Wert zu behalten.
+  ['artefakt','mount','mountBonus','gefaehrte','gefaehrtenBonus'].forEach(f => row[f] = '');
+  renderGpPlanBoard();
+}
+// Für eine Zeile: Optionen einer Besitz-Kategorie, gefiltert auf den zugewiesenen
+// Charakter (falls einer gewählt ist), sonst die volle Referenzliste als Fallback.
+function gpOptionsFor(row, kat){
+  const rec = row.charKey ? gpFindChar(row.charKey) : null;
+  const owned = rec && rec.data && rec.data.besitz && rec.data.besitz[kat.key];
+  const namen = (owned && owned.length) ? owned : kat.liste().map(e=>e.name);
+  return namen;
+}
+function renderGpPlanBoard(){
+  const el = document.getElementById('gpPlanBoard');
+  if(!currentGpPlanName || !currentGpPlanData){ el.innerHTML = ''; return; }
+  const charOptionsHtml = selectedKey => ['<option value="">– frei –</option>',
+    ...(gpCharacters||[]).map(c => {
+      const key = gpCharKey(c.owner,c.name);
+      return `<option value="${key}" ${selectedKey===key?'selected':''}>${escapeHtml(c.name)} (${escapeHtml(c.owner)})</option>`;
+    })].join('');
+
+  const groupsHtml = currentGpPlanData.groups.map((g, gi) => {
+    const rowsHtml = g.rows.map((row, ri) => {
+      const selectFor = (kat, field) => {
+        const namen = gpOptionsFor(row, kat);
+        const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
+        return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)">${opts}</select>`;
+      };
+      return `<tr>
+        <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
+        <td><select onchange="gpUpdateRowChar(${gi},${ri},this.value)">${charOptionsHtml(row.charKey)}</select></td>
+        ${g.trial ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
+            <option value="" ${!row.party?'selected':''}>–</option>
+            <option value="A" ${row.party==='A'?'selected':''}>A</option>
+            <option value="B" ${row.party==='B'?'selected':''}>B</option>
+          </select></td>` : ''}
+        ${g.showAusruestung ? `<td><input type="text" value="${escapeHtml(row.weapon||'')}" oninput="gpUpdateRowField(${gi},${ri},'weapon',this.value)" style="width:110px;"></td>
+          <td><input type="text" value="${escapeHtml(row.ausruestung||'')}" oninput="gpUpdateRowField(${gi},${ri},'ausruestung',this.value)" style="width:110px;"></td>` : ''}
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt')}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
+        <td><button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})">✕</button></td>
+      </tr>`;
+    }).join('');
+    return `<div class="card">
+      <div class="entry-head">
+        <input type="text" class="entry-name" value="${escapeHtml(g.name)}" oninput="gpUpdateGroupName(${gi},this.value)" style="max-width:260px;">
+        <label class="slot-check"><input type="checkbox" ${g.trial?'checked':''} onchange="gpToggleGroupFlag(${gi},'trial')"> Trial (2 Unterguppen A/B)</label>
+        <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
+        <button type="button" class="action danger small" style="margin-left:auto;" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
+      </div>
+      <div class="wide-table-scroll"><table>
+        <thead><tr><th>Rolle</th><th>Spieler</th>${g.trial?'<th>Party</th>':''}${g.showAusruestung?'<th>Weapon</th><th>Ausrüstung</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th><th></th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+      <div class="btnrow" style="margin-top:10px;">
+        <button type="button" class="action small" onclick="gpAddRow(${gi},'DPS')">+ DPS</button>
+        <button type="button" class="action small" onclick="gpAddRow(${gi},'Heiler')">+ Heiler</button>
+        <button type="button" class="action small" onclick="gpAddRow(${gi},'Tank')">+ Tank</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<h2 style="margin-top:20px;">${escapeHtml(currentGpPlanName)}</h2>
+    ${groupsHtml}
+    <div class="btnrow" style="margin:14px 0;">
+      <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>
+      <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">Plan speichern</button>
+    </div>`;
+}
+async function gpSaveCurrentPlan(){
+  if(!currentGpPlanName) return;
+  try{
+    await apiGpSavePlan(currentGpPlanName, currentGpPlanData);
+    await ensureGpPlansLoaded(true);
+    document.getElementById('saveStatus').textContent = `Plan "${currentGpPlanName}" gespeichert.`;
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+
 init();
 </script>
 </body>

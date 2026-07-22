@@ -123,6 +123,20 @@ niemand eine veraltete Seite aus dem Browser-Cache sieht. mathjs liegt lokal
 unter `public/vendor/` bei - der Rechner funktioniert also auch, wenn das
 frühere CDN nicht erreichbar ist.
 
+**Gruppenplaner & Insignienrechner (v0.15.0):** Zwei weitere, komplett
+unabhängige Werkzeuge neben dem Statrechner, über einen Umschalter oben
+erreichbar. Aktuell noch in der Planung und deshalb nur für Rolle Moderator
+und höher sichtbar (wird später für alle geöffnet).
+- **Insignienrechner:** zeigt für eine Start-/Ziel-Qualität und eine Menge,
+  ob es günstiger ist, Insignien einer niedrigeren Qualität zu kaufen und
+  hochzustufen, oder die Zielqualität direkt zu kaufen.
+- **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
+  pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
+  Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-
+  Verstärkungen). Officer legen mehrere benannte Aufstellungs-Pläne an;
+  im Board filtern sich die Ausrüstungs-Dropdowns automatisch auf das, was
+  der zugewiesene Charakter tatsächlich besitzt.
+
 **Sicherungen im Admin-Bereich:** Auf der Benutzer-Seite gibt es die Karte
 „Sicherungen": Presets/Formeln-Historie ansehen, herunterladen und per Knopf
 wiederherstellen (der jetzige Stand wandert dabei selbst in die Historie),

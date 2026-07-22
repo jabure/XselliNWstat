@@ -459,6 +459,50 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.showPage('rechner'); await wait(100);
     check('Nachfrage beim Verlassen mit ungespeicherten Formeln', confirmAsked);
     check('Versions-Link "Was ist neu?"', doc.getElementById('versionTag').innerHTML.includes('commits/main'));
+
+    console.log('\n[9] Gruppenplaner + Insignienrechner (vorerst nur ab Moderator sichtbar)');
+    // "user" ist an dieser Stelle bereits coadmin (Abschnitt 8) - reicht für GP_MIN_ROLE='moderator'.
+    check('App-Switcher zeigt Gruppenplaner/Insignien', doc.getElementById('apptab-gruppenplaner').style.display !== 'none' && doc.getElementById('apptab-insignien').style.display !== 'none');
+
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'TankMax' }) }, token);
+    check('GP-Charakter anlegen (eigener Datentopf)', r.status === 201, r.status);
+    r = await api('/api/gp/characters/TankMax', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Kämpfer', rollen: { dps: false, heal: false, tank: true }, besitz: { mounts: ['Pegasus'], mountBonus: ['Mystische Aura'], gefaehrten: ['Skorpion'] },
+    }) }, token);
+    check('GP-Charakter speichern', r.status === 200, r.status);
+
+    r = await api('/api/gp/plans', { method: 'POST', body: JSON.stringify({ name: 'Trial Sonntag' }) }, token);
+    check('GP-Plan mit Leerzeichen im Namen anlegen', r.status === 201, r.status);
+    r = await api('/api/gp/plans/' + encodeURIComponent('Trial Sonntag'), { method: 'PUT', body: JSON.stringify({ groups: [{ name: 'Gruppe 1', trial: true, showAusruestung: false,
+      rows: [{ rolle: 'Tank', charKey: user + '::TankMax', party: 'A', artefakt: '', mount: 'Pegasus', mountBonus: 'Mystische Aura', gefaehrte: '', gefaehrtenBonus: '' }] }] }) }, token);
+    check('GP-Plan speichern', r.status === 200, r.status);
+    r = await api('/api/gp/plans', {}, token);
+    check('Plan-Liste zeigt den vollen Namen (kein Unterstrich statt Leerzeichen)', r.data.some(p => p.name === 'Trial Sonntag'), JSON.stringify(r.data));
+
+    win.showApp('gruppenplaner'); await wait(700);
+    win.showGpPage('planung'); await wait(500);
+    await win.gpOpenPlan('Trial Sonntag');
+    await wait(300);
+    const gpBoard = doc.getElementById('gpPlanBoard');
+    const groupNameInput = gpBoard.querySelector('input.entry-name');
+    check('Board lädt die gespeicherte Gruppe (Trial -> Party-Spalte da)', groupNameInput && groupNameInput.value === 'Gruppe 1' && gpBoard.textContent.includes('Party'), groupNameInput && groupNameInput.value);
+    const charSelectGp = gpBoard.querySelector('tbody select');
+    check('Zugewiesener Charakter ist im Board vorausgewählt', charSelectGp && charSelectGp.value === user + '::TankMax', charSelectGp && charSelectGp.value);
+    const mountSelectGp = Array.from(gpBoard.querySelectorAll('tbody select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
+    check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
+
+    win.showApp('insignien'); await wait(300);
+    const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge');
+    insStart.value = 'Blau'; insStart.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insZiel.value = 'legendär'; insZiel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    insMenge.value = '2'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await wait(150);
+    // Blau->episch->legendär: 250 * 10 = 2500 pro legendär, ×2 Menge = 5000 benötigte blaue Insignien
+    check('Insignienrechner: Kette über zwei Zwischenstufen korrekt (5.000)', doc.getElementById('insignienContent').textContent.includes('5.000'), doc.getElementById('insignienContent').textContent.slice(0, 200));
+
+    win.showApp('stats'); await wait(200);
+    check('Zurück zum Statrechner funktioniert', doc.getElementById('appStats').style.display !== 'none');
+
     dom.window.close();
   } catch (e) {
     failed++;
