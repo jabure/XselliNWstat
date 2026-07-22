@@ -462,7 +462,7 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
 
     console.log('\n[9] Gruppenplaner + Insignienrechner (vorerst nur ab Moderator sichtbar)');
     // "user" ist an dieser Stelle bereits coadmin (Abschnitt 8) - reicht für GP_MIN_ROLE='moderator'.
-    check('App-Switcher zeigt Gruppenplaner/Insignien', doc.getElementById('apptab-gruppenplaner').style.display !== 'none' && doc.getElementById('apptab-insignien').style.display !== 'none');
+    check('App-Switcher (Dropdown) zeigt Gruppenplaner/Insignien-Optionen', Array.from(doc.getElementById('appSelect').options).map(o=>o.value).join(',') === 'stats,gruppenplaner,insignien', Array.from(doc.getElementById('appSelect').options).map(o=>o.value));
 
     r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'TankMax' }) }, token);
     check('GP-Charakter anlegen (eigener Datentopf)', r.status === 201, r.status);
@@ -480,6 +480,7 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Plan-Liste zeigt den vollen Namen (kein Unterstrich statt Leerzeichen)', r.data.some(p => p.name === 'Trial Sonntag'), JSON.stringify(r.data));
 
     win.showApp('gruppenplaner'); await wait(700);
+    check('Gruppenplaner: eigener Titel/Untertitel', doc.getElementById('mainTitle').textContent === 'Gruppenplaner' && !doc.getElementById('mainSubtitle').textContent.includes('grün markierten Feldern'));
     win.showGpPage('planung'); await wait(500);
     await win.gpOpenPlan('Trial Sonntag');
     await wait(300);
@@ -493,6 +494,17 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');
+    check('Insignienrechner: eigener Titel/Untertitel', doc.getElementById('mainTitle').textContent === 'Insignienrechner' && !doc.getElementById('mainSubtitle').textContent.includes('grün markierten Feldern'));
+
+    // Kernbug aus der Meldung: Eingabefelder durften beim Tippen NICHT neu erzeugt
+    // werden (sonst geht der Fokus nach jeder Ziffer verloren). Marker am Element
+    // setzen, mehrere Ziffern eintippen, danach prüfen ob dasselbe DOM-Element
+    // (mit Marker) noch da ist statt eines frisch gebauten.
+    insMenge._focusTestMarker = 'unveraendert';
+    ['1','12','123'].forEach(v=>{ insMenge.value = v; insMenge.dispatchEvent(new win.Event('input', { bubbles: true })); });
+    await wait(50);
+    check('Insignienrechner: Eingabefeld bleibt beim Tippen dasselbe Element (kein Fokus-Verlust)', doc.getElementById('insMenge')._focusTestMarker === 'unveraendert' && doc.getElementById('insMenge').value === '123');
+    insMenge.value = '1'; insMenge.dispatchEvent(new win.Event('input', { bubbles: true })); await wait(50);
 
     // Nutzer-Referenzbeispiel: mystisch -> celestisch (1 Stufe, kostet 2500 Pulver),
     // 1 Stück, ohne vorhandenes Pulver: 1250 grüne Insignien nötig (2500 / 2 Pulver-

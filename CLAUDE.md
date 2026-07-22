@@ -97,10 +97,16 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Sichtbarkeit der App-Tabs als auch JEDEN /api/gp/*-Aufruf server-seitig.
   **Seit v0.15.1:** App-Switcher sitzt jetzt GANZ OBEN LINKS in einer
   gemeinsamen .top-bar-Zeile zusammen mit dem Konto-Button rechts (VOR dem
-  h1-Titel) statt darunter - Nutzerwunsch. Nur EIN #appSwitcher-Element darf
-  existieren; beim Bauen ist versehentlich ein doppelter/kaputter Rest
-  stehengeblieben (leere zweite <div class="app-switcher">) - beim
-  Umbauen der Kopfzeile künftig genau pruefen, dass keine Duplikate entstehen.
+  h1-Titel) statt darunter - Nutzerwunsch.
+  **Seit v0.15.4 (Nutzerwunsch):** App-Switcher ist jetzt ein <select
+  id="appSelect"> statt drei <button>-Tabs (kein #appSwitcher/#apptab-*
+  mehr - falls alter Code danach sucht, ist das ein Bug). updateApp-
+  SwitcherVisibility() baut die <option>-Liste komplett neu (nur 'stats'
+  für normale Rollen, +gruppenplaner/insignien ab Moderator) statt einzelne
+  Optionen zu verstecken. showApp() setzt zusätzlich mainTitle/mainSubtitle
+  aus APP_INFO[name] - jeder Bereich hat jetzt einen EIGENEN Erklärtext
+  (der lange Statrechner-Text erscheint nur noch auf der Statrechner-Seite,
+  nicht mehr global sichtbar wie bis v0.15.3).
   - Insignienrechner: rein clientseitig, INSIGNIE_RATIO (feste Spielmechanik,
     NICHT editierbar) + insigniePreise (editierbar, Presets-Endpunkt).
     **Seit v0.15.1 (Nutzer-Referenz-Screenshot deckte Fehler auf):**
@@ -153,6 +159,20 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     und ist jetzt die Ergebnistabelle selbst (kein separater Info-Block
     mehr mit "Pulver (verwertet)"/"Gesamt Pulver"-Spalten - die waren
     dekorativ und sind komplett raus).
+  **Seit v0.15.4: Fokus-Bug behoben.** renderInsignien() baute bei JEDER
+  Zifferneingabe (Menge/Pulver/Preise) das komplette innerHTML neu auf ->
+  Eingabefelder wurden dabei als neue DOM-Elemente erzeugt, Fokus/Cursor
+  ging nach jedem einzelnen Tastendruck verloren. Behoben durch Aufteilung:
+  renderInsignien() baut das Grundgerüst nur einmal (bei App-Eintritt oder
+  Start-/Ziel-Auswahl, wo Struktur sich wirklich ändert - Fehlermeldung vs.
+  Tabelle), updateInsignienErgebnis() schreibt bei jeder Zahlen-Eingabe NUR
+  die berechneten Werte in bereits vorhandene Zellen per ID/textContent,
+  OHNE innerHTML der Eingabefelder anzufassen. WICHTIGE REGEL für künftige
+  Render-Funktionen mit Live-Eingabefeldern: niemals bei jedem 'input'-
+  Event das umgebende innerHTML neu setzen, wenn sich nur Zahlen und nicht
+  die Struktur ändern - sonst genau dieser Fokus-Verlust-Bug. Smoke-Test
+  prüft das direkt (Marker-Property am DOM-Element muss nach mehreren
+  Eingaben erhalten bleiben, sonst wurde das Element neu erzeugt).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner
