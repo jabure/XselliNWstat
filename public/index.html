@@ -306,6 +306,13 @@
   .ins-stat .lbl{display:block; font-size:0.74rem; color:var(--text-dim); margin-bottom:2px;}
   .ins-stat .val{display:block; font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums;}
   .ins-table-narrow{max-width:640px;}
+  /* Zweispaltiges Layout: links Kennzahlen-Kacheln, rechts Vergleichstabelle+Fazit -
+     spart Höhe gegenüber dem vorherigen gestapelten Aufbau. Bricht auf schmalen
+     Bildschirmen (Handy) auf eine Spalte um. */
+  .ins-layout{display:grid; grid-template-columns:minmax(260px,1fr) minmax(320px,1.4fr); gap:20px; align-items:start;}
+  @media (max-width:800px){ .ins-layout{grid-template-columns:1fr;} }
+  .ins-col-left .ins-stat-row{flex-direction:column;}
+  .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
   .ovw-charbtn:hover{color:var(--gold); text-decoration:underline;}
   table.ovw .subgroup-header td{position:sticky; left:0; z-index:3; background:var(--panel-2); box-shadow:2px 0 4px rgba(0,0,0,0.35);}
@@ -4766,27 +4773,29 @@ function renderInsignien(){
   // die eigentlichen Zahlen werden danach von updateInsignienErgebnis() direkt in
   // die vorhandenen Elemente geschrieben, OHNE das HTML neu aufzubauen (sonst
   // verlieren die Eingabefelder bei jeder Zifferneingabe den Fokus).
-  let ergebnisHtml;
+  // Zweispaltig (Nutzerwunsch "weniger Platz"): links Eingaben + Kennzahlen-Kacheln,
+  // rechts die Vergleichstabelle + Fazit - bricht auf schmalen Bildschirmen um.
+  let linksHtml, rechtsHtml;
   if(zielIdx <= startIdx){
-    ergebnisHtml = `<p class="helptext">Die Ziel-Qualität muss höher sein als die Start-Qualität.</p>`;
+    linksHtml = '';
+    rechtsHtml = `<p class="helptext">Die Ziel-Qualität muss höher sein als die Start-Qualität.</p>`;
   } else {
-    // Kompakte Kennzahlen als Kacheln statt einer über die volle Breite gestreckten
-    // Tabelle (das sorgte vorher für riesige Lücken zwischen Label und Wert).
+    linksHtml = `
+      <div class="ins-stat-row">
+        <div class="ins-stat"><span class="lbl" id="insKettenText"></span><span class="val computed" id="insPulverBenoetigt"></span></div>
+        <div class="ins-stat"><span class="lbl">davon schon vorhanden</span><span class="val" id="insPulverVorhandenAnzeige"></span></div>
+        <div class="ins-stat"><span class="lbl">Pulver fehlt noch</span><span class="val" id="insPulverFehlend"></span></div>
+        <div class="ins-stat"><span class="lbl" id="insKostenStartLabel"></span><span class="val" id="insKostenStart"></span></div>
+      </div>`;
     const rowsHtml = INSIGNIE_QUALITAETEN.map(q => `<tr id="insRow-${q}">
       <td class="statname" id="insLabel-${q}">${q}</td>
       <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${q}" data-field="ah" value="${formatWerte((insigniePreise[q]||{}).ah)}"></td>
       <td style="text-align:right;" id="insBenoetigt-${q}"></td>
       <td style="text-align:right;" class="computed" id="insKosten-${q}"></td>
     </tr>`).join('');
-    ergebnisHtml = `
-      <div class="ins-stat-row">
-        <div class="ins-stat"><span class="lbl" id="insKettenText"></span><span class="val computed" id="insPulverBenoetigt"></span></div>
-        <div class="ins-stat"><span class="lbl">davon schon vorhanden</span><span class="val" id="insPulverVorhandenAnzeige"></span></div>
-        <div class="ins-stat"><span class="lbl">Pulver fehlt noch</span><span class="val" id="insPulverFehlend"></span></div>
-        <div class="ins-stat"><span class="lbl" id="insKostenStartLabel"></span><span class="val" id="insKostenStart"></span></div>
-      </div>
-      <p class="helptext" style="margin:10px 0 4px 0;">Fehlendes Pulver decken durch Verwerten von:</p>
-      <div class="wide-table-scroll ins-table-narrow"><table>
+    rechtsHtml = `
+      <p class="helptext" style="margin:0 0 4px 0;">Fehlendes Pulver decken durch Verwerten von:</p>
+      <div class="wide-table-scroll"><table>
         <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;" id="insGesamtHeader"></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
@@ -4803,7 +4812,10 @@ function renderInsignien(){
       <div><label>Menge (Start-Insignien, die du hochstufst)</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
       <div><label>Insignien-Pulver, das du schon hast</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insPulver" value="${formatWerte(insigniePulverVorhanden)}"></div>
     </div>
-    <div style="margin-top:10px;">${ergebnisHtml}</div>
+    <div class="ins-layout" style="margin-top:10px;">
+      <div class="ins-col-left">${linksHtml}</div>
+      <div class="ins-col-right">${rechtsHtml}</div>
+    </div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">Preise speichern (für alle)</button></div>
   </div>`;
 

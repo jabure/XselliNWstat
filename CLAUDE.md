@@ -190,6 +190,13 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   zurückgekommen (erst reingebaut, dann in genau dieser Session selbst
   entdeckt und gefixt, bevor es committed wurde - bei ähnlichen "Text +
   eingebettetes Input"-Konstrukten immer gegenchecken).
+  **Seit v0.15.7 (Nutzerwunsch "weniger Platz"):** zweispaltiges Layout
+  (.ins-layout, CSS Grid) - links Kennzahlen-Kacheln (.ins-col-left, jetzt
+  UNTEREINANDER statt nebeneinander, da die Spalte schmaler ist), rechts
+  die Vergleichstabelle+Fazit (.ins-col-right). Bricht unter 800px auf eine
+  Spalte um. Ab v0.15.7 gilt außerdem: KEINE Bundle-Datei mehr erstellen/
+  präsentieren, der Nutzer pusht/zieht nur noch direkt über GitHub - present_files
+  nur noch für andere Artefakte nutzen, nicht mehr für xselli-server.bundle.
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner
