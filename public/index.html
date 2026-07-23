@@ -4951,17 +4951,28 @@ async function ensureGpPlansLoaded(force){
 }
 
 /* ---------- Unterseite "Meine Charaktere" ---------- */
+// Merkt sich die Reihenfolge der "mine"-Liste vom letzten Rendern, damit die
+// Bearbeiten-/Löschen-Buttons per INDEX statt per eingebettetem Namen arbeiten
+// können (ein Name mit Anführungszeichen im onclick-Attribut hätte das HTML
+// kaputt gemacht - siehe gemeldeter Bug "Bearbeiten tut nichts").
+let gpMyCharsOrder = [];
 function renderGpCharList(){
   const el = document.getElementById('gpCharList');
   if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
   const mine = gpCharacters.filter(c => c.isOwner);
-  el.innerHTML = mine.length ? mine.map(c => `<div class="char-item">
+  gpMyCharsOrder = mine.map(c => c.name);
+  el.innerHTML = mine.length ? mine.map((c,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(c.name)} <span class="muted">${escapeHtml(c.data.klasse||'')}</span></span>
-      <button type="button" class="action small" onclick="gpEditingCharName=${JSON.stringify(c.name)};renderGpCharEditor();">Bearbeiten</button>
-      <button type="button" class="action danger small" onclick="gpDeleteCharacter(${JSON.stringify(c.name)})">Löschen</button>
+      <button type="button" class="action small" onclick="gpEditCharacterByIndex(${i})">Bearbeiten</button>
+      <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">Löschen</button>
     </div>`).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
   renderGpCharEditor();
 }
+function gpEditCharacterByIndex(i){
+  gpEditingCharName = gpMyCharsOrder[i];
+  renderGpCharEditor();
+}
+function gpDeleteCharacterByIndex(i){ gpDeleteCharacter(gpMyCharsOrder[i]); }
 async function gpCreateCharacter(){
   const nameEl = document.getElementById('gpNewCharName');
   const name = nameEl.value.trim();
@@ -5008,7 +5019,7 @@ function renderGpCharEditor(){
         <input type="checkbox" data-gpbesitz="${kat.key}" value="${escapeHtml(e.name)}" ${owned.includes(e.name)?'checked':''}>
         ${escapeHtml(e.name)}${kat.sub(e) ? ` <span class="muted" style="font-size:0.75rem;">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}
       </label>`).join('');
-    return `<div class="accordion" id="acc-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
+    return `<div class="accordion" id="acc-dmg-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
         <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
       </button><div class="body">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div>`;
   }).join('');
@@ -5113,10 +5124,10 @@ async function gpSaveReferenzlisten(){
 function renderGpPlanList(){
   const el = document.getElementById('gpPlanList');
   if(gpPlans === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
-  el.innerHTML = gpPlans.length ? gpPlans.map(p => `<div class="char-item">
+  el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
-      <button type="button" class="action small" onclick="gpOpenPlan(${JSON.stringify(p.name)})">Öffnen</button>
-      <button type="button" class="action danger small" onclick="gpDeletePlan(${JSON.stringify(p.name)})">Löschen</button>
+      <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">Öffnen</button>
+      <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">Löschen</button>
     </div>`).join('') : '<p class="helptext">Noch keine Pläne angelegt.</p>';
   document.getElementById('gpPlanBoard').innerHTML = '';
 }

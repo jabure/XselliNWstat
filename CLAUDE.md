@@ -213,6 +213,29 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Listener-Zuweisung deshalb mit null-Check abgesichert. Verifiziert am
   Referenzbeispiel: grün-Gesamt ohne Haken 2.375.000, mit Haken 3.525.000
   (=2.375.000 + 1.150.000 Kosten der mystisch-Start-Insignie).
+- **Seit v0.16.0: zwei echte Gruppenplaner-Bugs gefixt, beide fielen erst
+  bei echten Button-Klicks auf, NICHT bei direktem Funktionsaufruf im Test
+  (Lehre: UI-Tests IMMER per .click() auf den echten Button, nicht per
+  win.irgendeineFunktion(name) - sonst wird kaputtes onclick-HTML nie
+  entdeckt).**
+  1) "Bearbeiten" tat nichts: `onclick="...${JSON.stringify(c.name)}..."`
+     erzeugt `"Name"` mit LITERALEN Anführungszeichen, die mit dem
+     umgebenden onclick="..."-Attribut kollidieren -> kaputtes HTML, die
+     Zuweisung bricht mitten im Attribut ab. Betraf renderGpCharList
+     (Bearbeiten/Löschen) UND renderGpPlanList (Öffnen/Löschen der Pläne).
+     FIX: nie mehr Namen/Strings direkt per JSON.stringify in ein
+     onclick="..."-Attribut einbetten. Stattdessen entweder (a) Index ins
+     Array übergeben und im Handler frisch nachschlagen (gpEditCharacterByIndex,
+     gpMyCharsOrder-Array; gpOpenPlan(gpPlans[i].name) mit reinem Integer im
+     onclick) - das etablierte, sichere Muster im Rest der App (siehe
+     confirmDeleteCharacterByIndex), oder (b) wie gpAddRefRow bereits tat:
+     `.replace(/"/g,'&quot;')` auf das JSON anwenden.
+  2) Besitz-Listen (Artefakte/Mounts/...) ließen sich nicht aufklappen:
+     renderGpCharEditor baute die Accordion-divs mit id="acc-gpchar-X",
+     aber der onclick rief toggleDmgAccordion('gpchar-X') auf, das
+     id="acc-dmg-gpchar-X" erwartet (Präfix "acc-dmg-" ist in der Funktion
+     hart kodiert) - ID-Mismatch, Funktion fand das Element nie. Div-ID auf
+     "acc-dmg-gpchar-X" korrigiert.
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

@@ -481,9 +481,35 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
 
     win.showApp('gruppenplaner'); await wait(700);
     check('Gruppenplaner: eigener Titel/Untertitel', doc.getElementById('mainTitle').textContent === 'Gruppenplaner' && !doc.getElementById('mainSubtitle').textContent.includes('grün markierten Feldern'));
+
+    // "Meine Charaktere": über die ECHTEN Buttons bedienen (nicht die JS-Funktionen
+    // direkt aufrufen) - deckt Bugs im onclick-HTML ab, die ein direkter Funktions-
+    // aufruf nicht sehen würde (genau das ist beim Bearbeiten-Button und beim
+    // Besitz-Akkordeon passiert: kaputtes onclick durch nicht escapte Anführungszeichen
+    // bzw. eine falsche Element-ID - beides fiel erst durch echte Klicks auf).
+    win.showGpPage('charaktere'); await wait(300);
+    doc.getElementById('gpNewCharName').value = 'CharA'; win.gpCreateCharacter(); await wait(600);
+    doc.getElementById('gpNewCharName').value = 'CharB'; win.gpCreateCharacter(); await wait(600);
+    const bearbeitenBtnFuer = name => Array.from(doc.querySelectorAll('#gpCharList .char-item'))
+      .find(item => item.textContent.includes(name))
+      ?.querySelector('button');
+    const btnCharA = bearbeitenBtnFuer('CharA'), btnCharB = bearbeitenBtnFuer('CharB');
+    check('Meine Charaktere: Bearbeiten-Buttons für CharA und CharB vorhanden', !!btnCharA && !!btnCharB);
+    btnCharA.click(); await wait(200);
+    check('Bearbeiten-Button (echter Klick) öffnet den richtigen Charakter (CharA)', doc.querySelector('#gpCharEditor h2').textContent.includes('CharA'), doc.querySelector('#gpCharEditor h2').textContent);
+    btnCharB.click(); await wait(200);
+    check('Bearbeiten-Button wechselt beim zweiten Klick korrekt zu CharB', doc.querySelector('#gpCharEditor h2').textContent.includes('CharB'), doc.querySelector('#gpCharEditor h2').textContent);
+    const gpAccBtn = doc.querySelector('#gpCharEditor .accordion button');
+    const gpAccDiv = gpAccBtn.closest('.accordion');
+    check('Besitz-Akkordeon ist zunächst zu', !gpAccDiv.classList.contains('open'));
+    gpAccBtn.click(); await wait(100);
+    check('Besitz-Akkordeon lässt sich per Klick öffnen (Artefakte-Liste)', gpAccDiv.classList.contains('open'));
+
     win.showGpPage('planung'); await wait(500);
-    await win.gpOpenPlan('Trial Sonntag');
-    await wait(300);
+    const oeffnenBtn = Array.from(doc.querySelectorAll('#gpPlanList button')).find(b => b.textContent.trim() === 'Öffnen');
+    check('Plan-Liste: "Öffnen"-Button vorhanden', !!oeffnenBtn);
+    if(oeffnenBtn) oeffnenBtn.click();
+    await wait(400);
     const gpBoard = doc.getElementById('gpPlanBoard');
     const groupNameInput = gpBoard.querySelector('input.entry-name');
     check('Board lädt die gespeicherte Gruppe (Trial -> Party-Spalte da)', groupNameInput && groupNameInput.value === 'Gruppe 1' && gpBoard.textContent.includes('Party'), groupNameInput && groupNameInput.value);
