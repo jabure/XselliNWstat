@@ -140,7 +140,11 @@ und höher sichtbar (wird später für alle geöffnet).
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-
   Verstärkungen). Officer legen mehrere benannte Aufstellungs-Pläne an;
   im Board filtern sich die Ausrüstungs-Dropdowns automatisch auf das, was
-  der zugewiesene Charakter tatsächlich besitzt.
+  der zugewiesene Charakter tatsächlich besitzt. Jede Gruppe kann zwischen
+  Dungeon (5 Spieler) und Trial (10 Spieler, 2 Untergruppen A/B) umgestellt
+  werden; die Rolle einer Zeile lässt sich jederzeit nachträglich ändern;
+  und Mitspieler ohne eigenes Profil können mit einem frei eingetragenen
+  Namen aufgenommen werden.
 
 **Sicherungen im Admin-Bereich:** Auf der Benutzer-Seite gibt es die Karte
 „Sicherungen": Presets/Formeln-Historie ansehen, herunterladen und per Knopf

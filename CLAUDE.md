@@ -236,6 +236,30 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
      id="acc-dmg-gpchar-X" erwartet (Präfix "acc-dmg-" ist in der Funktion
      hart kodiert) - ID-Mismatch, Funktion fand das Element nie. Div-ID auf
      "acc-dmg-gpchar-X" korrigiert.
+- **Seit v0.17.0: Board-Erweiterungen (Nutzerwunsch).**
+  - Gruppe hat jetzt g.modus ('dungeon'|'trial') statt boolean g.trial.
+    Rückwärtskompatibel: renderGpPlanBoard() normalisiert alte gespeicherte
+    Pläne beim Anzeigen (`if(!g.modus) g.modus = g.trial ? 'trial' : 'dungeon'`).
+    gpSetGroupModus(gi, modus) verdoppelt die Zeilen NUR wenn die Gruppe
+    genau die Standardgröße hat (5->10 bei dungeon->trial, 10->5 mit
+    confirm() bei trial->dungeon) - bei von Hand angepassten Zeilenzahlen
+    wird nur der Modus/die Party-Spalte umgestellt, nichts wird ungefragt
+    gelöscht.
+  - Rolle einer Zeile ist jetzt ein <select> (gpUpdateRowRolle), kein
+    statisches typ-badge mehr - dadurch lässt sich eine Zeile nachträglich
+    DPS<->Heiler<->Tank umschalten statt löschen+neu anlegen zu müssen.
+    Farblich wie vorher über .typ-select-dps/-heal/-tank.
+  - Spieler-Dropdown hat einen neuen Wert "__frei__" ("Freier Name, nicht
+    im System") - zeigt dann ein Textfeld (row.freierName) für Mitspieler
+    ohne eigenes Gruppenplaner-Profil. gpOptionsFor() behandelt "__frei__"
+    automatisch wie "kein Charakter zugewiesen" (gpFindChar findet nichts,
+    Besitz-Dropdowns fallen auf die volle Referenzliste zurück) - keine
+    Sonderbehandlung nötig.
+  - TEST-FALLE (wieder reingelaufen): win.currentGpPlanData ist immer
+    undefined - top-level let/const hängen NICHT an window (nur
+    function-Deklarationen tun das). GP-Board-Tests IMMER über das DOM
+    verifizieren (Zeilenanzahl zählen, Radio-/Select-Werte lesen), nie über
+    win.currentGpPlanData....
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

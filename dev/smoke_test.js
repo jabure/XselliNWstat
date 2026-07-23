@@ -513,10 +513,54 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const gpBoard = doc.getElementById('gpPlanBoard');
     const groupNameInput = gpBoard.querySelector('input.entry-name');
     check('Board lädt die gespeicherte Gruppe (Trial -> Party-Spalte da)', groupNameInput && groupNameInput.value === 'Gruppe 1' && gpBoard.textContent.includes('Party'), groupNameInput && groupNameInput.value);
-    const charSelectGp = gpBoard.querySelector('tbody select');
+    // Rolle ist jetzt selbst ein <select> (nachträglich änderbar) und steht VOR dem
+    // Spieler-Select in der Zeile - deshalb gezielt das zweite Select der ersten Zeile.
+    const ersteZeileSelects = gpBoard.querySelectorAll('tbody tr:first-child select');
+    check('Rolle-Dropdown ist vorhanden und steht auf Tank', ersteZeileSelects[0] && ersteZeileSelects[0].value === 'Tank', ersteZeileSelects[0] && ersteZeileSelects[0].value);
+    const charSelectGp = ersteZeileSelects[1];
     check('Zugewiesener Charakter ist im Board vorausgewählt', charSelectGp && charSelectGp.value === user + '::TankMax', charSelectGp && charSelectGp.value);
     const mountSelectGp = Array.from(gpBoard.querySelectorAll('tbody select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
     check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
+
+    // Rolle einer bestehenden Zeile nachträglich ändern (DPS -> Heiler), ohne die
+    // Zeile zu löschen und neu anzulegen.
+    win.gpAddRow(0, 'DPS'); await wait(100);
+    let gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const neueZeileIdx = gpRows.length - 1;
+    const rolleSelectNeu = gpRows[neueZeileIdx].querySelector('select');
+    check('Neue Zeile hat Rolle DPS', rolleSelectNeu.value === 'DPS');
+    win.gpUpdateRowRolle(0, neueZeileIdx, 'Heiler'); await wait(100);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    check('Rolle einer Zeile lässt sich nachträglich auf Heiler ändern', gpRows[neueZeileIdx].querySelector('select').value === 'Heiler', gpRows[neueZeileIdx].querySelector('select').value);
+
+    // Freier Name (Mitspieler ohne eigenes Konto/Profil) - Ueberpruefung rein ueber
+    // das DOM, da top-level "let"-Variablen wie currentGpPlanData NICHT an window
+    // haengen (win.currentGpPlanData waere immer undefined).
+    win.gpUpdateRowChar(0, neueZeileIdx, '__frei__'); await wait(100);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const freierNameInput = gpRows[neueZeileIdx].querySelector('input[type="text"]');
+    check('"Freier Name"-Eingabefeld erscheint nach Auswahl von "__frei__"', !!freierNameInput);
+    if(freierNameInput){
+      freierNameInput.value = 'Gast Mira';
+      freierNameInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+      await wait(100);
+      check('Freier Name bleibt im Eingabefeld erhalten', freierNameInput.value === 'Gast Mira');
+    }
+
+    // Dungeon (5) <-> Trial (10): bei der Standardgröße wird automatisch verdoppelt/halbiert.
+    win.gpAddGroup(); await wait(100);
+    const gpCards = () => doc.querySelectorAll('#gpPlanBoard .card');
+    const neueGruppeIdx = gpCards().length - 1;
+    const zeilenImCard = idx => gpCards()[idx].querySelectorAll('tbody tr').length;
+    check('Neue Gruppe startet im Dungeon-Modus mit 5 Zeilen',
+      gpCards()[neueGruppeIdx].querySelector('input[value="dungeon"]').checked && zeilenImCard(neueGruppeIdx) === 5,
+      zeilenImCard(neueGruppeIdx));
+    win.gpSetGroupModus(neueGruppeIdx, 'trial'); await wait(100);
+    check('Dungeon -> Trial verdoppelt auf 10 Zeilen', zeilenImCard(neueGruppeIdx) === 10, zeilenImCard(neueGruppeIdx));
+    check('Trial-Modus zeigt die Party-Spalte für die neue Gruppe', gpCards()[neueGruppeIdx].textContent.includes('Party'));
+    win.confirm = () => true; // Rückwechsel fragt nach, im Test immer bestätigen
+    win.gpSetGroupModus(neueGruppeIdx, 'dungeon'); await wait(100);
+    check('Trial -> Dungeon kürzt nach Bestätigung wieder auf 5 Zeilen', zeilenImCard(neueGruppeIdx) === 5, zeilenImCard(neueGruppeIdx));
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');

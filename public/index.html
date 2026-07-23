@@ -292,6 +292,12 @@
   .typ-dps{background:rgba(201,96,63,0.18); color:var(--off); border:1px solid var(--off);}
   .typ-tank{background:rgba(63,127,166,0.18); color:var(--def); border:1px solid var(--def);}
   .typ-heal{background:rgba(74,155,110,0.18); color:var(--sup); border:1px solid var(--sup);}
+  /* Gruppenplaner-Board: Rolle ist ein <select> (nachträglich änderbar), farblich
+     passend zu den bisherigen typ-badge-Farben eingefärbt. */
+  .typ-select{font-weight:700; font-size:0.85rem; border-radius:10px; padding:2px 6px;}
+  .typ-select-dps{background:rgba(201,96,63,0.18); color:var(--off); border:1px solid var(--off);}
+  .typ-select-tank{background:rgba(63,127,166,0.18); color:var(--def); border:1px solid var(--def);}
+  .typ-select-heal{background:rgba(74,155,110,0.18); color:var(--sup); border:1px solid var(--sup);}
   .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:4px; padding:2px 5px;}
   /* Insignienrechner: günstigste Pulver-Quelle hervorheben */
   tr.best-row td{background:rgba(200,149,46,0.10); box-shadow:inset 3px 0 0 var(--gold);}
@@ -5160,9 +5166,9 @@ async function gpOpenPlan(name){
     renderGpPlanBoard();
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }
-function gpNewSlot(){ return { charKey:'', party:'', weapon:'', ausruestung:'', artefakt:'', mount:'', mountBonus:'', gefaehrte:'', gefaehrtenBonus:'' }; }
+function gpNewSlot(){ return { charKey:'', freierName:'', party:'', weapon:'', ausruestung:'', artefakt:'', mount:'', mountBonus:'', gefaehrte:'', gefaehrtenBonus:'' }; }
 function gpAddGroup(){
-  currentGpPlanData.groups.push({ name:'Neue Gruppe', trial:false, showAusruestung:false,
+  currentGpPlanData.groups.push({ name:'Neue Gruppe', modus:'dungeon', showAusruestung:false,
     rows:[ {rolle:'DPS',...gpNewSlot()},{rolle:'DPS',...gpNewSlot()},{rolle:'DPS',...gpNewSlot()},{rolle:'Heiler',...gpNewSlot()},{rolle:'Tank',...gpNewSlot()} ] });
   renderGpPlanBoard();
 }
@@ -5179,27 +5185,51 @@ function gpRemoveRow(gi, ri){
   currentGpPlanData.groups[gi].rows.splice(ri,1);
   renderGpPlanBoard();
 }
+// Wechsel zwischen Dungeon (5 Spieler) und Trial (10 Spieler, 2 Untergruppen A/B).
+// Bei einer frisch angelegten Standard-Gruppe (genau 5 bzw. 10 Zeilen) wird die
+// Zeilenzahl automatisch angepasst (verdoppelt/halbiert); bei bereits von Hand
+// angepassten Gruppen wird nur der Modus (und damit die Party-Spalte) umgestellt,
+// ohne ungefragt Zeilen mit eingetragenen Spielern zu entfernen.
+function gpSetGroupModus(gi, modus){
+  const g = currentGpPlanData.groups[gi];
+  if(g.modus === modus) return;
+  if(modus === 'trial' && g.rows.length === 5){
+    g.rows = g.rows.concat(g.rows.map(r => ({ ...gpNewSlot(), rolle: r.rolle })));
+  } else if(modus === 'dungeon' && g.rows.length === 10){
+    if(!confirm('Von Trial (10) auf Dungeon (5) umstellen entfernt die hinteren 5 Plätze - fortfahren?')) return;
+    g.rows = g.rows.slice(0, 5);
+  }
+  g.modus = modus;
+  renderGpPlanBoard();
+}
 function gpToggleGroupFlag(gi, key){
   currentGpPlanData.groups[gi][key] = !currentGpPlanData.groups[gi][key];
   renderGpPlanBoard();
 }
 function gpUpdateGroupName(gi, val){ currentGpPlanData.groups[gi].name = val; }
 function gpUpdateRowField(gi, ri, field, val){ currentGpPlanData.groups[gi].rows[ri][field] = val; }
+// Rolle einer bestehenden Zeile nachträglich ändern (z. B. DPS -> Heiler), ohne die
+// Zeile löschen und neu anlegen zu müssen.
+function gpUpdateRowRolle(gi, ri, val){ currentGpPlanData.groups[gi].rows[ri].rolle = val; renderGpPlanBoard(); }
 // Sonderfall Charakter-Zuweisung: Artefakt-/Mount-/Gefährten-Dropdowns hängen vom
 // gewählten Charakter ab, deshalb hier komplett neu rendern (statt nur den Wert
 // zu setzen wie bei den übrigen Feldern) - sonst zeigen sie noch die alte Auswahl.
+// "__frei__" bedeutet: kein registrierter Charakter, stattdessen ein frei
+// eingetragener Name (für Mitspieler ohne eigenes Konto/Profil).
 function gpUpdateRowChar(gi, ri, val){
   const row = currentGpPlanData.groups[gi].rows[ri];
   row.charKey = val;
+  row.freierName = '';
   // Alte Auswahl könnte zum neuen (oder keinem) Charakter nicht mehr passen -
   // zurücksetzen statt einen unsichtbaren, nicht mehr gültigen Wert zu behalten.
   ['artefakt','mount','mountBonus','gefaehrte','gefaehrtenBonus'].forEach(f => row[f] = '');
   renderGpPlanBoard();
 }
 // Für eine Zeile: Optionen einer Besitz-Kategorie, gefiltert auf den zugewiesenen
-// Charakter (falls einer gewählt ist), sonst die volle Referenzliste als Fallback.
+// Charakter (falls einer gewählt ist), sonst die volle Referenzliste als Fallback
+// (das gilt automatisch auch für "__frei__", da es dafür keinen Charakter-Datensatz gibt).
 function gpOptionsFor(row, kat){
-  const rec = row.charKey ? gpFindChar(row.charKey) : null;
+  const rec = (row.charKey && row.charKey !== '__frei__') ? gpFindChar(row.charKey) : null;
   const owned = rec && rec.data && rec.data.besitz && rec.data.besitz[kat.key];
   const namen = (owned && owned.length) ? owned : kat.liste().map(e=>e.name);
   return namen;
@@ -5207,11 +5237,16 @@ function gpOptionsFor(row, kat){
 function renderGpPlanBoard(){
   const el = document.getElementById('gpPlanBoard');
   if(!currentGpPlanName || !currentGpPlanData){ el.innerHTML = ''; return; }
-  const charOptionsHtml = selectedKey => ['<option value="">– frei –</option>',
+  // Rückwärtskompatibel: ältere Pläne kennen noch das boolesche Feld "trial"
+  // statt "modus" - beim Anzeigen einmalig umwandeln.
+  currentGpPlanData.groups.forEach(g => { if(!g.modus) g.modus = g.trial ? 'trial' : 'dungeon'; });
+  const charOptionsHtml = selectedKey => ['<option value="">– kein Spieler –</option>',
+    '<option value="__frei__">– Freier Name (nicht im System) –</option>',
     ...(gpCharacters||[]).map(c => {
       const key = gpCharKey(c.owner,c.name);
       return `<option value="${key}" ${selectedKey===key?'selected':''}>${escapeHtml(c.name)} (${escapeHtml(c.owner)})</option>`;
     })].join('');
+  const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r}</option>`).join('');
 
   const groupsHtml = currentGpPlanData.groups.map((g, gi) => {
     const rowsHtml = g.rows.map((row, ri) => {
@@ -5220,10 +5255,13 @@ function renderGpPlanBoard(){
         const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
         return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)">${opts}</select>`;
       };
+      const spielerFeld = row.charKey === '__frei__'
+        ? `<input type="text" placeholder="Name eingeben" value="${escapeHtml(row.freierName||'')}" oninput="gpUpdateRowField(${gi},${ri},'freierName',this.value)" style="width:100%;margin-top:4px;">`
+        : '';
       return `<tr>
-        <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
-        <td><select onchange="gpUpdateRowChar(${gi},${ri},this.value)">${charOptionsHtml(row.charKey)}</select></td>
-        ${g.trial ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
+        <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
+        <td><select onchange="gpUpdateRowChar(${gi},${ri},this.value)">${charOptionsHtml(row.charKey)}</select>${spielerFeld}</td>
+        ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
             <option value="B" ${row.party==='B'?'selected':''}>B</option>
@@ -5241,12 +5279,13 @@ function renderGpPlanBoard(){
     return `<div class="card">
       <div class="entry-head">
         <input type="text" class="entry-name" value="${escapeHtml(g.name)}" oninput="gpUpdateGroupName(${gi},this.value)" style="max-width:260px;">
-        <label class="slot-check"><input type="checkbox" ${g.trial?'checked':''} onchange="gpToggleGroupFlag(${gi},'trial')"> Trial (2 Unterguppen A/B)</label>
+        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> Dungeon (5)</label>
+        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> Trial (10, 2 Untergruppen A/B)</label>
         <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
         <button type="button" class="action danger small" style="margin-left:auto;" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
       </div>
       <div class="wide-table-scroll"><table>
-        <thead><tr><th>Rolle</th><th>Spieler</th>${g.trial?'<th>Party</th>':''}${g.showAusruestung?'<th>Weapon</th><th>Ausrüstung</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th><th></th></tr></thead>
+        <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}${g.showAusruestung?'<th>Weapon</th><th>Ausrüstung</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
       <div class="btnrow" style="margin-top:10px;">
