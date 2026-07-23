@@ -4794,9 +4794,9 @@ function renderInsignien(){
       <td style="text-align:right;" class="computed" id="insKosten-${q}"></td>
     </tr>`).join('');
     rechtsHtml = `
-      <p class="helptext" style="margin:0 0 4px 0;">Fehlendes Pulver decken durch Verwerten von:</p>
+      <p class="helptext" style="margin:0 0 4px 0;" id="insDeckenText"></p>
       <div class="wide-table-scroll"><table>
-        <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;" id="insGesamtHeader"></th></tr></thead>
+        <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;">Gesamt</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
       <p style="margin-top:10px;"><span id="insFazitText"></span> <span class="muted">(Direktkauf ${insignieZiel}: <input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${insignieZiel}" data-field="direkt" value="${formatWerte((insigniePreise[insignieZiel]||{}).direkt)}"> AD)</span></p>`;
@@ -4874,7 +4874,7 @@ function updateInsignienErgebnis(){
   fehlendCell.className = 'val ' + (pulverFehlend>0?'delta-toolittle':'delta-ok');
   document.getElementById('insKostenStartLabel').textContent = `Kosten ${formatWerte(insignieMenge)}× ${insignieStart}-Insignie(n)`;
   document.getElementById('insKostenStart').textContent = formatWerte(kostenStartInsignien);
-  document.getElementById('insGesamtHeader').textContent = `Gesamt (inkl. ${insignieStart})`;
+  document.getElementById('insDeckenText').textContent = `Fehlendes Pulver decken durch Verwerten von (Gesamtkosten inklusive der ${insignieStart}-Insignie(n) selbst):`;
 
   rows.forEach(r=>{
     document.getElementById('insLabel-'+r.q).innerHTML = `${r.q}${r.i===bestIdx?' <span class="muted" style="font-size:0.72rem;">(günstigste)</span>':''}`;

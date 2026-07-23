@@ -197,6 +197,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   Spalte um. Ab v0.15.7 gilt außerdem: KEINE Bundle-Datei mehr erstellen/
   präsentieren, der Nutzer pusht/zieht nur noch direkt über GitHub - present_files
   nur noch für andere Artefakte nutzen, nicht mehr für xselli-server.bundle.
+  **Seit v0.15.8 (Nutzerscreenshot):** Tabellenspalten-Überschriften mit
+  variablem/langem Text (z.B. "Gesamt (inkl. mystisch)") machen die ganze
+  Spalte künstlich breit, weil table-layout:auto sich am LÄNGSTEN Inhalt
+  orientiert (Header ODER Daten) - kurze rechtsbündige Zahlen-Badges sitzen
+  dann weit von der optisch erwarteten Position entfernt ("Position stimmt
+  nicht"). FAUSTREGEL: Spaltenüberschriften kurz halten (hier "Gesamt"),
+  variable/lange Zusatzinfos gehören in einen Hinweistext ÜBER der Tabelle,
+  nicht in den <th>.
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner
