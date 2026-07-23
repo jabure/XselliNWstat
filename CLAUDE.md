@@ -205,6 +205,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   nicht"). FAUSTREGEL: Spaltenüberschriften kurz halten (hier "Gesamt"),
   variable/lange Zusatzinfos gehören in einen Hinweistext ÜBER der Tabelle,
   nicht in den <th>.
+  **Seit v0.15.9 (Nutzerwunsch):** neue Checkbox #insMitStartkosten
+  (Zustand: insignieMitStartkosten, Default FALSE) - die Kosten der
+  Start-Insignie(n) selbst fließen NUR ein, wenn angekreuzt. Ohne Haken:
+  gesamt = kostenFuel; mit Haken: gesamt = kostenFuel + kostenStartInsignien.
+  Checkbox lebt im "rechtsHtml"-Zweig (existiert nur wenn zielIdx>startIdx),
+  Listener-Zuweisung deshalb mit null-Check abgesichert. Verifiziert am
+  Referenzbeispiel: grün-Gesamt ohne Haken 2.375.000, mit Haken 3.525.000
+  (=2.375.000 + 1.150.000 Kosten der mystisch-Start-Insignie).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

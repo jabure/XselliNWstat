@@ -4762,6 +4762,10 @@ const INSIGNIE_PULVER_KOSTEN = [10, 50, 250, 1250, 2500];
 // Pulver-Ertrag beim Verwerten EINER Insignie dieser Qualität (ebenfalls fest).
 const INSIGNIE_PULVER_VERWERTET = [2, 10, 50, 250, 1250, 1500];
 let insignieStart = 'mystisch', insignieZiel = 'celestisch', insignieMenge = 1, insigniePulverVorhanden = 0;
+// Standardmäßig AUS (Nutzerwunsch): die Kosten der Start-Insignie(n) selbst fließen
+// nur ein, wenn explizit angekreuzt - viele wollen nur die reinen Pulver-Fuel-Kosten
+// vergleichen, da sie die Start-Insignie ohnehin schon besitzen.
+let insignieMitStartkosten = false;
 
 function renderInsignien(){
   const el = document.getElementById('insignienContent');
@@ -4795,6 +4799,7 @@ function renderInsignien(){
     </tr>`).join('');
     rechtsHtml = `
       <p class="helptext" style="margin:0 0 4px 0;" id="insDeckenText"></p>
+      <label class="slot-check" style="display:block;margin:0 0 8px 0;"><input type="checkbox" id="insMitStartkosten" ${insignieMitStartkosten?'checked':''}> Kosten der ${insignieStart}-Insignie(n) selbst mit in "Gesamt" einrechnen</label>
       <div class="wide-table-scroll"><table>
         <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;">Gesamt</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
@@ -4826,6 +4831,8 @@ function renderInsignien(){
   // einzelner Zellen, damit das Eingabefeld selbst nicht neu erzeugt wird.
   document.getElementById('insMenge').addEventListener('input', e=>{ insignieMenge = parseWerte(e.target.value)||1; updateInsignienErgebnis(); });
   document.getElementById('insPulver').addEventListener('input', e=>{ insigniePulverVorhanden = parseWerte(e.target.value)||0; updateInsignienErgebnis(); });
+  const insMitStartkostenCb = document.getElementById('insMitStartkosten');
+  if(insMitStartkostenCb) insMitStartkostenCb.addEventListener('change', e=>{ insignieMitStartkosten = e.target.checked; updateInsignienErgebnis(); });
   attachWerteFormatting(el);
   el.querySelectorAll('input[data-insprice]').forEach(inp=>{
     inp.addEventListener('input', e=>{
@@ -4861,7 +4868,9 @@ function updateInsignienErgebnis(){
     const p = insigniePreise[q] || {ah:0, direkt:0};
     const benoetigt = pulverFehlend / INSIGNIE_PULVER_VERWERTET[i];
     const kostenFuel = benoetigt * (Number(p.ah)||0);
-    const gesamt = kostenFuel + kostenStartInsignien;
+    // Kosten der Start-Insignie(n) fließen nur ein, wenn die Checkbox angehakt ist
+    // (standardmäßig aus - viele besitzen die Start-Insignie ja schon).
+    const gesamt = kostenFuel + (insignieMitStartkosten ? kostenStartInsignien : 0);
     if(gesamt < bestGesamt){ bestGesamt = gesamt; bestIdx = i; }
     return { q, i, benoetigt, gesamt };
   });
@@ -4874,7 +4883,7 @@ function updateInsignienErgebnis(){
   fehlendCell.className = 'val ' + (pulverFehlend>0?'delta-toolittle':'delta-ok');
   document.getElementById('insKostenStartLabel').textContent = `Kosten ${formatWerte(insignieMenge)}× ${insignieStart}-Insignie(n)`;
   document.getElementById('insKostenStart').textContent = formatWerte(kostenStartInsignien);
-  document.getElementById('insDeckenText').textContent = `Fehlendes Pulver decken durch Verwerten von (Gesamtkosten inklusive der ${insignieStart}-Insignie(n) selbst):`;
+  document.getElementById('insDeckenText').textContent = `Fehlendes Pulver decken durch Verwerten von (reine Pulver-Kosten${insignieMitStartkosten ? `, "Gesamt" inklusive der ${insignieStart}-Insignie(n) selbst` : ''}):`;
 
   rows.forEach(r=>{
     document.getElementById('insLabel-'+r.q).innerHTML = `${r.q}${r.i===bestIdx?' <span class="muted" style="font-size:0.72rem;">(günstigste)</span>':''}`;

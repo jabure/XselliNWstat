@@ -518,6 +518,19 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Insignienrechner: Pulver-Bedarf mystisch->celestisch = 2.500', insText.includes('2.500'), insText.slice(0, 300));
     check('Insignienrechner: Referenzbeispiel 1.250 grün (Nutzer-bestätigt)', insText.includes('1.250'), insText.slice(0, 600));
 
+    // Kosten der Start-Insignie(n) sind standardmäßig NICHT in "Gesamt" eingerechnet
+    // (Nutzerwunsch) - erst nach Ankreuzen der Checkbox ändern sich die Zahlen.
+    const mitStartkostenCb = doc.getElementById('insMitStartkosten');
+    check('Insignienrechner: Startkosten-Checkbox ist standardmäßig AUS', mitStartkostenCb && mitStartkostenCb.checked === false);
+    let ohneStartkostenText = doc.getElementById('insignienContent').textContent;
+    check('Insignienrechner: ohne Startkosten zeigt grün-Gesamt 2.375.000', ohneStartkostenText.includes('2.375.000'), ohneStartkostenText.slice(0, 500));
+    mitStartkostenCb.checked = true; mitStartkostenCb.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(150);
+    const mitStartkostenText = doc.getElementById('insignienContent').textContent;
+    check('Insignienrechner: mit Startkosten zeigt grün-Gesamt 3.525.000 (2.375.000 + 1.150.000)', mitStartkostenText.includes('3.525.000'), mitStartkostenText.slice(0, 500));
+    mitStartkostenCb.checked = false; mitStartkostenCb.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(150);
+
     // Mehrstufige Kette (grün -> legendär, 3 Zwischenstufen: 10+50+250=310 Pulver/Stück)
     // muss additiv sein, NICHT multiplikativ (das war der gemeldete Fehler) - ein
     // realistischer dreistelliger Pulver-Wert statt Millionen/Milliarden.
