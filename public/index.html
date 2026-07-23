@@ -5211,25 +5211,45 @@ function gpUpdateRowField(gi, ri, field, val){ currentGpPlanData.groups[gi].rows
 // Rolle einer bestehenden Zeile nachträglich ändern (z. B. DPS -> Heiler), ohne die
 // Zeile löschen und neu anlegen zu müssen.
 function gpUpdateRowRolle(gi, ri, val){ currentGpPlanData.groups[gi].rows[ri].rolle = val; renderGpPlanBoard(); }
-// Sonderfall Charakter-Zuweisung: Artefakt-/Mount-/Gefährten-Dropdowns hängen vom
-// gewählten Charakter ab, deshalb hier komplett neu rendern (statt nur den Wert
-// zu setzen wie bei den übrigen Feldern) - sonst zeigen sie noch die alte Auswahl.
-// "__frei__" bedeutet: kein registrierter Charakter, stattdessen ein frei
-// eingetragener Name (für Mitspieler ohne eigenes Konto/Profil).
-function gpUpdateRowChar(gi, ri, val){
+// Baut aus allen bekannten Gruppenplaner-Charakteren eine Zuordnung
+// Anzeigetext ("Name (Konto)") -> charKey, für den Spieler-Kombifeld-Abgleich.
+function gpCharLabelMap(){
+  const map = new Map();
+  (gpCharacters||[]).forEach(c => map.set(`${c.name} (${c.owner})`, gpCharKey(c.owner,c.name)));
+  return map;
+}
+// Anzeigetext für eine Zeile: Name des zugewiesenen Charakters, sonst der frei
+// eingetragene Name.
+function gpRowSpielerText(row){
+  if(row.charKey){
+    const rec = gpFindChar(row.charKey);
+    if(rec) return `${rec.name} (${rec.owner})`;
+  }
+  return row.freierName || '';
+}
+// Wird beim Verlassen des Spieler-Feldes (blur/change) aufgerufen, NICHT bei
+// jedem Tastendruck (siehe unten) - passt der eingegebene Text exakt zu einem
+// bekannten Charakter, wird dieser zugewiesen, sonst gilt der Text als frei
+// eingetragener Name (Mitspieler ohne eigenes Profil).
+function gpResolveRowSpieler(gi, ri, val){
   const row = currentGpPlanData.groups[gi].rows[ri];
-  row.charKey = val;
-  row.freierName = '';
-  // Alte Auswahl könnte zum neuen (oder keinem) Charakter nicht mehr passen -
-  // zurücksetzen statt einen unsichtbaren, nicht mehr gültigen Wert zu behalten.
-  ['artefakt','mount','mountBonus','gefaehrte','gefaehrtenBonus'].forEach(f => row[f] = '');
+  const key = gpCharLabelMap().get(val.trim());
+  const changed = (key || '') !== row.charKey;
+  row.charKey = key || '';
+  row.freierName = key ? '' : val.trim();
+  if(changed){
+    // Alte Auswahl könnte zum neuen (oder keinem) Charakter nicht mehr passen -
+    // zurücksetzen statt einen unsichtbaren, nicht mehr gültigen Wert zu behalten.
+    ['artefakt','mount','mountBonus','gefaehrte','gefaehrtenBonus'].forEach(f => row[f] = '');
+  }
   renderGpPlanBoard();
 }
 // Für eine Zeile: Optionen einer Besitz-Kategorie, gefiltert auf den zugewiesenen
 // Charakter (falls einer gewählt ist), sonst die volle Referenzliste als Fallback
-// (das gilt automatisch auch für "__frei__", da es dafür keinen Charakter-Datensatz gibt).
+// (gilt automatisch auch für frei eingetragene Namen, da es dafür keinen
+// Charakter-Datensatz gibt).
 function gpOptionsFor(row, kat){
-  const rec = (row.charKey && row.charKey !== '__frei__') ? gpFindChar(row.charKey) : null;
+  const rec = row.charKey ? gpFindChar(row.charKey) : null;
   const owned = rec && rec.data && rec.data.besitz && rec.data.besitz[kat.key];
   const namen = (owned && owned.length) ? owned : kat.liste().map(e=>e.name);
   return namen;
@@ -5238,14 +5258,14 @@ function renderGpPlanBoard(){
   const el = document.getElementById('gpPlanBoard');
   if(!currentGpPlanName || !currentGpPlanData){ el.innerHTML = ''; return; }
   // Rückwärtskompatibel: ältere Pläne kennen noch das boolesche Feld "trial"
-  // statt "modus" - beim Anzeigen einmalig umwandeln.
-  currentGpPlanData.groups.forEach(g => { if(!g.modus) g.modus = g.trial ? 'trial' : 'dungeon'; });
-  const charOptionsHtml = selectedKey => ['<option value="">– kein Spieler –</option>',
-    '<option value="__frei__">– Freier Name (nicht im System) –</option>',
-    ...(gpCharacters||[]).map(c => {
-      const key = gpCharKey(c.owner,c.name);
-      return `<option value="${key}" ${selectedKey===key?'selected':''}>${escapeHtml(c.name)} (${escapeHtml(c.owner)})</option>`;
-    })].join('');
+  // statt "modus", und den alten Sonderwert charKey==="__frei__" statt eines
+  // leeren charKey mit freierName - beim Anzeigen einmalig normalisieren.
+  currentGpPlanData.groups.forEach(g => {
+    if(!g.modus) g.modus = g.trial ? 'trial' : 'dungeon';
+    g.rows.forEach(row => { if(row.charKey === '__frei__') row.charKey = ''; });
+  });
+  const gpCharDatalistHtml = '<datalist id="gpCharDatalist">' +
+    (gpCharacters||[]).map(c => `<option value="${escapeHtml(c.name)} (${escapeHtml(c.owner)})">`).join('') + '</datalist>';
   const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r}</option>`).join('');
 
   const groupsHtml = currentGpPlanData.groups.map((g, gi) => {
@@ -5255,12 +5275,9 @@ function renderGpPlanBoard(){
         const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
         return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)">${opts}</select>`;
       };
-      const spielerFeld = row.charKey === '__frei__'
-        ? `<input type="text" placeholder="Name eingeben" value="${escapeHtml(row.freierName||'')}" oninput="gpUpdateRowField(${gi},${ri},'freierName',this.value)" style="width:100%;margin-top:4px;">`
-        : '';
       return `<tr>
         <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
-        <td><select onchange="gpUpdateRowChar(${gi},${ri},this.value)">${charOptionsHtml(row.charKey)}</select>${spielerFeld}</td>
+        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;"></td>
         ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
@@ -5296,7 +5313,7 @@ function renderGpPlanBoard(){
     </div>`;
   }).join('');
 
-  el.innerHTML = `<h2 style="margin-top:20px;">${escapeHtml(currentGpPlanName)}</h2>
+  el.innerHTML = `${gpCharDatalistHtml}<h2 style="margin-top:20px;">${escapeHtml(currentGpPlanName)}</h2>
     ${groupsHtml}
     <div class="btnrow" style="margin:14px 0;">
       <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>

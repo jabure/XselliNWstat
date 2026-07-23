@@ -513,12 +513,13 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const gpBoard = doc.getElementById('gpPlanBoard');
     const groupNameInput = gpBoard.querySelector('input.entry-name');
     check('Board lädt die gespeicherte Gruppe (Trial -> Party-Spalte da)', groupNameInput && groupNameInput.value === 'Gruppe 1' && gpBoard.textContent.includes('Party'), groupNameInput && groupNameInput.value);
-    // Rolle ist jetzt selbst ein <select> (nachträglich änderbar) und steht VOR dem
-    // Spieler-Select in der Zeile - deshalb gezielt das zweite Select der ersten Zeile.
+    // Rolle ist ein <select>, der Spieler jetzt ein Text-Kombifeld (input+datalist)
+    // statt eines separaten Dropdowns - so lässt sich direkt reintippen.
     const ersteZeileSelects = gpBoard.querySelectorAll('tbody tr:first-child select');
     check('Rolle-Dropdown ist vorhanden und steht auf Tank', ersteZeileSelects[0] && ersteZeileSelects[0].value === 'Tank', ersteZeileSelects[0] && ersteZeileSelects[0].value);
-    const charSelectGp = ersteZeileSelects[1];
-    check('Zugewiesener Charakter ist im Board vorausgewählt', charSelectGp && charSelectGp.value === user + '::TankMax', charSelectGp && charSelectGp.value);
+    const spielerInputGp = gpBoard.querySelector('tbody tr:first-child input[list="gpCharDatalist"]');
+    check('Zugewiesener Charakter ist im Board vorausgewählt', spielerInputGp && spielerInputGp.value === `TankMax (${user})`, spielerInputGp && spielerInputGp.value);
+    check('Datalist bietet den Charakter als Vorschlag an', !!doc.querySelector(`#gpCharDatalist option[value="TankMax (${user})"]`));
     const mountSelectGp = Array.from(gpBoard.querySelectorAll('tbody select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
     check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
 
@@ -533,18 +534,28 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
     check('Rolle einer Zeile lässt sich nachträglich auf Heiler ändern', gpRows[neueZeileIdx].querySelector('select').value === 'Heiler', gpRows[neueZeileIdx].querySelector('select').value);
 
-    // Freier Name (Mitspieler ohne eigenes Konto/Profil) - Ueberpruefung rein ueber
-    // das DOM, da top-level "let"-Variablen wie currentGpPlanData NICHT an window
-    // haengen (win.currentGpPlanData waere immer undefined).
-    win.gpUpdateRowChar(0, neueZeileIdx, '__frei__'); await wait(100);
-    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
-    const freierNameInput = gpRows[neueZeileIdx].querySelector('input[type="text"]');
-    check('"Freier Name"-Eingabefeld erscheint nach Auswahl von "__frei__"', !!freierNameInput);
+    // Freier Name (Mitspieler ohne eigenes Konto/Profil): einfach einen Namen ins
+    // SELBE Spieler-Feld eintippen, der zu keinem registrierten Charakter passt -
+    // kein separates Fenster/Feld nötig (Nutzerwunsch "platzsparend").
+    const freierNameInput = gpRows[neueZeileIdx].querySelector('input[list="gpCharDatalist"]');
+    check('Spieler-Feld ist ein einzelnes Kombifeld (kein extra Fenster)', !!freierNameInput);
     if(freierNameInput){
       freierNameInput.value = 'Gast Mira';
       freierNameInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+      await wait(50);
+      check('Tippen allein ändert noch nichts an der Zuweisung (kein Re-Render mitten im Tippen)', freierNameInput.value === 'Gast Mira');
+      freierNameInput.dispatchEvent(new win.Event('change', { bubbles: true }));
       await wait(100);
-      check('Freier Name bleibt im Eingabefeld erhalten', freierNameInput.value === 'Gast Mira');
+      gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+      const freierNameInputNeu = gpRows[neueZeileIdx].querySelector('input[list="gpCharDatalist"]');
+      check('Name ohne Treffer in der Datalist wird als freier Name übernommen', freierNameInputNeu && freierNameInputNeu.value === 'Gast Mira', freierNameInputNeu && freierNameInputNeu.value);
+      // Jetzt exakt einen bekannten Charakter-Namen eintragen -> muss sich verknüpfen
+      // (Besitz-Dropdowns filtern sich danach auf dessen Besitzliste statt der vollen Liste).
+      freierNameInputNeu.value = `TankMax (${user})`;
+      freierNameInputNeu.dispatchEvent(new win.Event('change', { bubbles: true }));
+      await wait(100);
+      const mountSelectNeu = Array.from(doc.querySelectorAll('#gpPlanBoard tbody tr')[neueZeileIdx].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
+      check('Exakter Treffer verknüpft den registrierten Charakter (Besitz-Filter greift)', mountSelectNeu && mountSelectNeu.options.length === 2, mountSelectNeu && Array.from(mountSelectNeu.options).map(o=>o.value));
     }
 
     // Dungeon (5) <-> Trial (10): bei der Standardgröße wird automatisch verdoppelt/halbiert.

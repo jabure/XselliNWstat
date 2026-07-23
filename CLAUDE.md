@@ -249,12 +249,23 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     statisches typ-badge mehr - dadurch lässt sich eine Zeile nachträglich
     DPS<->Heiler<->Tank umschalten statt löschen+neu anlegen zu müssen.
     Farblich wie vorher über .typ-select-dps/-heal/-tank.
-  - Spieler-Dropdown hat einen neuen Wert "__frei__" ("Freier Name, nicht
-    im System") - zeigt dann ein Textfeld (row.freierName) für Mitspieler
-    ohne eigenes Gruppenplaner-Profil. gpOptionsFor() behandelt "__frei__"
-    automatisch wie "kein Charakter zugewiesen" (gpFindChar findet nichts,
-    Besitz-Dropdowns fallen auf die volle Referenzliste zurück) - keine
-    Sonderbehandlung nötig.
+  - Spieler-Auswahl war zuerst ein <select> + separates, extra Zeile
+    einnehmendes Textfeld ("__frei__"-Sonderwert) - **auf Nutzerwunsch in
+    v0.17.1 durch EIN einziges Kombifeld ersetzt** (kein zusätzliches
+    Fenster/keine zusätzliche Zeile mehr): `<input type="text"
+    list="gpCharDatalist">` + eine gemeinsame `<datalist id="gpCharDatalist">`
+    (einmal pro Board-Render, alle Zeilen teilen sie sich). Direkt reintippen
+    oder aus der nativen Browser-Vorschlagsliste wählen. Abgleich passiert
+    NUR bei onchange (Blur/Commit), NICHT bei oninput - sonst wäre bei jedem
+    Tastendruck ein komplettes Re-Render nötig gewesen (Fokus-Verlust-Bug,
+    siehe unten). gpResolveRowSpieler(gi,ri,val): exakter Treffer gegen
+    gpCharLabelMap() ("Name (Konto)" -> charKey) verknüpft den Charakter,
+    sonst gilt der getippte Text als row.freierName (kein "__frei__"-Sonder-
+    wert mehr - charKey ist jetzt einfach '' wenn nicht verknüpft).
+    gpRowSpielerText(row) liefert den Anzeigetext fürs Eingabefeld (Name des
+    verknüpften Charakters ODER row.freierName). Rückwärtskompatibel: alte
+    Zeilen mit charKey==='__frei__' werden beim Anzeigen auf charKey=''
+    normalisiert (renderGpPlanBoard, gleiche Stelle wie die g.modus-Migration).
   - TEST-FALLE (wieder reingelaufen): win.currentGpPlanData ist immer
     undefined - top-level let/const hängen NICHT an window (nur
     function-Deklarationen tun das). GP-Board-Tests IMMER über das DOM
