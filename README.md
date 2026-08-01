@@ -138,13 +138,20 @@ und höher sichtbar (wird später für alle geöffnet).
 - **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
   pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-
-  Verstärkungen). Officer legen mehrere benannte Aufstellungs-Pläne an;
-  im Board filtern sich die Ausrüstungs-Dropdowns automatisch auf das, was
-  der zugewiesene Charakter tatsächlich besitzt. Jede Gruppe kann zwischen
-  Dungeon (5 Spieler) und Trial (10 Spieler, 2 Untergruppen A/B) umgestellt
-  werden; die Rolle einer Zeile lässt sich jederzeit nachträglich ändern;
-  und Mitspieler ohne eigenes Profil können mit einem frei eingetragenen
-  Namen aufgenommen werden.
+  Verstärkungen). Officer legen mehrere benannte Aufstellungs-Pläne an
+  (umbenennbar, duplizierbar, gegen gleichzeitiges Bearbeiten durch einen
+  Versionszähler geschützt); im Board filtern sich die Ausrüstungs-Dropdowns
+  automatisch auf das, was der zugewiesene Charakter tatsächlich besitzt,
+  und doppelt zugewiesene Spieler werden rot markiert. Jede Gruppe kann
+  zwischen Dungeon (5 Spieler) und Trial (10 Spieler, 2 Untergruppen A/B)
+  umgestellt werden; die Rolle einer Zeile lässt sich jederzeit nachträglich
+  ändern; und Mitspieler ohne eigenes Profil können mit einem frei
+  eingetragenen Namen aufgenommen werden. Eine Nur-Ansicht ohne
+  Bedienelemente eignet sich zum Screenshotten/Teilen.
+
+**Statistik (Admin):** Auf der Benutzer-Seite zeigt eine Karte die Anzahl
+Nutzer, Stats-/Gruppenplaner-Charaktere, Aufstellungs-Pläne, die Rollen-
+Verteilung und das Datum der letzten Presets-/Formel-Änderung.
 
 **Sicherungen im Admin-Bereich:** Auf der Benutzer-Seite gibt es die Karte
 „Sicherungen": Presets/Formeln-Historie ansehen, herunterladen und per Knopf

@@ -572,22 +572,34 @@ app.post('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
   const name = req.body && req.body.name && String(req.body.name).trim();
   if(!name) return res.status(400).json({ error: 'Name erforderlich' });
   if(fs.existsSync(gpPlanFile(name))) return res.status(409).json({ error: 'Diesen Plan gibt es schon' });
-  writeJson(gpPlanFile(name), { name, groups: [] });
+  writeJson(gpPlanFile(name), { name, groups: [], rev: 0 });
   res.status(201).json({ name });
 });
 app.get('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
-  res.json({ name: req.params.name, data: readJson(gpPlanFile(req.params.name), { name: req.params.name, groups: [] }) });
+  const data = readJson(gpPlanFile(req.params.name), { name: req.params.name, groups: [], rev: 0 });
+  data.rev = data.rev || 0; // ältere Pläne von vor dem rev-Schutz hatten noch kein rev-Feld
+  res.json({ name: req.params.name, data });
 });
 const GP_PLAN_MAX_BYTES = 2000000; // ein Plan mit vielen Gruppen/Slots kann größer werden als ein Charakter
+// Versionsschutz wie bei Presets/Formeln: schickt der Client die rev mit, die er
+// beim Laden bekommen hat, und hat inzwischen jemand anderes gespeichert, gibt es
+// einen 409 statt kommentarlosem Überschreiben ("letzter gewinnt") - mehrere
+// Moderatoren könnten sonst denselben Plan gleichzeitig bearbeiten.
 app.put('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
-  const clean = { name: req.params.name, groups: (req.body && Array.isArray(req.body.groups)) ? req.body.groups : [] };
+  const current = readJson(gpPlanFile(req.params.name), { groups: [], rev: 0 });
+  const currentRev = current.rev || 0;
+  const clientRev = req.body ? req.body.rev : undefined;
+  if(clientRev !== undefined && clientRev !== null && Number(clientRev) !== currentRev){
+    return res.status(409).json({ error: 'Jemand anderes hat diesen Plan inzwischen gespeichert - bitte neu laden und Änderung erneut machen', rev: currentRev });
+  }
+  const clean = { name: req.params.name, groups: (req.body && Array.isArray(req.body.groups)) ? req.body.groups : [], rev: currentRev + 1 };
   if(JSON.stringify(clean).length > GP_PLAN_MAX_BYTES){
     return res.status(413).json({ error: 'Plan ist unerwartet groß - nicht gespeichert' });
   }
   writeJson(gpPlanFile(req.params.name), clean);
-  res.json({ ok: true });
+  res.json({ ok: true, rev: clean.rev });
 });
 app.delete('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
   try{ fs.unlinkSync(gpPlanFile(req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
@@ -648,6 +660,35 @@ app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, re
 });
 
 /* ---------- Admin: Benutzerübersicht & Rollen vergeben ---------- */
+// Kleines Statistik-Dashboard: nutzt ausschließlich bereits vorhandene Daten neu
+// zusammengestellt (keine zusätzliche Datenhaltung nötig).
+app.get('/api/admin/stats', authMiddleware, requireRole('admin'), (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const usernames = Object.keys(users);
+  const roleCounts = { user: 0, moderator: 0, coadmin: 0, admin: 0 };
+  let totalCharacters = 0, totalGpCharacters = 0;
+  usernames.forEach(u => {
+    roleCounts[getUserRole(u)] = (roleCounts[getUserRole(u)] || 0) + 1;
+    totalCharacters += (users[u].characters || []).length;
+    totalGpCharacters += (users[u].gpCharacters || []).length;
+  });
+  let totalGpPlans = 0;
+  try{ totalGpPlans = fs.readdirSync(GP_PLAN_DIR).filter(f => f.endsWith('.json')).length; }catch(e){ /* Ordner evtl. noch leer */ }
+  let sharedInfo = { rev: 0, updatedAt: null };
+  try{
+    sharedInfo.rev = (readJson(SHARED_FILE, {}).rev) || 0;
+    sharedInfo.updatedAt = fs.statSync(SHARED_FILE).mtime.toISOString();
+  }catch(e){ /* shared.json evtl. noch nicht angelegt */ }
+  res.json({
+    userCount: usernames.length,
+    roleCounts,
+    totalCharacters,
+    totalGpCharacters,
+    totalGpPlans,
+    sharedRev: sharedInfo.rev,
+    sharedUpdatedAt: sharedInfo.updatedAt,
+  });
+});
 app.get('/api/admin/users', authMiddleware, requireRole('admin'), (req, res) => {
   const users = readJson(USERS_FILE, {});
   const list = Object.keys(users).map(username => ({

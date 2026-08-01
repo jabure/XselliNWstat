@@ -558,6 +558,76 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Exakter Treffer verknüpft den registrierten Charakter (Besitz-Filter greift)', mountSelectNeu && mountSelectNeu.options.length === 2, mountSelectNeu && Array.from(mountSelectNeu.options).map(o=>o.value));
     }
 
+    // Doppelte Spieler-Zuweisung wird optisch markiert: HealerMia jetzt ZUSAETZLICH
+    // in eine zweite Zeile eintragen -> beide Zeilen sollten die Warnung zeigen.
+    win.gpAddRow(0, 'DPS'); await wait(100);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const zweiteHealerZeileIdx = gpRows.length - 1;
+    const zweitesSpielerFeld = gpRows[zweiteHealerZeileIdx].querySelector('input[list="gpCharDatalist"]');
+    zweitesSpielerFeld.value = `TankMax (${user})`;
+    zweitesSpielerFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(150);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const spielerFelder = Array.from(gpRows).map(tr => tr.querySelector('input[list="gpCharDatalist"]')).filter(Boolean);
+    const doppelteMarkiert = spielerFelder.filter(inp => inp.value === `TankMax (${user})` && (inp.getAttribute('style')||'').includes('var(--off)'));
+    check('Doppelte Spieler-Zuweisung wird optisch markiert (mind. zwei Zeilen)', doppelteMarkiert.length >= 2, spielerFelder.map(i=>[i.value, i.getAttribute('style')]));
+    win.gpRemoveRow(0, zweiteHealerZeileIdx); await wait(100); // aufräumen für die folgenden Checks
+
+    // Rev-Schutz beim Plan-Speichern (wie bei Presets/Formeln): veraltete rev -> 409.
+    r = await api('/api/gp/plans/' + encodeURIComponent('Trial Sonntag'), {}, token);
+    const planRevVorher = r.data.data.rev;
+    check('Plan liefert eine numerische rev', typeof planRevVorher === 'number');
+    r = await api('/api/gp/plans/' + encodeURIComponent('Trial Sonntag'), { method: 'PUT', body: JSON.stringify({ rev: planRevVorher, groups: [] }) }, token);
+    check('Plan speichern mit aktueller rev klappt und liefert neue rev', r.status === 200 && r.data.rev === planRevVorher + 1, r.status + '/' + JSON.stringify(r.data));
+    r = await api('/api/gp/plans/' + encodeURIComponent('Trial Sonntag'), { method: 'PUT', body: JSON.stringify({ rev: planRevVorher, groups: [] }) }, token);
+    check('Plan speichern mit veralteter rev -> 409', r.status === 409, r.status);
+
+    // Plan umbenennen (Server-Funktion gab es schon, jetzt auch per Button in der UI).
+    win.showGpPage('planung'); await wait(500);
+    win.prompt = () => 'Trial Sonntag Umbenannt';
+    const umbenennenBtn = Array.from(doc.querySelectorAll('#gpPlanList button')).find(b => b.textContent.trim() === 'Umbenennen');
+    check('Plan-Liste: "Umbenennen"-Button vorhanden', !!umbenennenBtn);
+    if(umbenennenBtn){ umbenennenBtn.click(); await wait(400); }
+    r = await api('/api/gp/plans', {}, token);
+    check('Plan wurde über den Button umbenannt', r.data.some(p => p.name === 'Trial Sonntag Umbenannt'), JSON.stringify(r.data));
+
+    // Plan duplizieren.
+    win.prompt = () => 'Trial Sonntag Kopie';
+    const duplizierenBtn = Array.from(doc.querySelectorAll('#gpPlanList button')).find(b => b.textContent.trim() === 'Duplizieren');
+    check('Plan-Liste: "Duplizieren"-Button vorhanden', !!duplizierenBtn);
+    if(duplizierenBtn){ duplizierenBtn.click(); await wait(500); }
+    r = await api('/api/gp/plans', {}, token);
+    check('Duplikat erscheint zusätzlich in der Plan-Liste', r.data.some(p => p.name === 'Trial Sonntag Kopie'), JSON.stringify(r.data));
+
+    // Nur-Ansicht: Board ohne Eingabeelemente, zum Screenshotten/Teilen.
+    await win.gpOpenPlan('Trial Sonntag Umbenannt'); await wait(300);
+    win.gpAddGroup(); await wait(100); // der rev-Konflikt-Test oben hat die Gruppen dieses Plans geleert
+    let ansichtBtn = doc.getElementById('gpAnsichtToggleBtn');
+    check('"Nur-Ansicht"-Button vorhanden', !!ansichtBtn && ansichtBtn.textContent.includes('Nur-Ansicht'), ansichtBtn && ansichtBtn.textContent);
+    if(ansichtBtn){
+      ansichtBtn.click(); await wait(150);
+      check('Nur-Ansicht zeigt keine Eingabefelder/Selects mehr', doc.querySelectorAll('#gpPlanBoard select, #gpPlanBoard input').length === 0);
+      const zurueckBtn = doc.getElementById('gpAnsichtToggleBtn');
+      check('Umschalt-Button zeigt jetzt "Zurück zur Bearbeitung"', zurueckBtn && zurueckBtn.textContent.includes('Zurück zur Bearbeitung'), zurueckBtn && zurueckBtn.textContent);
+      if(zurueckBtn) zurueckBtn.click();
+      await wait(150);
+      check('Zurück zur Bearbeitung zeigt wieder Eingabefelder', doc.querySelectorAll('#gpPlanBoard select, #gpPlanBoard input').length > 0);
+    }
+
+    // Admin-Statistik-Karte: braucht Rolle admin, der bisherige Test-User ist nur
+    // coadmin - dafür kurz als der Bootstrap-Admin einloggen.
+    win.logoutAccount(); await wait(300);
+    win.openAccountPanel(); await wait(300);
+    doc.getElementById('acc_username').value = ADMIN;
+    doc.getElementById('acc_password').value = 'adminpw';
+    win.loginAccount(); await wait(800);
+    win.closeAccountModal();
+    win.showApp('stats'); await wait(200);
+    win.showPage('users'); await wait(600);
+    const statsText = doc.getElementById('adminStats').textContent;
+    check('Admin-Statistik zeigt Benutzeranzahl', statsText.includes('Benutzer') && /\d/.test(statsText), statsText.slice(0, 200));
+    check('Admin-Statistik zeigt Aufstellungs-Pläne', statsText.includes('Aufstellungs-Pläne'), statsText.slice(0, 200));
+
     // Dungeon (5) <-> Trial (10): bei der Standardgröße wird automatisch verdoppelt/halbiert.
     win.gpAddGroup(); await wait(100);
     const gpCards = () => doc.querySelectorAll('#gpPlanBoard .card');

@@ -271,6 +271,39 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     function-Deklarationen tun das). GP-Board-Tests IMMER über das DOM
     verifizieren (Zeilenanzahl zählen, Radio-/Select-Werte lesen), nie über
     win.currentGpPlanData....
+- **Seit v0.18.0: fünf Erweiterungen (Nutzer-Review-Runde).**
+  1) Rev-Versionsschutz für gp/plans (wie bei shared.json presets/formulas):
+     PUT erwartet optional rev, gibt bei veralteter rev 409 zurück, sonst
+     neue rev. Alte Pläne ohne gespeichertes rev-Feld werden beim GET auf 0
+     normalisiert (data.rev = data.rev || 0). Frontend: currentGpPlanRev
+     wird bei gpOpenPlan gesetzt und bei gpSaveCurrentPlan mitgeschickt/
+     aktualisiert.
+  2) gpRenamePlanPrompt()/gpDuplicatePlan() als Buttons in der Plan-Liste -
+     der Rename-Endpunkt existierte serverseitig schon lange, war aber nie
+     an die UI angebunden. Duplicate legt einen neuen Plan mit denselben
+     Gruppen unter neuem Namen an (Original bleibt unverändert).
+  3) Duplikat-Spieler-Erkennung über den GANZEN Plan (alle Gruppen, nicht
+     nur innerhalb einer): spielerZaehlung-Map (Schlüssel 'c:'+charKey oder
+     'f:'+freierName.trim().toLowerCase()), Zeilen mit Zähler>1 bekommen
+     rote Umrandung + Tooltip am Spieler-Kombifeld.
+  4) Nur-Ansicht (gpPlanAnsichtModus, Button #gpAnsichtToggleBtn): schlichte
+     Lese-Darstellung ohne jegliche select/input-Elemente zum Screenshotten;
+     gpPlanAnsichtHtml() rendert nur ausgefüllte Zeilen als reinen Text.
+     Wird beim Öffnen eines Plans (gpOpenPlan) immer auf false zurückgesetzt.
+  5) GET /api/admin/stats (Rolle admin) liefert userCount/roleCounts/
+     totalCharacters/totalGpCharacters/totalGpPlans/sharedRev/
+     sharedUpdatedAt - rein aus vorhandenen Daten aggregiert, keine neue
+     Datenhaltung. Neue Karte "Statistik" ganz oben auf der Benutzer-Seite
+     (renderAdminStats(), Kachel-Optik wie beim Insignienrechner/
+     .ins-stat-row wiederverwendet).
+  TEST-FALLE (in dieser Runde passiert): ein rev-Konflikt-Test hat einen
+  Plan mit groups:[] überschrieben - ein SPÄTERER Test (Nur-Ansicht) lief
+  auf demselben Plan weiter und fand fälschlich "keine Eingabefelder", weil
+  schlicht keine Gruppen mehr da waren (nicht weil Ansicht/Bearbeitung kaputt
+  war). Bei Tests, die denselben Datensatz über mehrere Abschnitte hinweg
+  wiederverwenden, IMMER prüfen ob ein früherer Abschnitt Daten geleert hat -
+  im Zweifel vor einem UI-Test den benötigten Inhalt frisch anlegen
+  (hier: win.gpAddGroup() vor dem Nur-Ansicht-Test).
   - Gruppenplaner-Daten sind BEWUSST komplett getrennt von den Stats-
     Charakteren: eigener Ordner data/gpchars/ (users[].gpCharacters + eigene
     Whitelist GP_CHAR_ALLOWED_KEYS: klasse/rollen/besitz), eigener Ordner

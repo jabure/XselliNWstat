@@ -571,6 +571,10 @@
 
 <div id="pageUsers" style="display:none;">
   <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Statistik</h2>
+    <div id="adminStats"><p class="helptext">Lade ...</p></div>
+  </div>
+  <div class="card">
     <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
     <p class="helptext">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
     <div id="userOverview" class="char-list"></div>
@@ -815,6 +819,8 @@ let gpPlans = null;           // [{name, updatedAt}]
 let gpPlanListLoading = false;
 let currentGpPlanName = null;
 let currentGpPlanData = null; // { groups: [...] }
+let currentGpPlanRev = 0;     // Versionszähler des geladenen Plans (Konflikt-Schutz beim Speichern)
+let gpPlanAnsichtModus = false; // true = schlichte Nur-Lese-Ansicht zum Screenshotten/Teilen
 let currentApp = 'stats';     // 'stats' | 'gruppenplaner' | 'insignien'
 let currentGpPage = 'charaktere';
 
@@ -1011,6 +1017,7 @@ const apiAcceptTransfer = (name) => apiRequest('/api/transfers/'+encodeURICompon
 const apiDeclineTransfer = (name) => apiRequest('/api/transfers/'+encodeURIComponent(name)+'/decline', {method:'POST'});
 const apiRenameCharacter = (name, newName) => apiRequest('/api/characters/'+encodeURIComponent(name)+'/rename', {method:'POST', body:JSON.stringify({newName})});
 const apiAdminListUsers = () => apiRequest('/api/admin/users');
+const apiAdminStats = () => apiRequest('/api/admin/stats');
 const apiAdminSetUserRole = (username, role) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'PUT', body:JSON.stringify({role})});
 const apiAdminResetPassword = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username)+'/reset-password', {method:'POST'});
 const apiAdminDeleteUser = (username) => apiRequest('/api/admin/users/'+encodeURIComponent(username), {method:'DELETE'});
@@ -3888,6 +3895,7 @@ function showPage(name){
     setDirty('formeln', false); // frisch befüllt = noch nichts geändert
   }
   if(name==='users'){
+    renderAdminStats();
     renderUserOverview();
     renderBackupsCard();
   }
@@ -3899,6 +3907,25 @@ function toggleAdminAccordion(key){
 }
 
 /* ---------- Admin: Benutzerübersicht ---------- */
+// Kleines Statistik-Dashboard: reine Anzeige, nutzt nur bereits vorhandene Daten.
+async function renderAdminStats(){
+  const el = document.getElementById('adminStats');
+  if(!el) return;
+  try{
+    const s = await apiAdminStats();
+    const kachel = (label, wert) => `<div class="ins-stat"><span class="lbl">${label}</span><span class="val">${wert}</span></div>`;
+    el.innerHTML = `<div class="ins-stat-row">
+      ${kachel('Benutzer', formatWerte(s.userCount))}
+      ${kachel('Stats-Charaktere', formatWerte(s.totalCharacters))}
+      ${kachel('Gruppenplaner-Charaktere', formatWerte(s.totalGpCharacters))}
+      ${kachel('Aufstellungs-Pläne', formatWerte(s.totalGpPlans))}
+    </div>
+    <p class="helptext" style="margin-top:10px;">Rollen: ${s.roleCounts.user||0}× Nutzer, ${s.roleCounts.moderator||0}× Moderator, ${s.roleCounts.coadmin||0}× Coadmin, ${s.roleCounts.admin||0}× Admin.
+    Presets/Formeln zuletzt geändert: ${s.sharedUpdatedAt ? formatUpdatedAt(s.sharedUpdatedAt) : 'nie'} (Version ${s.sharedRev}).</p>`;
+  }catch(e){
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">Statistik konnte nicht geladen werden: ${escapeHtml(e.message)}</p>`;
+  }
+}
 async function renderUserOverview(){
   const el = document.getElementById('userOverview');
   if(!el) return;
@@ -5133,6 +5160,8 @@ function renderGpPlanList(){
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
       <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">Öffnen</button>
+      <button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">Umbenennen</button>
+      <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">Duplizieren</button>
       <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">Löschen</button>
     </div>`).join('') : '<p class="helptext">Noch keine Pläne angelegt.</p>';
   document.getElementById('gpPlanBoard').innerHTML = '';
@@ -5158,11 +5187,41 @@ async function gpDeletePlan(name){
     renderGpPlanList();
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }
+// Plan umbenennen: der Server-Endpunkt (apiGpRenamePlan) existierte schon, war aber
+// bisher an keinen Knopf angebunden - man musste löschen und neu anlegen.
+async function gpRenamePlanPrompt(name){
+  const neu = prompt('Neuer Name für den Plan:', name);
+  if(!neu || !neu.trim() || neu.trim() === name) return;
+  try{
+    await apiGpRenamePlan(name, neu.trim());
+    if(currentGpPlanName === name) currentGpPlanName = neu.trim();
+    await ensureGpPlansLoaded(true);
+    renderGpPlanList();
+    if(currentGpPlanData) renderGpPlanBoard();
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
+// Plan duplizieren: praktisch für wiederkehrende Termine mit ähnlicher Besetzung -
+// legt eine komplette Kopie unter neuem Namen an, das Original bleibt unverändert.
+async function gpDuplicatePlan(name){
+  const vorschlag = `${name} (Kopie)`;
+  const neu = prompt('Name für die Kopie:', vorschlag);
+  if(!neu || !neu.trim()) return;
+  try{
+    const res = await apiGpGetPlan(name);
+    await apiGpCreatePlan(neu.trim());
+    await apiGpSavePlan(neu.trim(), { groups: res.data.groups || [] });
+    await ensureGpPlansLoaded(true);
+    renderGpPlanList();
+    document.getElementById('saveStatus').textContent = `Plan als "${neu.trim()}" dupliziert.`;
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
 async function gpOpenPlan(name){
   try{
     const res = await apiGpGetPlan(name);
     currentGpPlanName = name;
     currentGpPlanData = res.data && res.data.groups ? res.data : { groups: [] };
+    currentGpPlanRev = res.data && res.data.rev ? res.data.rev : 0;
+    gpPlanAnsichtModus = false;
     renderGpPlanBoard();
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }
@@ -5268,6 +5327,20 @@ function renderGpPlanBoard(){
     (gpCharacters||[]).map(c => `<option value="${escapeHtml(c.name)} (${escapeHtml(c.owner)})">`).join('') + '</datalist>';
   const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r}</option>`).join('');
 
+  // Doppelte Spieler-Zuweisungen über den GANZEN Plan hinweg erkennen (nicht nur
+  // innerhalb einer Gruppe) - z. B. versehentlich denselben Charakter in zwei
+  // Zeilen eingetragen. Zählt Charakter-Zuweisungen und frei eingetragene Namen
+  // (nicht case-sensitiv) getrennt von leeren Zeilen.
+  const spielerZaehlung = {};
+  currentGpPlanData.groups.forEach(g => g.rows.forEach(row => {
+    const id = row.charKey ? 'c:'+row.charKey : (row.freierName ? 'f:'+row.freierName.trim().toLowerCase() : '');
+    if(id) spielerZaehlung[id] = (spielerZaehlung[id]||0) + 1;
+  }));
+  const istDoppelt = row => {
+    const id = row.charKey ? 'c:'+row.charKey : (row.freierName ? 'f:'+row.freierName.trim().toLowerCase() : '');
+    return id && spielerZaehlung[id] > 1;
+  };
+
   const groupsHtml = currentGpPlanData.groups.map((g, gi) => {
     const rowsHtml = g.rows.map((row, ri) => {
       const selectFor = (kat, field) => {
@@ -5275,9 +5348,10 @@ function renderGpPlanBoard(){
         const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
         return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)">${opts}</select>`;
       };
+      const doppelt = istDoppelt(row);
       return `<tr>
         <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
-        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;"></td>
+        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?'Dieser Spieler ist mehrfach in diesem Plan eingetragen':''}"></td>
         ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
@@ -5313,17 +5387,46 @@ function renderGpPlanBoard(){
     </div>`;
   }).join('');
 
-  el.innerHTML = `${gpCharDatalistHtml}<h2 style="margin-top:20px;">${escapeHtml(currentGpPlanName)}</h2>
-    ${groupsHtml}
-    <div class="btnrow" style="margin:14px 0;">
+  el.innerHTML = `${gpCharDatalistHtml}
+    <div class="entry-head" style="margin-top:20px;">
+      <h2 style="margin:0;">${escapeHtml(currentGpPlanName)}</h2>
+      <button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? 'Zurück zur Bearbeitung' : 'Nur-Ansicht (zum Teilen/Screenshotten)'}</button>
+    </div>
+    ${gpPlanAnsichtModus ? gpPlanAnsichtHtml() : groupsHtml}
+    ${gpPlanAnsichtModus ? '' : `<div class="btnrow" style="margin:14px 0;">
       <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>
       <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">Plan speichern</button>
+    </div>`}`;
+}
+function gpToggleAnsicht(){ gpPlanAnsichtModus = !gpPlanAnsichtModus; renderGpPlanBoard(); }
+// Schlichte Nur-Lese-Darstellung ohne Dropdowns/Buttons - zum Screenshotten und
+// z. B. in Discord teilen, ohne die vielen Bearbeiten-Steuerelemente im Bild zu haben.
+function gpPlanAnsichtHtml(){
+  return currentGpPlanData.groups.map(g => {
+    const rows = g.rows.filter(row => row.charKey || row.freierName).map(row => `<tr>
+      <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
+      <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
+      ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
+      <td>${escapeHtml(row.artefakt||'–')}</td>
+      <td>${escapeHtml(row.mount||'–')}</td>
+      <td>${escapeHtml(row.mountBonus||'–')}</td>
+      <td>${escapeHtml(row.gefaehrte||'–')}</td>
+      <td>${escapeHtml(row.gefaehrtenBonus||'–')}</td>
+    </tr>`).join('');
+    return `<div class="card">
+      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span></h3>
+      <div class="wide-table-scroll"><table>
+        <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" class="muted">Noch niemand eingetragen.</td></tr>'}</tbody>
+      </table></div>
     </div>`;
+  }).join('');
 }
 async function gpSaveCurrentPlan(){
   if(!currentGpPlanName) return;
   try{
-    await apiGpSavePlan(currentGpPlanName, currentGpPlanData);
+    const res = await apiGpSavePlan(currentGpPlanName, Object.assign({}, currentGpPlanData, { rev: currentGpPlanRev }));
+    if(res && res.rev !== undefined) currentGpPlanRev = res.rev;
     await ensureGpPlansLoaded(true);
     document.getElementById('saveStatus').textContent = `Plan "${currentGpPlanName}" gespeichert.`;
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
