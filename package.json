@@ -1,14 +1,14 @@
 {
   "name": "xselli-stats-rechner-server",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "Backend für Xselli's Stats-Rechner (Neverwinter Online) - Login, Charaktere, geteilte Presets/Formeln",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2"
   }
 }

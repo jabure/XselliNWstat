@@ -5566,6 +5566,33 @@ function gpOptionsFor(row, kat){
   const namen = (owned && owned.length) ? owned : kat.liste().map(e=>e.name);
   return namen;
 }
+// Prüft je Gruppe auf Rollen-Überbelegung gegenüber der Standard-Zusammen-
+// setzung (1 Tank, 1 Heiler pro 5er-Party, Rest DPS). Bei Trial (10, 2
+// Untergruppen A/B) wird je Party getrennt geprüft, da jede Party für sich
+// eine eigene 5er-Zusammensetzung braucht; Zeilen ohne Party-Zuordnung
+// werden dabei nicht mitgezählt (noch nicht final eingeteilt). Reine
+// Warnung (verhindert nichts) - Sonderaufstellungen bleiben möglich.
+function gpRoleWarnings(g){
+  const countRoles = rows => {
+    const c = { Tank:0, Heiler:0 };
+    rows.forEach(row => {
+      const besetzt = row.charKey || row.freierName;
+      if(besetzt && (row.rolle==='Tank' || row.rolle==='Heiler')) c[row.rolle]++;
+    });
+    return c;
+  };
+  const warnungenFuer = (suffix, rows) => {
+    const c = countRoles(rows);
+    const out = [];
+    if(c.Tank > 1) out.push(`⚠ ${c.Tank} Tanks${suffix} (erwartet: 1)`);
+    if(c.Heiler > 1) out.push(`⚠ ${c.Heiler} Heiler${suffix} (erwartet: 1)`);
+    return out;
+  };
+  if(g.modus === 'trial'){
+    return [...warnungenFuer(' in Party A', g.rows.filter(r=>r.party==='A')), ...warnungenFuer(' in Party B', g.rows.filter(r=>r.party==='B'))];
+  }
+  return warnungenFuer('', g.rows);
+}
 function renderGpPlanBoard(){
   const el = document.getElementById('gpPlanBoard');
   if(!currentGpPlanName || !currentGpPlanData){ el.innerHTML = ''; return; }
@@ -5595,11 +5622,20 @@ function renderGpPlanBoard(){
   };
 
   const groupsHtml = currentGpPlanData.groups.map((g, gi) => {
+    // Doppelt vergebene Artefakte INNERHALB derselben Gruppe erkennen (nicht
+    // gruppenübergreifend - anders als bei Spielern, da Artefakt-Buffs pro
+    // Gruppe/Instanz wirken und ein doppelt vergebenes Artefakt dort typischerweise
+    // ungewollt ist, während dieselbe Person in zwei verschiedenen Gruppen kein
+    // Problem wäre).
+    const artefaktZaehlung = {};
+    g.rows.forEach(row => { if(row.artefakt) artefaktZaehlung[row.artefakt] = (artefaktZaehlung[row.artefakt]||0) + 1; });
+    const istArtefaktDoppelt = val => !!val && artefaktZaehlung[val] > 1;
     const rowsHtml = g.rows.map((row, ri) => {
-      const selectFor = (kat, field) => {
+      const selectFor = (kat, field, highlight) => {
         const namen = gpOptionsFor(row, kat);
         const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
-        return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)">${opts}</select>`;
+        const hl = highlight ? ' style="border-color:var(--off);box-shadow:0 0 0 1px var(--off);" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : '';
+        return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)"${hl}>${opts}</select>`;
       };
       const doppelt = istDoppelt(row);
       return `<tr>
@@ -5612,7 +5648,7 @@ function renderGpPlanBoard(){
           </select></td>` : ''}
         ${g.showAusruestung ? `<td><input type="text" value="${escapeHtml(row.weapon||'')}" oninput="gpUpdateRowField(${gi},${ri},'weapon',this.value)" style="width:110px;"></td>
           <td><input type="text" value="${escapeHtml(row.ausruestung||'')}" oninput="gpUpdateRowField(${gi},${ri},'ausruestung',this.value)" style="width:110px;"></td>` : ''}
-        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt',istArtefaktDoppelt(row.artefakt))}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
@@ -5632,6 +5668,7 @@ function renderGpPlanBoard(){
         <span class="muted" style="font-size:0.78rem;" title="Grobe Orientierung (Summe aus Artefakt-, Mount-, Gefährten- und Gefährten-Verstärkungs-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
         <button type="button" class="action danger small" style="margin-left:auto;" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
       </div>
+      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
         <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}${g.showAusruestung?'<th>Weapon</th><th>Ausrüstung</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
@@ -5661,11 +5698,13 @@ function gpToggleAnsicht(){ gpPlanAnsichtModus = !gpPlanAnsichtModus; renderGpPl
 // z. B. in Discord teilen, ohne die vielen Bearbeiten-Steuerelemente im Bild zu haben.
 function gpPlanAnsichtHtml(){
   return currentGpPlanData.groups.map(g => {
+    const artefaktZaehlungAnsicht = {};
+    g.rows.forEach(row => { if(row.artefakt) artefaktZaehlungAnsicht[row.artefakt] = (artefaktZaehlungAnsicht[row.artefakt]||0) + 1; });
     const rows = g.rows.filter(row => row.charKey || row.freierName).map(row => `<tr>
       <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
       <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
       ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
-      <td>${escapeHtml(row.artefakt||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
+      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${escapeHtml(row.artefakt||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
       <td>${escapeHtml(row.mount||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
       <td>${escapeHtml(row.mountBonus||'–')}</td>
       <td>${escapeHtml(row.gefaehrte||'–')}</td>
@@ -5675,6 +5714,7 @@ function gpPlanAnsichtHtml(){
       <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span>
         <span class="muted" style="font-weight:400;font-size:0.78rem;margin-left:8px;">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
       </h3>
+      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
         <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="8" class="muted">Noch niemand eingetragen.</td></tr>'}</tbody>

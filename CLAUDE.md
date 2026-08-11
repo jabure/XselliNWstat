@@ -332,6 +332,26 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.22.0: Rollen-Überbelegung- und Artefakt-Duplikat-Warnungen im
+  Gruppenplaner-Board (Nutzerwunsch).**
+  - `gpRoleWarnings(g)`: prüft je Gruppe auf mehr als 1 Tank bzw. 1 Heiler
+    (Standard-5er-Zusammensetzung), gezählt werden nur BESETZTE Zeilen
+    (charKey oder freierName gesetzt). Bei Trial (`g.modus==='trial'`) wird
+    getrennt je Party A/B geprüft (`row.party`), da jede Party ihre eigene
+    5er-Zusammensetzung braucht; Zeilen ohne Party-Zuordnung fließen NICHT
+    ein. Reine Warnung (`⚠ ...`, `var(--off)`) unter dem Gruppen-Header,
+    verhindert nichts - Sonderaufstellungen bleiben möglich. Wird sowohl im
+    Bearbeitungs- als auch im Nur-Ansicht-Modus angezeigt.
+  - Artefakt-Duplikate: INNERHALB derselben Gruppe (nicht gruppenübergreifend,
+    anders als die bestehende Spieler-Duplikatserkennung) wird gezählt, wie
+    oft ein Artefaktname vorkommt (`artefaktZaehlung`); bei >1 wird das
+    Auswahlfeld genauso markiert wie doppelt vergebene Spieler
+    (`border-color:var(--off)` + Tooltip). In der Nur-Ansicht wird die
+    Artefakt-Zelle stattdessen farbig/fett hervorgehoben (kein `<select>`
+    dort). Bewusst nur Artefakte (nicht Mount/Gefährte) geprüft, da dort der
+    Buff-Stacking-Konflikt am relevantesten ist.
+  Smoke-Test um 2 neue Checks erweitert (Rollen-Warnung erscheint bei 2
+  Tanks in einer Party, Artefakt-Duplikat wird im Select markiert).
 - **Seit v0.21.0: "Bestes eigenes Setup"-Optimierer im Gruppenplaner-Board
   (Nutzerwunsch, inspiriert von nwo-guides.gitlab.io/neverwinter-party-
   optimizer - deren tatsächliche Optimierungslogik ließ sich technisch NICHT

@@ -676,6 +676,41 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Zurück zur Bearbeitung zeigt wieder Eingabefelder', doc.querySelectorAll('#gpPlanBoard select, #gpPlanBoard input').length > 0);
     }
 
+    // Rollen-Überbelegung-Warnung (seit v0.22.0, Nutzerwunsch): die frische
+    // Dungeon-Gruppe hier hat noch die Standardbesetzung aus gpAddGroup()
+    // (DPS,DPS,DPS,Heiler,Tank an Index 0-4) - Zeile 0 zusätzlich auf Tank
+    // umstellen und beide Tank-Zeilen mit Spielern besetzen (nur BESETZTE
+    // Zeilen zählen), damit die Überbelegung entsteht.
+    win.gpUpdateRowRolle(0, 0, 'Tank'); await wait(50);
+    win.gpResolveRowSpieler(0, 0, 'Testspieler1'); await wait(50);
+    win.gpResolveRowSpieler(0, 4, 'Testspieler2'); await wait(100);
+    let warnGroupCard = doc.querySelectorAll('#gpPlanBoard .card')[0];
+    check('Rollen-Warnung erscheint bei 2 Tanks in einer Dungeon-Gruppe',
+      warnGroupCard.textContent.includes('⚠ 2 Tanks') && warnGroupCard.textContent.includes('erwartet: 1'),
+      warnGroupCard.textContent.slice(0, 300));
+    win.gpUpdateRowRolle(0, 0, 'DPS'); await wait(50); // aufräumen für die folgenden Checks
+
+    // Artefakt-Duplikat INNERHALB derselben Gruppe wird markiert (anders als
+    // die Spieler-Duplikatserkennung, die planweit gilt). 'Icon-Test-Artefakt'
+    // wurde weiter oben über die Referenzlisten-Seite angelegt und gespeichert,
+    // ist also ein gültiger Auswahlwert.
+    win.gpUpdateRowField(0, 1, 'artefakt', 'Icon-Test-Artefakt');
+    win.gpUpdateRowField(0, 2, 'artefakt', 'Icon-Test-Artefakt');
+    win.renderGpPlanBoard(); await wait(100);
+    const gpRowsArtefakt = doc.querySelectorAll('#gpPlanBoard .card')[0].querySelectorAll('tbody tr');
+    const artefaktSelect1 = gpRowsArtefakt[1].querySelectorAll('select')[1];
+    const artefaktSelect2 = gpRowsArtefakt[2].querySelectorAll('select')[1];
+    check('Doppelt vergebenes Artefakt wird in beiden Zeilen markiert',
+      artefaktSelect1 && artefaktSelect2 && artefaktSelect1.value === 'Icon-Test-Artefakt' && artefaktSelect2.value === 'Icon-Test-Artefakt' &&
+      (artefaktSelect1.getAttribute('style') || '').includes('var(--off)') && (artefaktSelect2.getAttribute('style') || '').includes('var(--off)'),
+      [artefaktSelect1 && artefaktSelect1.value, artefaktSelect1 && artefaktSelect1.getAttribute('style'), artefaktSelect2 && artefaktSelect2.value, artefaktSelect2 && artefaktSelect2.getAttribute('style')]);
+    win.gpUpdateRowField(0, 2, 'artefakt', ''); win.renderGpPlanBoard(); await wait(100);
+    const gpRowsArtefaktNach = doc.querySelectorAll('#gpPlanBoard .card')[0].querySelectorAll('tbody tr');
+    const artefaktSelect1Nach = gpRowsArtefaktNach[1].querySelectorAll('select')[1];
+    check('Markierung verschwindet wieder, wenn nur noch ein Zeile das Artefakt trägt',
+      artefaktSelect1Nach && !(artefaktSelect1Nach.getAttribute('style') || '').includes('var(--off)'),
+      artefaktSelect1Nach && artefaktSelect1Nach.getAttribute('style'));
+
     // Admin-Statistik-Karte: braucht Rolle admin, der bisherige Test-User ist nur
     // coadmin - dafür kurz als der Bootstrap-Admin einloggen.
     win.logoutAccount(); await wait(300);
