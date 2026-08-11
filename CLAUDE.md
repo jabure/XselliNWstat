@@ -332,6 +332,66 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.24.0: Ingame-Handle, Rollen-Passung, Ausrüstung bei Charakter-
+  wechsel erhalten, "Plan speichern" schließt nicht mehr, Icon im Select
+  (Nutzervorgabe, mehrteilige Anfrage).**
+  - **Ingame-Handle**: neues Feld `data.handle` je GP-Charakter, frei
+    editierbar (eigenes Eingabefeld bei der Anlage UND im Charakter-Editor,
+    `gpEditHandle`) - bewusst UNABHÄNGIG vom Website-Login-Accountnamen, da
+    beides in der Praxis auseinanderfallen kann. `gpDisplayName(c)` zeigt bei
+    gesetztem Handle `Kurzname@Handle` statt des bisherigen Rückfalls
+    `Name (Konto)`; "Meine Charaktere" zeigt den Handle zusätzlich als
+    eigenes `<span>`. Server: `GP_CHAR_ALLOWED_KEYS` um `'handle'` erweitert
+    (sonst hätte die PUT-Route das Feld beim Speichern stillschweigend
+    verworfen - die Route ersetzt die Charakterdatei komplett durch die
+    erlaubten Felder aus dem Body).
+  - **Mehrfachbelegung jetzt über den Handle statt den Charakter-Key**:
+    `gpRowIdentity(row)` in `renderGpPlanBoard` nutzt bei zugewiesenem
+    Charakter dessen Handle (falls gepflegt) als Identität für die
+    planweite Duplikat-Prüfung - fällt dadurch jetzt auch auf, wenn
+    dieselbe reale Person mit ZWEI VERSCHIEDENEN eigenen Charakteren
+    doppelt eingetragen wird. Ohne gepflegten Handle bleibt der
+    Charakter-Key der Rückfall (altes Verhalten unverändert).
+  - **Rollen-Passung**: `gpRolleMismatch(rec, rolle)` prüft beim Zuweisen
+    (`gpResolveRowSpieler`) die Rollen-Checkboxen des Charakters (`data.
+    rollen`) gegen die Zeilen-Rolle; bei Nichtpassung (z. B. reiner Tank auf
+    einen Heiler-Slot) wird die Zuweisung mit `alert()` abgelehnt und das
+    Feld bleibt unverändert. Charaktere OHNE jede angekreuzte Rolle werden
+    NICHT blockiert (sonst wäre ein Charakter ohne gepflegte Rollen-Angabe
+    nirgends einsetzbar - schlechter als gar keine Prüfung).
+  - **Ausrüstung bleibt beim Charakterwechsel erhalten**: die bisherige
+    "beim Charakterwechsel Artefakt/Mount/.../GefährtenBonus automatisch auf
+    '' zurücksetzen"-Logik in `gpResolveRowSpieler` wurde ersatzlos entfernt
+    (Nutzerwunsch: "wenn schon Ausrüstung drinnen steht, soll das so
+    übernommen werden"). Was der neu zugewiesene Charakter laut Checkliste
+    NICHT besitzt, markiert `gpFieldNichtVorhanden(row, kat)` stattdessen rot
+    (gleiche Optik wie die Artefakt-Duplikat-Markierung) - der aktuelle Wert
+    wird dafür in `selectFor` IMMER als Option mit aufgenommen (auch wenn er
+    nach der gefilterten Besitzliste eigentlich nicht mehr vorkäme), sonst
+    würde er beim Wechsel unbemerkt aus der Anzeige verschwinden. Ohne
+    gepflegte Checkliste für die Kategorie (owned leer/fehlt) gibt es nichts
+    zu prüfen -> keine rote Markierung (gilt automatisch auch für freie
+    Namen ohne Charakter-Profil).
+  - **"Plan speichern" schließt den Plan nicht mehr**: `gpSaveCurrentPlan()`
+    rief bisher nur `ensureGpPlansLoaded(true)` auf, was intern IMMER
+    `renderGpPlanList()` auslöst - und die leert `#gpPlanBoard`
+    unbedingt (bekannte Falle, s. weiter unten in dieser Datei). Jetzt wird
+    danach explizit `renderGpPlanBoard()` nachgezogen, das Board bleibt
+    sichtbar.
+  - **Icon im Auswahlfeld statt daneben, größer**: neue Funktion
+    `gpFieldIconHtml(kat, name)` (reines `<img class="gp-field-icon">`,
+    ersetzt für die Board-Selects das bisherige Pill-Badge) wird per CSS
+    (`.gp-select-icon-wrap{position:relative}`, `.gp-field-icon{position:
+    absolute; left:8px; ...; width:26px; height:26px}`) über die linke
+    Innenseite des Selects gelegt; das Select bekommt bei vorhandenem Icon
+    zusätzlich die Klasse `gp-has-icon` (mehr `padding-left`, damit der
+    Options-Text nicht unter dem Icon liegt). Das kompakte Pill-Badge
+    (`gpDmgBadgeHtml`, mit Text-Icon-Kombination) bleibt weiterhin für die
+    Nur-Ansicht (reiner Text statt Select) im Einsatz.
+  - Smoke-Test um u. a. Rollen-Passung-Ablehnung, Handle-Duplikat über zwei
+    verschiedene Charaktere, Ausrüstungs-Erhalt+Rot-Markierung, "Plan
+    speichern schließt nicht" und Handle-Editor-Feld erweitert - alle 205
+    Checks grün.
 - **Seit v0.23.0: Rollenabhängige Optimierer-Logik + zwei neue Referenzfelder
   (Nutzervorgabe, Screenshot des Optimierer-Ergebnisses).**
   - **Mount & Gefährten-Bonus bei DPS unangetastet**: DPS haben laut Nutzer

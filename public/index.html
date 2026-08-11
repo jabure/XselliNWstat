@@ -352,11 +352,13 @@
      Artefakt-/Mount-Auswahl einer Zeile (Nutzerwunsch). */
   .dmgbuff-badge{display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--gold); background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft); border-radius:10px; padding:1px 7px; margin-left:5px; white-space:nowrap;}
   .dmgbuff-badge img{width:16px; height:16px; border-radius:3px; object-fit:cover; flex:none;}
-  /* Icon VOR statt UNTER dem Select (Nutzerwunsch) - select ist width:100% und
-     würde das Badge sonst in eine neue Zeile umbrechen lassen. */
-  .gp-select-icon-wrap{display:flex; align-items:center; gap:6px;}
-  .gp-select-icon-wrap select{width:auto; flex:1; min-width:0;}
-  .gp-select-icon-wrap .dmgbuff-badge{margin-left:0; flex:none;}
+  /* Seit v0.24.0: Icon liegt IM Auswahlfeld (links überlagert, größer) statt
+     danebenzustehen (Nutzerwunsch). .gp-has-icon bekommt zusätzliches
+     Innenpolster links, damit der Options-Text nicht unter dem Icon liegt. */
+  .gp-select-icon-wrap{position:relative;}
+  .gp-select-icon-wrap select{width:100%;}
+  .gp-select-icon-wrap select.gp-has-icon{padding-left:42px;}
+  .gp-field-icon{position:absolute; left:8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:5px; object-fit:cover; pointer-events:none; z-index:1;}
   .ins-col-left .ins-stat-row{flex-direction:column;}
   .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
@@ -641,10 +643,11 @@
       <p class="helptext">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
       <div id="gpCharList"></div>
       <div class="btnrow" style="margin-top:12px;">
-        <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
+        <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben..." style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
+        <input type="text" id="gpNewCharHandle" placeholder="@Ingame-Handle (optional)" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <button type="button" class="action gold" onclick="gpCreateCharacter()">Charakter anlegen</button>
       </div>
-      <p class="helptext" style="margin-top:6px;">Der Name wird automatisch um deinen Accountnamen ergänzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben.</p>
+      <p class="helptext" style="margin-top:6px;">Der Name wird automatisch um deinen Accountnamen ergänzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben. Der Ingame-Handle ist unabhängig davon frei editierbar (auch später im Charakter-Editor) und wird bei der Gruppenplanung angezeigt und für die Mehrfachbelegungs-Prüfung verwendet.</p>
     </div>
     <div id="gpCharEditor"></div>
   </div>
@@ -5003,11 +5006,22 @@ function showGpPage(name){
 }
 function gpCharKey(owner, name){ return owner + '::' + name; }
 function gpFindChar(key){ return (gpCharacters||[]).find(c => gpCharKey(c.owner,c.name) === key); }
-// Anzeigename für einen GP-Charakter: neue Charaktere (seit v0.19.0) heißen
-// schon "Charname@Accountname" und brauchen keine zusätzliche Kontoangabe mehr;
-// ältere, vor dem Update angelegte Charaktere haben das noch nicht im Namen -
-// für die bleibt der alte "Name (Konto)"-Anzeigestil als Rückfall erhalten.
-function gpDisplayName(c){ return c.name.includes('@') ? c.name : `${c.name} (${c.owner})`; }
+// Anzeigename für einen GP-Charakter. Seit v0.24.0 (Nutzerwunsch "@handle
+// ändern können und mitangezeigt"): wenn ein Ingame-Handle hinterlegt ist
+// (d.handle, frei editierbar im Charakter-Editor - NICHT zwingend gleich dem
+// Website-Login-Accountnamen), wird "Kurzname@Handle" angezeigt. Ohne
+// hinterlegten Handle bleibt der bisherige Rückfall erhalten: neue
+// Charaktere (seit v0.19.0) heißen schon "Charname@Accountname" im
+// gespeicherten Namen, ältere noch nicht - für die gilt weiter der alte
+// "Name (Konto)"-Anzeigestil.
+function gpDisplayName(c){
+  const handle = c.data && c.data.handle;
+  if(handle){
+    const kurzname = c.name.includes('@') ? c.name.split('@')[0] : c.name;
+    return `${kurzname}@${handle}`;
+  }
+  return c.name.includes('@') ? c.name : `${c.name} (${c.owner})`;
+}
 // Für die eigene "Meine Charaktere"-Liste ist der "@Accountname"-Teil überflüssig
 // (es sind ohnehin nur die eigenen Charaktere) - dort wird er zur besseren
 // Lesbarkeit wieder abgeschnitten, der volle Name (mit @) bleibt aber die
@@ -5052,6 +5066,7 @@ function renderGpCharList(){
       return `<div class="char-item">
       <span style="flex:1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <strong>${klasseIcon?klasseIcon+' ':''}${escapeHtml(gpOwnDisplayName(c.name))}</strong>
+        ${c.data.handle ? `<span class="muted">@${escapeHtml(c.data.handle)}</span>` : ''}
         <span class="muted">${escapeHtml(c.data.klasse||'')}</span>
         ${gpOwnedIconsHtml(c.data)}
       </span>
@@ -5073,12 +5088,16 @@ function gpDeleteCharacterByIndex(i){ gpDeleteCharacter(gpMyCharsOrder[i]); }
 // dafür zuerst entfernt, damit nicht zweimal angehängt wird.
 async function gpCreateCharacter(){
   const nameEl = document.getElementById('gpNewCharName');
+  const handleEl = document.getElementById('gpNewCharHandle');
   const rawName = nameEl.value.trim().split('@')[0].trim();
   if(!rawName || !currentUser) return;
   const name = `${rawName}@${currentUser}`;
+  const handle = handleEl ? handleEl.value.trim().replace(/^@/, '') : '';
   try{
     await apiGpCreateCharacter(name);
+    if(handle) await apiGpSaveCharacter(name, { klasse:'', handle, rollen:{dps:false,heal:false,tank:false}, besitz:{} });
     nameEl.value = '';
+    if(handleEl) handleEl.value = '';
     await ensureGpCharactersLoaded(true);
     gpEditingCharName = name;
     renderGpCharList();
@@ -5157,6 +5176,17 @@ function gpDmgBadgeHtml(kat, name){
   if(!e || !e.icon) return '';
   const rolleSuffix = (kat.roleKey && e[kat.roleKey]) ? ' · bevorzugt: ' + e[kat.roleKey] : '';
   return `<span class="dmgbuff-badge" title="${escapeHtml(e.name + rolleSuffix)}">${gpRefIconImgHtml(e.icon)}</span>`;
+}
+// Seit v0.24.0 (Nutzerwunsch "Icon im Textfeld statt daneben, etwas größer"):
+// eigenes, größeres Icon-Element speziell für die Aufstellungs-Dropdowns im
+// Board - wird per CSS (.gp-field-icon) über die linke Innenseite des Selects
+// gelegt (s. .gp-select-icon-wrap), statt wie das kompakte Pill-Badge
+// (gpDmgBadgeHtml, weiterhin für die Nur-Ansicht) daneben zu stehen.
+function gpFieldIconHtml(kat, name){
+  if(!kat.dmgKey) return '';
+  const e = gpKatItemByName(kat, name);
+  if(!e || !e.icon) return '';
+  return `<img class="gp-field-icon" src="${escapeHtml(e.icon)}" alt="" title="${escapeHtml(e.name)}">`;
 }
 // Grobe Summe der Dmg-Buffs (Artefakte + Mounts) über alle Zeilen einer Gruppe -
 // nur zur schnellen Orientierung, KEINE exakte Nachbildung der Spiel-Stapel-
@@ -5303,6 +5333,7 @@ function renderGpCharEditor(){
     <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
       <div><label>Klasse</label><select id="gpEditKlasse">${klasseOptions}</select></div>
+      <div><label>Ingame-Handle (@...)</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
     </div>
     <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">Rollen, die dieser Charakter spielen kann</label>
       ${rolleChk('dps','DPS')} ${rolleChk('heal','Heiler')} ${rolleChk('tank','Tank')}
@@ -5315,6 +5346,7 @@ function renderGpCharEditor(){
 async function gpSaveCharEditor(){
   const name = gpEditingCharName;
   const klasse = document.getElementById('gpEditKlasse').value;
+  const handle = document.getElementById('gpEditHandle').value.trim().replace(/^@/, '');
   const rollen = { dps:false, heal:false, tank:false };
   document.querySelectorAll('input[data-gprolle]').forEach(cb=>{ rollen[cb.dataset.gprolle] = cb.checked; });
   const besitz = {};
@@ -5323,7 +5355,7 @@ async function gpSaveCharEditor(){
     if(cb.checked) besitz[cb.dataset.gpbesitz].push(cb.value);
   });
   try{
-    await apiGpSaveCharacter(name, { klasse, rollen, besitz });
+    await apiGpSaveCharacter(name, { klasse, handle, rollen, besitz });
     await ensureGpCharactersLoaded(true);
     document.getElementById('saveStatus').textContent = `"${name}" gespeichert.`;
     renderGpCharList();
@@ -5627,21 +5659,44 @@ function gpRowSpielerText(row){
   }
   return row.freierName || '';
 }
+// Board-Rolle -> Feldname in char.data.rollen (Charakter-Editor-Checkbox).
+function gpRolleFlagKey(rolle){ return rolle==='DPS' ? 'dps' : (rolle==='Heiler' ? 'heal' : 'tank'); }
+// Seit v0.24.0 (Nutzervorgabe "Charaktere nur wo sie hinpassen - Heiler an
+// Heiler-Slot, Tank an Tank-Slot"): true, wenn der Charakter laut seinen
+// Rollen-Checkboxen NICHT für die Zeilen-Rolle vorgesehen ist. Charaktere
+// ohne jede angekreuzte Rolle (rollen fehlt oder alle false, z. B. frisch
+// angelegt) werden NICHT blockiert - sonst wäre ein Charakter ohne gepflegte
+// Rollen-Angabe nirgends einsetzbar, das wäre schlechter als keine Prüfung.
+function gpRolleMismatch(rec, rolle){
+  const rollen = rec && rec.data && rec.data.rollen;
+  if(!rollen) return false;
+  if(!rollen.dps && !rollen.heal && !rollen.tank) return false;
+  return !rollen[gpRolleFlagKey(rolle)];
+}
 // Wird beim Verlassen des Spieler-Feldes (blur/change) aufgerufen, NICHT bei
 // jedem Tastendruck (siehe unten) - passt der eingegebene Text exakt zu einem
 // bekannten Charakter, wird dieser zugewiesen, sonst gilt der Text als frei
 // eingetragener Name (Mitspieler ohne eigenes Profil).
+// Seit v0.24.0: Rollen-Passung wird geprüft (s. gpRolleMismatch) - passt der
+// Charakter nicht zur Zeilen-Rolle, wird die Zuweisung abgelehnt und das Feld
+// auf den bisherigen Wert zurückgesetzt. Außerdem werden Artefakt/Mount/...
+// beim Charakterwechsel NICHT mehr automatisch geleert (Nutzerwunsch "wenn
+// schon Ausrüstung drinnen steht, soll das so übernommen werden") - was der
+// neue Charakter laut Checkliste nicht besitzt, wird stattdessen rot markiert
+// (s. gpFieldNichtVorhanden), damit nichts unbemerkt falsch stehen bleibt.
 function gpResolveRowSpieler(gi, ri, val){
   const row = currentGpPlanData.groups[gi].rows[ri];
   const key = gpCharLabelMap().get(val.trim());
-  const changed = (key || '') !== row.charKey;
+  if(key){
+    const rec = gpFindChar(key);
+    if(gpRolleMismatch(rec, row.rolle)){
+      alert(`${gpDisplayName(rec)} ist nicht als ${row.rolle} markiert (siehe Rollen-Haken im Charakter-Editor) und passt nicht auf diesen Platz.`);
+      renderGpPlanBoard(); // Feld auf den bisherigen (gespeicherten) Wert zurücksetzen
+      return;
+    }
+  }
   row.charKey = key || '';
   row.freierName = key ? '' : val.trim();
-  if(changed){
-    // Alte Auswahl könnte zum neuen (oder keinem) Charakter nicht mehr passen -
-    // zurücksetzen statt einen unsichtbaren, nicht mehr gültigen Wert zu behalten.
-    ['artefakt','mount','mountBonus','gefaehrte','gefaehrtenBonus'].forEach(f => row[f] = '');
-  }
   renderGpPlanBoard();
 }
 // Für eine Zeile: Optionen einer Besitz-Kategorie, gefiltert auf den zugewiesenen
@@ -5653,6 +5708,20 @@ function gpOptionsFor(row, kat){
   const owned = rec && rec.data && rec.data.besitz && rec.data.besitz[kat.key];
   const namen = (owned && owned.length) ? owned : kat.liste().map(e=>e.name);
   return namen;
+}
+// Seit v0.24.0: true, wenn die Zeile einen Charakter mit gepflegter
+// Besitz-Checkliste für diese Kategorie hat, aber der AKTUELL eingetragene
+// Wert nicht darin vorkommt (z. B. weil beim Charakterwechsel die alte
+// Ausrüstung übernommen wurde, s. gpResolveRowSpieler). Ohne gepflegte
+// Checkliste (owned leer/fehlt) gibt es nichts zu prüfen -> false, damit
+// Zeilen ohne Charakter-Profil (freier Name) nicht fälschlich rot markiert
+// werden.
+function gpFieldNichtVorhanden(row, kat){
+  if(!row.charKey || !row[kat.rowField]) return false;
+  const rec = gpFindChar(row.charKey);
+  const owned = rec && rec.data && rec.data.besitz && rec.data.besitz[kat.key];
+  if(!owned || !owned.length) return false;
+  return !owned.includes(row[kat.rowField]);
 }
 // Prüft je Gruppe auf Rollen-Überbelegung gegenüber der Standard-Zusammen-
 // setzung (1 Tank, 1 Heiler pro 5er-Party, Rest DPS). Bei Trial (10, 2
@@ -5697,15 +5766,28 @@ function renderGpPlanBoard(){
 
   // Doppelte Spieler-Zuweisungen über den GANZEN Plan hinweg erkennen (nicht nur
   // innerhalb einer Gruppe) - z. B. versehentlich denselben Charakter in zwei
-  // Zeilen eingetragen. Zählt Charakter-Zuweisungen und frei eingetragene Namen
-  // (nicht case-sensitiv) getrennt von leeren Zeilen.
+  // Zeilen eingetragen. Seit v0.24.0: bei zugewiesenem Charakter zählt - falls
+  // gepflegt - dessen Ingame-HANDLE statt des Charakter-Keys (Nutzervorgabe
+  // "@handle kann nur einmal vorkommen") - so fällt es auch auf, wenn dieselbe
+  // reale Person mit ZWEI verschiedenen eigenen Charakteren doppelt eingetragen
+  // wird. Ohne gepflegten Handle bleibt der Charakter-Key der Rückfall (altes
+  // Verhalten). Frei eingetragene Namen (nicht case-sensitiv) weiterhin
+  // getrennt davon, leere Zeilen zählen nicht mit.
+  const gpRowIdentity = row => {
+    if(row.charKey){
+      const rec = gpFindChar(row.charKey);
+      const handle = rec && rec.data && rec.data.handle;
+      return handle ? 'h:'+handle.trim().toLowerCase() : 'c:'+row.charKey;
+    }
+    return row.freierName ? 'f:'+row.freierName.trim().toLowerCase() : '';
+  };
   const spielerZaehlung = {};
   currentGpPlanData.groups.forEach(g => g.rows.forEach(row => {
-    const id = row.charKey ? 'c:'+row.charKey : (row.freierName ? 'f:'+row.freierName.trim().toLowerCase() : '');
+    const id = gpRowIdentity(row);
     if(id) spielerZaehlung[id] = (spielerZaehlung[id]||0) + 1;
   }));
   const istDoppelt = row => {
-    const id = row.charKey ? 'c:'+row.charKey : (row.freierName ? 'f:'+row.freierName.trim().toLowerCase() : '');
+    const id = gpRowIdentity(row);
     return id && spielerZaehlung[id] > 1;
   };
 
@@ -5719,16 +5801,35 @@ function renderGpPlanBoard(){
     g.rows.forEach(row => { if(row.artefakt) artefaktZaehlung[row.artefakt] = (artefaktZaehlung[row.artefakt]||0) + 1; });
     const istArtefaktDoppelt = val => !!val && artefaktZaehlung[val] > 1;
     const rowsHtml = g.rows.map((row, ri) => {
-      const selectFor = (kat, field, highlight) => {
+      // Seit v0.24.0: das Icon sitzt jetzt IM Auswahlfeld (linksbündig
+      // überlagert, per CSS-Padding Platz gemacht) statt daneben, und ist
+      // größer (Nutzerwunsch). Der aktuelle Wert wird IMMER als Option
+      // aufgenommen, auch wenn er (nach Charakterwechsel) nicht mehr zur
+      // gefilterten Besitzliste gehört - sonst würde er beim Wechsel
+      // unbemerkt aus der Anzeige verschwinden. Fehlt er in der Besitzliste
+      // des zugewiesenen Charakters, wird das Feld rot markiert
+      // ("nicht vorhanden" - Nutzerwunsch, statt die Auswahl automatisch zu
+      // leeren).
+      const selectFor = (kat, field, extraHighlight) => {
         const namen = gpOptionsFor(row, kat);
-        const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(gpOptionLabel(kat,n))}</option>`)].join('');
-        const hl = highlight ? ' style="border-color:var(--off);box-shadow:0 0 0 1px var(--off);" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : '';
-        return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)"${hl}>${opts}</select>`;
+        const val = row[field];
+        const alleNamen = (val && !namen.includes(val)) ? [...namen, val] : namen;
+        const nichtVorhanden = gpFieldNichtVorhanden(row, kat);
+        const opts = ['<option value="">–</option>', ...alleNamen.map(n=>{
+          const fehlt = n === val && nichtVorhanden;
+          return `<option value="${escapeHtml(n)}" ${val===n?'selected':''}${fehlt?' style="color:var(--off);"':''}>${escapeHtml(gpOptionLabel(kat,n))}${fehlt?' (nicht vorhanden)':''}</option>`;
+        })].join('');
+        const warnung = extraHighlight || nichtVorhanden;
+        const titel = nichtVorhanden ? 'Der zugewiesene Charakter besitzt dieses Item laut Checkliste nicht' : (extraHighlight ? 'Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen' : '');
+        const iconHtml = gpFieldIconHtml(kat, val);
+        const selectCls = iconHtml ? ' class="gp-has-icon"' : '';
+        const hl = warnung ? ' style="border-color:var(--off);box-shadow:0 0 0 1px var(--off);"' : '';
+        return `<div class="gp-select-icon-wrap">${iconHtml}<select${selectCls} onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)"${hl} title="${escapeHtml(titel)}">${opts}</select></div>`;
       };
       const doppelt = istDoppelt(row);
       return `<tr>
         <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
-        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?'Dieser Spieler ist mehrfach in diesem Plan eingetragen':''}"></td>
+        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?'Dieser Spieler/Handle ist mehrfach in diesem Plan eingetragen':''}"></td>
         ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
@@ -5736,8 +5837,8 @@ function renderGpPlanBoard(){
           </select></td>` : ''}
         ${g.showAusruestung ? `<td><input type="text" value="${escapeHtml(row.weapon||'')}" oninput="gpUpdateRowField(${gi},${ri},'weapon',this.value)" style="width:110px;"></td>
           <td><input type="text" value="${escapeHtml(row.ausruestung||'')}" oninput="gpUpdateRowField(${gi},${ri},'ausruestung',this.value)" style="width:110px;"></td>` : ''}
-        <td><div class="gp-select-icon-wrap">${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt',istArtefaktDoppelt(row.artefakt))}</div></td>
-        <td><div class="gp-select-icon-wrap">${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}</div></td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt',istArtefaktDoppelt(row.artefakt))}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
@@ -5816,6 +5917,11 @@ async function gpSaveCurrentPlan(){
     const res = await apiGpSavePlan(currentGpPlanName, Object.assign({}, currentGpPlanData, { rev: currentGpPlanRev }));
     if(res && res.rev !== undefined) currentGpPlanRev = res.rev;
     await ensureGpPlansLoaded(true);
+    // ensureGpPlansLoaded() -> renderGpPlanList() leert #gpPlanBoard IMMER
+    // (unabhängig vom aktuellen Plan) - seit v0.24.0 hier explizit wieder
+    // anzeigen, sonst wirkt es nach dem Speichern so, als hätte sich der
+    // offene Plan geschlossen (Nutzerbeschwerde).
+    renderGpPlanBoard();
     document.getElementById('saveStatus').textContent = `Plan "${currentGpPlanName}" gespeichert.`;
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }

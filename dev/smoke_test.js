@@ -505,6 +505,19 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     gpAccBtn.click(); await wait(100);
     check('Besitz-Akkordeon lässt sich per Klick öffnen (Artefakte-Liste)', gpAccDiv.classList.contains('open'));
 
+    // Seit v0.24.0 (Nutzerwunsch "@handle im Charakter-Editor ändern können"):
+    // eigenes Eingabefeld für den Ingame-Handle, unabhängig vom Website-Login.
+    const gpEditHandleInput = doc.getElementById('gpEditHandle');
+    check('Charakter-Editor hat ein Ingame-Handle-Feld', !!gpEditHandleInput);
+    if(gpEditHandleInput){
+      input(win, gpEditHandleInput, 'charb_handle');
+      await win.gpSaveCharEditor(); await wait(300);
+      const charBNachHandle = (await api('/api/gp/characters', {}, token)).data.find(c => c.name === `CharB@${user}`);
+      check('Ingame-Handle wird über den Editor gespeichert', charBNachHandle && charBNachHandle.data && charBNachHandle.data.handle === 'charb_handle', charBNachHandle);
+      const charBDatalistOption = doc.querySelector('#gpCharList').textContent; // Liste neu geladen durch gpSaveCharEditor -> renderGpCharList
+      check('"Meine Charaktere"-Liste zeigt den Handle mit an', doc.getElementById('gpCharList').textContent.includes('@charb_handle'), doc.getElementById('gpCharList').textContent);
+    }
+
     // Seit v0.19.0: der gespeicherte Charaktername ist "Charname@Accountname" (schützt
     // vor Verwechslung bei gleichnamigen Charakteren verschiedener Accounts), die
     // eigene Liste zeigt zur Lesbarkeit aber nur den Kurznamen (gpOwnDisplayName).
@@ -582,9 +595,16 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // Badge): das Badge zeigt jetzt NUR noch das Icon, keinen Text mehr - der
     // %-Wert steht seit v0.22.1 bereits im Options-Text (s. o.). Pegasus hat in
     // den Default-Referenzdaten kein Icon hinterlegt, das Badge bleibt für ihn
-    // also leer.
+    // also leer. Seit v0.24.0 sitzt ein evtl. Icon ohnehin IM Select
+    // (.gp-field-icon, s. u.) statt als eigenständiges .dmgbuff-badge daneben -
+    // dieser Selektor findet also für den Mount ohnehin nichts mehr.
     const mountBadge = mountSelectGp.parentElement.querySelector('.dmgbuff-badge');
     check('Icon-loses Badge bleibt leer (kein doppelter %-Text mehr)', !mountBadge, mountBadge && mountBadge.outerHTML);
+    // Seit v0.24.0 (Nutzerwunsch "Icon im Textfeld statt daneben, größer"):
+    // Mount ohne Icon (Pegasus) bekommt kein .gp-field-icon und keine
+    // .gp-has-icon-Klasse (kein unnötiges Innenpolster ohne Icon).
+    check('Select ohne Icon bekommt keine gp-has-icon-Klasse', !mountSelectGp.classList.contains('gp-has-icon'), mountSelectGp.className);
+    check('Icon-Wrapper sitzt direkt um das Select (kein Icon daneben)', mountSelectGp.closest('.gp-select-icon-wrap') && !mountSelectGp.closest('.gp-select-icon-wrap').querySelector('.dmgbuff-badge'));
     // (Nicht gpBoard.querySelector('.entry-head') - das trifft zuerst den
     // Plan-Titel-Header, nicht den Gruppen-Header; groupNameInput sitzt bereits
     // im richtigen .entry-head der Gruppenkarte.)
@@ -618,6 +638,10 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Name ohne Treffer in der Datalist wird als freier Name übernommen', freierNameInputNeu && freierNameInputNeu.value === 'Gast Mira', freierNameInputNeu && freierNameInputNeu.value);
       // Jetzt exakt einen bekannten Charakter-Namen eintragen -> muss sich verknüpfen
       // (Besitz-Dropdowns filtern sich danach auf dessen Besitzliste statt der vollen Liste).
+      // Seit v0.24.0 (Rollen-Passung): TankMax ist nur als Tank markiert (s. Anlage
+      // weiter oben) - die Zeile muss also erst auf Tank umgestellt werden, sonst
+      // lehnt gpResolveRowSpieler die Zuweisung ab.
+      win.gpUpdateRowRolle(0, neueZeileIdx, 'Tank'); await wait(50);
       freierNameInputNeu.value = `TankMax (${user})`;
       freierNameInputNeu.dispatchEvent(new win.Event('change', { bubbles: true }));
       await wait(100);
@@ -625,9 +649,27 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Exakter Treffer verknüpft den registrierten Charakter (Besitz-Filter greift)', mountSelectNeu && mountSelectNeu.options.length === 2, mountSelectNeu && Array.from(mountSelectNeu.options).map(o=>o.value));
     }
 
-    // Doppelte Spieler-Zuweisung wird optisch markiert: HealerMia jetzt ZUSAETZLICH
-    // in eine zweite Zeile eintragen -> beide Zeilen sollten die Warnung zeigen.
-    win.gpAddRow(0, 'DPS'); await wait(100);
+    // Rollen-Passung (seit v0.24.0, Nutzervorgabe "Charaktere nur wo sie hinpassen"):
+    // TankMax ist NICHT als Heiler markiert - die Zuweisung auf eine Heiler-Zeile
+    // muss abgelehnt werden (alert + Feld bleibt unverändert).
+    win.gpAddRow(0, 'Heiler'); await wait(100);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const heilerZeileIdx = gpRows.length - 1;
+    const heilerSpielerFeld = gpRows[heilerZeileIdx].querySelector('input[list="gpCharDatalist"]');
+    let alertMsg = '';
+    win.alert = m => { alertMsg = m; };
+    heilerSpielerFeld.value = `TankMax (${user})`;
+    heilerSpielerFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(100);
+    const heilerZeileNach = doc.querySelectorAll('#gpPlanBoard tbody tr')[heilerZeileIdx];
+    const heilerSpielerFeldNach = heilerZeileNach.querySelector('input[list="gpCharDatalist"]');
+    check('Rollen-Passung: TankMax (nur Tank) wird auf Heiler-Slot abgelehnt', alertMsg.includes('nicht als Heiler markiert') && heilerSpielerFeldNach.value !== `TankMax (${user})`, { alertMsg, wert: heilerSpielerFeldNach.value });
+    win.gpRemoveRow(0, heilerZeileIdx); await wait(100); // aufräumen
+
+    // Doppelte Spieler-Zuweisung wird optisch markiert: TankMax jetzt ZUSAETZLICH
+    // in eine zweite (ebenfalls Tank-)Zeile eintragen -> beide Zeilen sollten die
+    // Warnung zeigen.
+    win.gpAddRow(0, 'Tank'); await wait(100);
     gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
     const zweiteHealerZeileIdx = gpRows.length - 1;
     const zweitesSpielerFeld = gpRows[zweiteHealerZeileIdx].querySelector('input[list="gpCharDatalist"]');
@@ -639,6 +681,61 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const doppelteMarkiert = spielerFelder.filter(inp => inp.value === `TankMax (${user})` && (inp.getAttribute('style')||'').includes('var(--off)'));
     check('Doppelte Spieler-Zuweisung wird optisch markiert (mind. zwei Zeilen)', doppelteMarkiert.length >= 2, spielerFelder.map(i=>[i.value, i.getAttribute('style')]));
     win.gpRemoveRow(0, zweiteHealerZeileIdx); await wait(100); // aufräumen für die folgenden Checks
+
+    // ------------------------------------------------------------------
+    // Seit v0.24.0: Ingame-Handle (frei editierbar, wird bei Anzeige und bei
+    // der Mehrfachbelegungs-Prüfung statt des Website-Accountnamens
+    // verwendet), Rollen-Passung (Ablehnung s. o.) und "Ausrüstung bleibt
+    // beim Charakterwechsel erhalten, fehlender Besitz wird rot markiert
+    // statt automatisch geleert zu werden" (Nutzervorgabe).
+    // ------------------------------------------------------------------
+    r = await api('/api/gp/characters/TankMax', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Kämpfer', handle: 'sharedhandle', rollen: { dps: false, heal: false, tank: true }, besitz: { mounts: ['Pegasus'], mountBonus: ['Mystische Aura'], gefaehrten: ['Skorpion'] },
+    }) }, token);
+    check('Handle-Test: TankMax bekommt einen Ingame-Handle gesetzt', r.status === 200, r.status);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'TankMax2' }) }, token);
+    check('Handle-Test: zweiter Charakter "TankMax2" angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/characters/TankMax2', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Kämpfer', handle: 'sharedhandle', rollen: { dps: false, heal: false, tank: true }, besitz: { mounts: ['Zauberkessel der Vettel'] },
+    }) }, token);
+    check('Handle-Test: TankMax2 bekommt DENSELBEN Ingame-Handle wie TankMax', r.status === 200, r.status);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    check('Handle wird in der Anzeige verwendet (Kurzname@Handle statt Kurzname (Account))',
+      !!doc.querySelector('#gpCharDatalist option[value="TankMax@sharedhandle"]') && !!doc.querySelector('#gpCharDatalist option[value="TankMax2@sharedhandle"]'));
+
+    // Zeile neueZeileIdx (Rolle Tank seit dem Rollen-Passung-Test oben, aktuell
+    // TankMax zugewiesen) bekommt jetzt manuell den Mount "Pegasus" gesetzt und
+    // wird dann auf TankMax2 umgestellt: gleiche Rolle (Tank) -> Zuweisung
+    // klappt; der Mount bleibt "Pegasus" stehen (NICHT geleert), obwohl
+    // TankMax2 laut Checkliste nur "Zauberkessel der Vettel" besitzt - das
+    // Feld muss deshalb rot markiert werden.
+    win.gpUpdateRowField(0, neueZeileIdx, 'mount', 'Pegasus'); win.renderGpPlanBoard(); await wait(100);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const handleSpielerFeld = gpRows[neueZeileIdx].querySelector('input[list="gpCharDatalist"]');
+    handleSpielerFeld.value = 'TankMax2@sharedhandle';
+    handleSpielerFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(150);
+    gpRows = doc.querySelectorAll('#gpPlanBoard tbody tr');
+    const handleZeileNach = gpRows[neueZeileIdx];
+    check('Rollen-Passung erlaubt gleiche Rolle (Tank -> Tank) zwischen zwei Charakteren', handleZeileNach.querySelector('input[list="gpCharDatalist"]').value === 'TankMax2@sharedhandle', handleZeileNach.querySelector('input[list="gpCharDatalist"]').value);
+    const mountSelectHandle = Array.from(handleZeileNach.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
+    check('Ausrüstung bleibt beim Charakterwechsel erhalten (Mount weiterhin Pegasus, nicht geleert)', mountSelectHandle && mountSelectHandle.value === 'Pegasus', mountSelectHandle && mountSelectHandle.value);
+    check('Nicht besessene Ausrüstung wird rot markiert statt stillschweigend geleert zu werden', mountSelectHandle && (mountSelectHandle.getAttribute('style')||'').includes('var(--off)'), mountSelectHandle && mountSelectHandle.getAttribute('style'));
+
+    const alleSpielerFelderHandle = Array.from(doc.querySelectorAll('#gpPlanBoard tbody tr')).map(tr => tr.querySelector('input[list="gpCharDatalist"]')).filter(Boolean);
+    const handleDoppeltMarkiert = alleSpielerFelderHandle.filter(inp => (inp.value === 'TankMax@sharedhandle' || inp.value === 'TankMax2@sharedhandle') && (inp.getAttribute('style')||'').includes('var(--off)'));
+    check('Gleicher Ingame-Handle bei ZWEI VERSCHIEDENEN Charakteren wird als Mehrfachbelegung markiert', handleDoppeltMarkiert.length >= 2, alleSpielerFelderHandle.map(i=>[i.value,i.getAttribute('style')]));
+    win.gpResolveRowSpieler(0, neueZeileIdx, ''); await wait(100); // aufräumen für die folgenden Checks
+
+    // Seit v0.24.0 (Nutzerbeschwerde "Plan speichern schließt den offenen Plan"):
+    // der "Plan speichern"-Knopf im Board darf #gpPlanBoard NICHT leeren -
+    // ensureGpPlansLoaded() -> renderGpPlanList() tut das immer, muss also
+    // danach wieder mit renderGpPlanBoard() überschrieben werden.
+    const planSpeichernBtn = Array.from(doc.querySelectorAll('#gpPlanBoard .btnrow button')).find(b => b.textContent.trim() === 'Plan speichern');
+    check('"Plan speichern"-Knopf im Board vorhanden', !!planSpeichernBtn);
+    if(planSpeichernBtn) planSpeichernBtn.click();
+    await wait(300);
+    check('Board bleibt nach "Plan speichern" sichtbar (schließt sich nicht)', doc.querySelectorAll('#gpPlanBoard .card').length > 0, doc.getElementById('gpPlanBoard').innerHTML.slice(0, 120));
 
     // Rev-Schutz beim Plan-Speichern (wie bei Presets/Formeln): veraltete rev -> 409.
     r = await api('/api/gp/plans/' + encodeURIComponent('Trial Sonntag'), {}, token);
@@ -711,8 +808,15 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       [artefaktSelect1 && artefaktSelect1.value, artefaktSelect1 && artefaktSelect1.getAttribute('style'), artefaktSelect2 && artefaktSelect2.value, artefaktSelect2 && artefaktSelect2.getAttribute('style')]);
     // 'Icon-Test-Artefakt' hat ein gespeichertes Icon (s. o.), aber keinen
     // Buff-Wert - das Badge zeigt seit v0.22.2 dafür ein Icon ohne Text an.
-    const artefaktBadge1 = artefaktSelect1.parentElement.querySelector('.dmgbuff-badge');
-    check('Badge mit Icon zeigt keinen zusätzlichen %-Text mehr an', artefaktBadge1 && !!artefaktBadge1.querySelector('img') && !/\d/.test(artefaktBadge1.textContent), artefaktBadge1 && artefaktBadge1.outerHTML);
+    // Seit v0.24.0 sitzt das Icon direkt IM Select (gp-field-icon), nicht mehr
+    // als separates Pill-Badge (dmgbuff-badge) daneben - hier entsprechend
+    // aktualisiert geprüft (weiterhin: kein zusätzlicher %-Text am Icon selbst).
+    const artefaktBadge1 = artefaktSelect1.parentElement.querySelector('.gp-field-icon');
+    check('Icon im Select zeigt keinen zusätzlichen %-Text mehr an (reines <img>)', artefaktBadge1 && artefaktBadge1.tagName === 'IMG', artefaktBadge1 && artefaktBadge1.outerHTML);
+    // Seit v0.24.0: das Select mit Icon bekommt die gp-has-icon-Klasse (mehr
+    // Innenpolster links) und das Icon ist größer als das alte Pill-Badge
+    // (26px statt 16px, s. CSS .gp-field-icon).
+    check('Select mit Icon bekommt die gp-has-icon-Klasse', artefaktSelect1.classList.contains('gp-has-icon'), artefaktSelect1.className);
     win.gpUpdateRowField(0, 2, 'artefakt', ''); win.renderGpPlanBoard(); await wait(100);
     const gpRowsArtefaktNach = doc.querySelectorAll('#gpPlanBoard .card')[0].querySelectorAll('tbody tr');
     const artefaktSelect1Nach = gpRowsArtefaktNach[1].querySelectorAll('select')[1];
