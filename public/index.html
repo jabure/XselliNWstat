@@ -5258,7 +5258,13 @@ function gpGroupDmgBuffSum(g){
 // artefakte auswählen können, aber max dps geht in der Regel vor") - wird
 // NUR als Tiebreaker bei GLEICHEM Rangwert benutzt, überstimmt nie einen
 // objektiv höheren Wert.
-function gpBestOwned(kat, ownedNames, rolle, favoriten){
+// Seit v0.27.0: vierter Parameter "taken" (Set bereits in der Gruppe
+// vergebener Werte dieser Kategorie, Nutzerwunsch "auch Sachen nicht
+// doppelt zuweisen") - wird bevorzugt vermieden, aber nur als Präferenz:
+// gibt es unter den NICHT bereits vergebenen Kandidaten keinen gültigen
+// Treffer, fällt die Auswahl auf den besten Kandidaten insgesamt zurück
+// (lieber ein Duplikat als gar keine Auswahl).
+function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
   if(kat.optimizeRollen && rolle && !kat.optimizeRollen.includes(rolle)) return null;
   if(!ownedNames || !ownedNames.length) return '';
   const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
@@ -5270,9 +5276,14 @@ function gpBestOwned(kat, ownedNames, rolle, favoriten){
   const istFavorit = n => !!favoriten && favoriten.includes(n);
   // Höchster Rangwert gewinnt immer; bei GLEICHSTAND wird ein Favorit dem
   // bisherigen Favoriten-losen Kandidaten vorgezogen (reine Tiebreaker-Regel).
+  // Bereits vergebene Werte werden bevorzugt ausgeschlossen (taken), außer es
+  // gäbe dadurch GAR keinen Kandidaten mehr - dann zählt die Ausschlussliste
+  // nicht (Fallback auf die volle Kandidatenliste).
   const pickBest = kandidaten => {
+    const pool = taken ? kandidaten.filter(n => !taken.has(n)) : kandidaten;
+    const quelle = pool.length ? pool : kandidaten;
     let best = '', bestVal = -Infinity;
-    kandidaten.forEach(n => {
+    quelle.forEach(n => {
       const val = rankOf(n);
       if(val === null) return;
       if(val > bestVal || (val === bestVal && istFavorit(n) && !istFavorit(best))){ bestVal = val; best = n; }
@@ -5296,7 +5307,14 @@ function gpBestOwned(kat, ownedNames, rolle, favoriten){
 // "Besitz" angenommen (bestmöglicher Wert über alle Einträge). Bei
 // zugewiesenem Charakter bleibt es wie bisher bei dessen ANGEKREUZTER
 // Besitz-Checkliste (kein Eintrag = Kategorie bleibt unangetastet).
-function gpApplyBestSetup(row){
+// Seit v0.27.0: optionaler zweiter Parameter "belegt" (Kategorie-Schlüssel ->
+// Set bereits vergebener Werte in der Gruppe, s. gpBelegteWerte) - wird an
+// gpBestOwned als "taken" durchgereicht UND direkt danach um den frisch
+// vergebenen Wert ergänzt, damit nachfolgende Zeilen im selben Optimier-
+// Durchlauf ihn ebenfalls meiden. Gilt nur für Kategorien mit dmgKey (nicht
+// Mount-Ausrüstungsbonus - der wird ohnehin "fix" für alle gleich vergeben,
+// eine Diversifizierung ergäbe dort keinen Sinn).
+function gpApplyBestSetup(row, belegt){
   if(!row.charKey && !row.freierName) return false;
   const rec = row.charKey ? gpFindChar(row.charKey) : null;
   if(row.charKey && !rec) return false;
@@ -5305,14 +5323,37 @@ function gpApplyBestSetup(row){
     if(!kat.dmgKey && !kat.optimizeRollen) return;
     const owned = rec ? besitz[kat.key] : kat.liste().map(e => e.name);
     const favoriten = kat.favKey && rec && rec.data ? rec.data[kat.favKey] : null;
-    const best = gpBestOwned(kat, owned, row.rolle, favoriten);
-    if(best) row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
+    const taken = (kat.dmgKey && belegt) ? belegt[kat.key] : null;
+    const best = gpBestOwned(kat, owned, row.rolle, favoriten, taken);
+    if(best){
+      row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
+      if(taken) taken.add(best);
+    }
   });
   return true;
 }
+// Baut für den Optimierer eine Belegungs-Übersicht (Kategorie-Schlüssel -> Set
+// bereits vergebener Werte) über alle Zeilen EINER Gruppe außer "ausserZeile"
+// (Zeilenindex, oder -1 für keine Ausnahme) - damit derselbe Wert möglichst
+// nicht mehrfach vergeben wird (Nutzerwunsch, relevant vor allem bei
+// Artefakten: deren Buff stapelt nicht bei doppelter Vergabe in der Gruppe,
+// siehe die bestehende Artefakt-Duplikat-Markierung im Board).
+function gpBelegteWerte(g, ausserZeile){
+  const belegt = {};
+  GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey) belegt[kat.key] = new Set(); });
+  g.rows.forEach((row, ri) => {
+    if(ri === ausserZeile) return;
+    GP_BESITZ_KATEGORIEN.forEach(kat => {
+      if(!kat.dmgKey) return;
+      if(row[kat.rowField]) belegt[kat.key].add(row[kat.rowField]);
+    });
+  });
+  return belegt;
+}
 function gpOptimizeRow(gi, ri){
-  const row = currentGpPlanData.groups[gi].rows[ri];
-  if(!gpApplyBestSetup(row)){
+  const g = currentGpPlanData.groups[gi];
+  const row = g.rows[ri];
+  if(!gpApplyBestSetup(row, gpBelegteWerte(g, ri))){
     alert('Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.');
     return;
   }
@@ -5321,7 +5362,10 @@ function gpOptimizeRow(gi, ri){
 function gpOptimizeGroup(gi){
   const g = currentGpPlanData.groups[gi];
   let count = 0;
-  g.rows.forEach(row => { if(gpApplyBestSetup(row)) count++; });
+  // "belegt" wird PRO ZEILE neu aus dem aktuellen Stand der Gruppe gebaut
+  // (statt einmal vorab) - so sieht jede Zeile auch die bereits in DIESEM
+  // Durchlauf optimierten Vorgänger-Zeilen, ohne sich selbst zu blockieren.
+  g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(g, ri))) count++; });
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = count
     ? `Bestes eigenes Setup für ${count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`

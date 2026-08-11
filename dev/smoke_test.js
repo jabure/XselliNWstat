@@ -1043,7 +1043,12 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // "Demogorgon's Reach" (10,56 %, weiterhin der höchste in der Liste).
     check('Freier Name (DPS) wird ebenfalls optimiert: Artefakt = global höchster Buff-Wert', freieDpsSelects[1] && freieDpsSelects[1].value === 'Icon-Test-Artefakt', freieDpsSelects[1] && freieDpsSelects[1].value);
     check('Freier Name (DPS): Mount bleibt unangetastet (Selbstbuff-Regel gilt auch ohne Profil)', freieDpsSelects[2] && freieDpsSelects[2].value === '', freieDpsSelects[2] && freieDpsSelects[2].value);
-    check('Freier Name (DPS): Gefährte nach Schaden gewählt (Skorpion statt Flapjack)', freieDpsSelects[4] && freieDpsSelects[4].value === 'Skorpion', freieDpsSelects[4] && freieDpsSelects[4].value);
+    // Seit v0.27.0 ("auch Sachen nicht doppelt zuweisen"): Zeile 0 (OptiChar)
+    // trägt zu diesem Zeitpunkt bereits "Skorpion" als Gefährte (aus dem
+    // "Alle Zeilen optimieren"-Test oben, DPS-Rolle -> Schaden-Kriterium) -
+    // der Optimierer meidet diesen bereits vergebenen Wert und wählt den
+    // nächstbesten (Flapjack, Schaden 3) statt ihn zu duplizieren.
+    check('Freier Name (DPS): Gefährte meidet den in Zeile 0 bereits vergebenen Skorpion (Flapjack statt Duplikat)', freieDpsSelects[4] && freieDpsSelects[4].value === 'Flapjack', freieDpsSelects[4] && freieDpsSelects[4].value);
     win.gpRemoveRow(neueGruppeIdx, freieDpsIdx); await wait(100);
 
     // Tank-Zeile: Rollen-Präferenz UND "besitzt alles" zusammen getestet -
@@ -1064,9 +1069,14 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const freieTankZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieTankIdx];
     const freieTankSelects = freieTankZeileNach.querySelectorAll('select');
     check('Freier Name (Tank): Rollen-Präferenz gilt auch ohne Profil (Tentacle Rod statt höherem Rohwert)', freieTankSelects[1] && freieTankSelects[1].value === 'Tentacle Rod', freieTankSelects[1] && freieTankSelects[1].value);
-    check('Freier Name (Tank): Mount = global höchster Dmg-Bonus (Zauberkessel der Vettel)', freieTankSelects[2] && freieTankSelects[2].value === 'Zauberkessel der Vettel', freieTankSelects[2] && freieTankSelects[2].value);
+    // Seit v0.27.0: Zeile 0 trägt bereits "Zauberkessel der Vettel" als Mount
+    // (aus dem "Tank"-Test weiter oben, dort unverändert seit dem DPS-
+    // Zwischenschritt) - wird gemieden, nächstbester Mount ist Pegasus (7,89 %).
+    check('Freier Name (Tank): Mount meidet den in Zeile 0 bereits vergebenen Zauberkessel der Vettel (Pegasus statt Duplikat)', freieTankSelects[2] && freieTankSelects[2].value === 'Pegasus', freieTankSelects[2] && freieTankSelects[2].value);
     check('Freier Name (Tank): Mount-Bonus "fix" auf den ersten Referenzeintrag (Mystische Aura)', freieTankSelects[3] && freieTankSelects[3].value === 'Mystische Aura', freieTankSelects[3] && freieTankSelects[3].value);
-    check('Freier Name (Tank): Gefährten-Bonus = global höchster Buff (Verwundbarkeit)', freieTankSelects[5] && freieTankSelects[5].value === 'Verwundbarkeit', freieTankSelects[5] && freieTankSelects[5].value);
+    // Seit v0.27.0: Zeile 0 trägt bereits "Verwundbarkeit" als Gefährten-Bonus
+    // - wird gemieden, nächstbester ist Rüstungsbruch (Buff 3 statt 7).
+    check('Freier Name (Tank): Gefährten-Bonus meidet die in Zeile 0 bereits vergebene Verwundbarkeit (Rüstungsbruch statt Duplikat)', freieTankSelects[5] && freieTankSelects[5].value === 'Rüstungsbruch', freieTankSelects[5] && freieTankSelects[5].value);
     win.gpRemoveRow(neueGruppeIdx, freieTankIdx); await wait(100);
 
     // Seit v0.26.0 (Nutzerwunsch "Lieblingsartefakte auswählen können, max
@@ -1095,6 +1105,65 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const favZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
     const favArtefaktSelect = Array.from(favZeile.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === "Marco's Mystic Marker"));
     check('Lieblingsartefakt gewinnt den Tiebreaker bei gleichem Buff-Wert', favArtefaktSelect && favArtefaktSelect.value === "Marco's Mystic Marker", favArtefaktSelect && favArtefaktSelect.value);
+
+    // Seit v0.27.0 (Nutzerwunsch "auch Sachen nicht doppelt zuweisen"): zwei
+    // NEUE freie DPS-Zeilen ohne jede Vorbelegung, direkt hintereinander per
+    // "Alle Zeilen optimieren" optimiert - sollen die zwei UNTERSCHIEDLICHEN
+    // besten Artefakte bekommen (Icon-Test-Artefakt 10,56 % und Xeleth's Blast
+    // Scepter / Halaster's 6 %, die beiden höchsten ohne Tank-Rollen-Tag),
+    // nicht zweimal denselben Top-Wert.
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(50);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(100);
+    let dupZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const dupIdx1 = dupZeilen.length - 2, dupIdx2 = dupZeilen.length - 1;
+    const dupFeld1 = dupZeilen[dupIdx1].querySelector('input[list="gpCharDatalist"]');
+    const dupFeld2 = dupZeilen[dupIdx2].querySelector('input[list="gpCharDatalist"]');
+    dupFeld1.value = 'Gastspieler Uno'; dupFeld1.dispatchEvent(new win.Event('change', { bubbles: true }));
+    dupFeld2.value = 'Gastspieler Dos'; dupFeld2.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(100);
+    const dupOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    if(dupOptiBtn) dupOptiBtn.click();
+    await wait(200);
+    dupZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const dupArtefakt1 = Array.from(dupZeilen[dupIdx1].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Icon-Test-Artefakt'));
+    const dupArtefakt2 = Array.from(dupZeilen[dupIdx2].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Icon-Test-Artefakt'));
+    const dupWerte = [dupArtefakt1 && dupArtefakt1.value, dupArtefakt2 && dupArtefakt2.value];
+    check('Optimierer vergibt dasselbe Artefakt nicht doppelt, wenn eine Alternative existiert', dupWerte[0] && dupWerte[1] && dupWerte[0] !== dupWerte[1], dupWerte);
+    check('Beide erhalten trotzdem jeweils einen Top-Wert (Icon-Test-Artefakt + Xeleths Blast Scepter)',
+      dupWerte.includes('Icon-Test-Artefakt') && dupWerte.includes("Xeleth's Blast Scepter / Halaster's"), dupWerte);
+    win.gpRemoveRow(neueGruppeIdx, dupIdx2); await wait(50);
+    win.gpRemoveRow(neueGruppeIdx, dupIdx1); await wait(50);
+
+    // Fallback: existiert KEINE Alternative (beide besitzen nur genau dasselbe
+    // eine Artefakt), wird trotzdem dupliziert statt eine Zeile leer zu lassen.
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'DupChar1' }) }, token);
+    check('Duplikat-Fallback-Test: DupChar1 angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/characters/DupChar1', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false }, besitz: { artefakte: ['Broken Halo'] },
+    }) }, token);
+    check('Duplikat-Fallback-Test: DupChar1 besitzt nur "Broken Halo"', r.status === 200, r.status);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'DupChar2' }) }, token);
+    check('Duplikat-Fallback-Test: DupChar2 angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/characters/DupChar2', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false }, besitz: { artefakte: ['Broken Halo'] },
+    }) }, token);
+    check('Duplikat-Fallback-Test: DupChar2 besitzt ebenfalls nur "Broken Halo"', r.status === 200, r.status);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(50);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(100);
+    let fbZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const fbIdx1 = fbZeilen.length - 2, fbIdx2 = fbZeilen.length - 1;
+    win.gpResolveRowSpieler(neueGruppeIdx, fbIdx1, `DupChar1 (${user})`); await wait(50);
+    win.gpResolveRowSpieler(neueGruppeIdx, fbIdx2, `DupChar2 (${user})`); await wait(100);
+    const fbOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    if(fbOptiBtn) fbOptiBtn.click();
+    await wait(200);
+    fbZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const fbArtefakt1 = Array.from(fbZeilen[fbIdx1].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Broken Halo'));
+    const fbArtefakt2 = Array.from(fbZeilen[fbIdx2].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Broken Halo'));
+    check('Ohne Alternative wird trotzdem dupliziert statt leer zu bleiben', fbArtefakt1 && fbArtefakt1.value === 'Broken Halo' && fbArtefakt2 && fbArtefakt2.value === 'Broken Halo', [fbArtefakt1 && fbArtefakt1.value, fbArtefakt2 && fbArtefakt2.value]);
+    win.gpRemoveRow(neueGruppeIdx, fbIdx2); await wait(50);
+    win.gpRemoveRow(neueGruppeIdx, fbIdx1); await wait(50);
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');

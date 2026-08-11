@@ -332,6 +332,37 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.27.0: Optimierer vergibt Werte innerhalb einer Gruppe nicht mehr
+  doppelt (Nutzerwunsch "auch Sachen nicht doppelt zuweisen").**
+  - Betrifft alle Kategorien mit `dmgKey` (Artefakte, Mounts, Gefährten,
+    Gefährten-Verstärkung) - NICHT Mount-Ausrüstungsbonus (kein Rangwert,
+    "fix" für alle gleich vergeben, eine Diversifizierung ergäbe dort keinen
+    Sinn). Am relevantesten bei Artefakten, deren Buff bei doppelter Vergabe
+    in derselben Gruppe nicht stapelt (siehe die bestehende Artefakt-
+    Duplikat-Markierung im Board).
+  - Neue Helper-Funktion `gpBelegteWerte(g, ausserZeile)`: baut eine
+    Kategorie -> Set-Übersicht der in der Gruppe (außer der übergebenen
+    Zeile) bereits vergebenen Werte.
+  - `gpBestOwned` bekommt einen 5. Parameter `taken` - Kandidaten daraus
+    werden bevorzugt AUSGESCHLOSSEN, aber nur als Präferenz: gibt es unter
+    den nicht-vergebenen Kandidaten keinen gültigen Treffer, fällt die
+    Auswahl auf die volle Kandidatenliste zurück (lieber ein Duplikat als
+    eine leere Zeile).
+  - `gpApplyBestSetup(row, belegt)` reicht das Set pro Kategorie durch und
+    ergänzt es direkt nach jeder Vergabe um den frisch gewählten Wert.
+  - `gpOptimizeRow`/`gpOptimizeGroup` bauen `belegt` PRO ZEILE frisch aus dem
+    aktuellen Gruppenstand (`gpBelegteWerte(g, ri)`) statt einmal vorab - so
+    sieht jede Zeile beim Gruppen-Optimieren auch die im selben Durchlauf
+    bereits optimierten Vorgänger-Zeilen, ohne sich selbst zu blockieren.
+  - Smoke-Test um zwei Fälle erweitert: zwei freie Zeilen mit vollem Zugriff
+    bekommen bei "Alle Zeilen optimieren" die zwei UNTERSCHIEDLICHEN besten
+    Artefakte statt zweimal denselben Top-Wert; besitzen zwei Charaktere
+    nachweislich nur genau dasselbe eine Artefakt, wird trotzdem dupliziert
+    statt eine Zeile leer zu lassen (Fallback-Pfad). Drei bestehende
+    Optimierer-Tests mussten an die neue Ausweich-Logik angepasst werden
+    (Zeile 0 hielt zu dem Zeitpunkt bereits den jeweiligen Top-Wert, der
+    Optimierer wählt jetzt korrekt die nächstbeste Alternative). Alle 230
+    Checks grün.
 - **Seit v0.26.0: Optimierer auch für freie Namen + Lieblingsartefakte
   (Nutzervorgabe).**
   - **Freie Namen (kein zuweisbarer Charakter) werden jetzt auch optimiert**:
