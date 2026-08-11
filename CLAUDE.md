@@ -332,6 +332,18 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.22.1: Dmg-Buff-Prozentwert direkt in der Dropdown-Option
+  (Nutzerwunsch, siehe Screenshot: Wert sollte schon BEIM Auswählen sichtbar
+  sein, nicht erst danach als Badge).**
+  - `gpOptionLabel(kat, name)`: hängt bei Kategorien mit `dmgKey` (Artefakte,
+    Mounts, Gefährten, Gefährten-Verstärkung) den Wert als `Name (X %)` an
+    den Options-Text an; ohne `dmgKey`/ohne hinterlegten Wert bleibt es beim
+    reinen Namen (z. B. Mount-Ausrüstungsbonus). Nur der sichtbare
+    Options-Text ändert sich, `value` bleibt der reine Name - keine
+    Auswirkung auf Speichern/Vergleich/Duplikat-Erkennung.
+  - Das Badge neben dem Select (`gpDmgBadgeHtml`, seit v0.20.0) bleibt
+    zusätzlich bestehen (zeigt Icon + Wert nach der Auswahl kompakt an,
+    ohne das Dropdown öffnen zu müssen) - beide Anzeigen ergänzen sich.
 - **Seit v0.22.0: Rollen-Überbelegung- und Artefakt-Duplikat-Warnungen im
   Gruppenplaner-Board (Nutzerwunsch).**
   - `gpRoleWarnings(g)`: prüft je Gruppe auf mehr als 1 Tank bzw. 1 Heiler

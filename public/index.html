@@ -5112,6 +5112,17 @@ const GP_BESITZ_KATEGORIEN = [
   { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus' },
 ];
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
+// Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
+// Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
+// der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
+// sehen, nicht erst danach als Badge). Ohne dmgKey oder ohne hinterlegten
+// Wert bleibt es beim reinen Namen.
+function gpOptionLabel(kat, name){
+  if(!kat.dmgKey) return name;
+  const e = gpKatItemByName(kat, name);
+  const val = e ? e[kat.dmgKey] : undefined;
+  return (val !== undefined && val !== '' && !isNaN(val)) ? `${name} (${fmt(val)} %)` : name;
+}
 // Kompaktes Badge (Icon + %) neben einer Artefakt-/Mount-Auswahl im Board,
 // bzw. leer wenn die Kategorie kein dmgKey hat oder nichts ausgewählt ist.
 function gpDmgBadgeHtml(kat, name){
@@ -5633,7 +5644,7 @@ function renderGpPlanBoard(){
     const rowsHtml = g.rows.map((row, ri) => {
       const selectFor = (kat, field, highlight) => {
         const namen = gpOptionsFor(row, kat);
-        const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(n)}</option>`)].join('');
+        const opts = ['<option value="">–</option>', ...namen.map(n=>`<option value="${escapeHtml(n)}" ${row[field]===n?'selected':''}>${escapeHtml(gpOptionLabel(kat,n))}</option>`)].join('');
         const hl = highlight ? ' style="border-color:var(--off);box-shadow:0 0 0 1px var(--off);" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : '';
         return `<select onchange="gpUpdateRowField(${gi},${ri},'${field}',this.value)"${hl}>${opts}</select>`;
       };

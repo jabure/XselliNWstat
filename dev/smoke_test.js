@@ -572,6 +572,11 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Datalist bietet den Charakter als Vorschlag an', !!doc.querySelector(`#gpCharDatalist option[value="TankMax (${user})"]`));
     const mountSelectGp = Array.from(gpBoard.querySelectorAll('tbody select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
     check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
+    // Seit v0.22.1 (Nutzerwunsch): der Dmg-Buff-Wert steht schon im
+    // Options-Text selbst (nicht erst als Badge nach der Auswahl) - der
+    // "value" bleibt der reine Name, nur der sichtbare Text bekommt "(X %)".
+    const pegasusOption = mountSelectGp && Array.from(mountSelectGp.options).find(o => o.value === 'Pegasus');
+    check('Dropdown-Option zeigt den Dmg-Buff-Wert direkt im Text an', pegasusOption && pegasusOption.textContent.includes('Pegasus') && pegasusOption.textContent.includes('7,89 %'), pegasusOption && pegasusOption.textContent);
 
     // Seit v0.20.0: der Dmg-Buff des zugewiesenen Mounts/Artefakts wird als Badge
     // mit Icon direkt neben der Auswahl angezeigt (Pegasus hat dmgBonus 7.89 in
