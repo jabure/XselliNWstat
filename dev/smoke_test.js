@@ -993,10 +993,14 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Tank: Gefährten-Bonus wird jetzt gesetzt (höherer Buff, Verwundbarkeit statt Rüstungsbruch)', optiSelectsTank[5] && optiSelectsTank[5].value === 'Verwundbarkeit', optiSelectsTank[5] && optiSelectsTank[5].value);
     check('Tank: Mount-Bonus wird "fix" auf den einzigen eigenen Eintrag gesetzt (Mystische Aura, kein Rangwert vorhanden)', optiSelectsTank[3] && optiSelectsTank[3].value === 'Mystische Aura', optiSelectsTank[3] && optiSelectsTank[3].value);
 
-    // "Alle Zeilen optimieren" auf Gruppenebene: wirkt auf JEDE Zeile mit
-    // zugewiesenem Charakter - hier nur die eine OptiChar-Zeile in dieser
-    // Gruppe (weiterhin Rolle Tank aus dem Schritt oben), der Rest der 5
-    // Zeilen bleibt leer (kein charKey -> übersprungen, kein Fehler).
+    // "Alle Zeilen optimieren" auf Gruppenebene: wirkt auf JEDE besetzte Zeile
+    // (Charakter ODER freier Name) - hier nur die eine OptiChar-Zeile in
+    // dieser Gruppe, der Rest der 5 Zeilen bleibt leer (nichts eingetragen ->
+    // übersprungen, kein Fehler). Rolle zurück auf DPS (OptiChar ist nur als
+    // DPS markiert) - sonst würde die Neuzuweisung an der seit v0.24.0
+    // geltenden Rollen-Passung scheitern (die Zeile stand hier noch auf Tank
+    // vom Schritt oben).
+    win.gpUpdateRowRolle(neueGruppeIdx, 0, 'DPS'); await wait(50);
     win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); // Zeile zurücksetzen, um den Gruppen-Knopf isoliert zu testen
     await wait(100);
     win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
@@ -1005,8 +1009,92 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     if(gruppenOptiBtn) gruppenOptiBtn.click();
     await wait(150);
     const optiZeileGruppe = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
-    const optiMountSelectGruppe = Array.from(optiZeileGruppe.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
-    check('Gruppen-Optimierung wendet das beste Setup auch über den Gruppen-Knopf an', optiMountSelectGruppe && optiMountSelectGruppe.value === 'Zauberkessel der Vettel', optiMountSelectGruppe && optiMountSelectGruppe.value);
+    const optiArtefaktSelectGruppe = Array.from(optiZeileGruppe.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Tentacle Rod'));
+    check('Gruppen-Optimierung wendet das beste Setup auch über den Gruppen-Knopf an', optiArtefaktSelectGruppe && optiArtefaktSelectGruppe.value === 'Tentacle Rod', optiArtefaktSelectGruppe && optiArtefaktSelectGruppe.value);
+
+    // Seit v0.26.0 (Nutzerwunsch "auch freie Namen ohne zuweisbaren Charakter
+    // sollen optimiert werden, dort wird angenommen, dass die Leute alles
+    // haben"): OHNE Charakter-Profil (nur freier Name) optimiert der 🏆-Knopf
+    // jetzt trotzdem, indem für JEDE Kategorie die komplette Referenzliste als
+    // "Besitz" angenommen wird. DPS-Zeile: Artefakt ohne Rollen-Tag-Treffer
+    // (nur "Tentacle Rod" ist als Tank markiert) fällt auf den global höchsten
+    // Buff-Wert zurück ("Icon-Test-Artefakt", 10,56 % - trägt seit dem Icon-
+    // Upload-Test weiter oben den ehemaligen Buff-Wert von "Demogorgon's
+    // Reach", s. Kommentar unten); Gefährte nach Schaden
+    // (Skorpion, 10 > Flapjack, 3); Mount/Gefährten-Bonus bleiben bei DPS wie
+    // gehabt unangetastet.
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(100);
+    let freieZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const freieDpsIdx = freieZeilen.length - 1;
+    const freieDpsSpielerFeld = freieZeilen[freieDpsIdx].querySelector('input[list="gpCharDatalist"]');
+    freieDpsSpielerFeld.value = 'Gastspieler Talo';
+    freieDpsSpielerFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(100);
+    const freieDpsOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieDpsIdx].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(freieDpsOptiBtn) freieDpsOptiBtn.click();
+    await wait(150);
+    const freieDpsZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieDpsIdx];
+    const freieDpsSelects = freieDpsZeileNach.querySelectorAll('select');
+    // Rollen-Präferenz gilt auch ohne Profil (Tentacle Rod statt höherem Rohwert)
+    // - siehe unten. Ohne Rollen-Treffer gewinnt der global höchste Buff-Wert:
+    // die Referenzliste enthält seit dem Icon-Upload-Test weiter oben (der
+    // dabei den ERSTEN Tabelleneintrag umbenannt statt eine neue Zeile
+    // hinzugefügt hat) "Icon-Test-Artefakt" mit dem ehemaligen Buff-Wert von
+    // "Demogorgon's Reach" (10,56 %, weiterhin der höchste in der Liste).
+    check('Freier Name (DPS) wird ebenfalls optimiert: Artefakt = global höchster Buff-Wert', freieDpsSelects[1] && freieDpsSelects[1].value === 'Icon-Test-Artefakt', freieDpsSelects[1] && freieDpsSelects[1].value);
+    check('Freier Name (DPS): Mount bleibt unangetastet (Selbstbuff-Regel gilt auch ohne Profil)', freieDpsSelects[2] && freieDpsSelects[2].value === '', freieDpsSelects[2] && freieDpsSelects[2].value);
+    check('Freier Name (DPS): Gefährte nach Schaden gewählt (Skorpion statt Flapjack)', freieDpsSelects[4] && freieDpsSelects[4].value === 'Skorpion', freieDpsSelects[4] && freieDpsSelects[4].value);
+    win.gpRemoveRow(neueGruppeIdx, freieDpsIdx); await wait(100);
+
+    // Tank-Zeile: Rollen-Präferenz UND "besitzt alles" zusammen getestet -
+    // unter ALLEN Artefakten passt nur "Tentacle Rod" zur Rolle Tank (aus dem
+    // v0.23.0-Test), wird also trotz niedrigerem Rohwert bevorzugt gewählt.
+    // Mount/Gefährte/Gefährten-Bonus nach globalem Bestwert, Mount-Bonus "fix"
+    // auf den ersten Referenzeintrag (kein Rangwert vorhanden).
+    win.gpAddRow(neueGruppeIdx, 'Tank'); await wait(100);
+    freieZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const freieTankIdx = freieZeilen.length - 1;
+    const freieTankSpielerFeld = freieZeilen[freieTankIdx].querySelector('input[list="gpCharDatalist"]');
+    freieTankSpielerFeld.value = 'Gastspieler Boris';
+    freieTankSpielerFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(100);
+    const freieTankOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieTankIdx].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(freieTankOptiBtn) freieTankOptiBtn.click();
+    await wait(150);
+    const freieTankZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieTankIdx];
+    const freieTankSelects = freieTankZeileNach.querySelectorAll('select');
+    check('Freier Name (Tank): Rollen-Präferenz gilt auch ohne Profil (Tentacle Rod statt höherem Rohwert)', freieTankSelects[1] && freieTankSelects[1].value === 'Tentacle Rod', freieTankSelects[1] && freieTankSelects[1].value);
+    check('Freier Name (Tank): Mount = global höchster Dmg-Bonus (Zauberkessel der Vettel)', freieTankSelects[2] && freieTankSelects[2].value === 'Zauberkessel der Vettel', freieTankSelects[2] && freieTankSelects[2].value);
+    check('Freier Name (Tank): Mount-Bonus "fix" auf den ersten Referenzeintrag (Mystische Aura)', freieTankSelects[3] && freieTankSelects[3].value === 'Mystische Aura', freieTankSelects[3] && freieTankSelects[3].value);
+    check('Freier Name (Tank): Gefährten-Bonus = global höchster Buff (Verwundbarkeit)', freieTankSelects[5] && freieTankSelects[5].value === 'Verwundbarkeit', freieTankSelects[5] && freieTankSelects[5].value);
+    win.gpRemoveRow(neueGruppeIdx, freieTankIdx); await wait(100);
+
+    // Seit v0.26.0 (Nutzerwunsch "Lieblingsartefakte auswählen können, max
+    // dps geht aber in der Regel vor"): eigener Chip-Bereich im Charakter-
+    // Editor, NUR aus den schon angekreuzten Besitz-Artefakten. Als Tiebreaker
+    // im Optimierer: OptiChar bekommt zusätzlich "Tentacle Rod" als Besitz UND
+    // als Lieblingsartefakt - da Tentacle Rod (Rolle Tank, Buff 4,23) und
+    // OptiChars einziges anderes Artefakt ("Tentacle Rod" ist ohnehin schon
+    // Tank-bevorzugt) - hier stattdessen zwei GLEICHWERTIGE Artefakte ohne
+    // Rollen-Tag testen: "Crystal of Soul's Flight" und "Marco's Mystic
+    // Marker" haben beide Buff 4,0 - als Favorit gesetzt gewinnt der Favorit
+    // bei diesem Gleichstand, obwohl ohne Favoriten das zuerst gefundene
+    // gewänne.
+    r = await api('/api/gp/characters/OptiChar', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
+      besitz: { artefakte: ["Crystal of Soul's Flight", "Marco's Mystic Marker"], mounts: ['Pegasus', 'Zauberkessel der Vettel'], gefaehrten: ['Skorpion', 'Flapjack'] },
+      lieblingsartefakte: ["Marco's Mystic Marker"],
+    }) }, token);
+    check('Lieblingsartefakte-Test: OptiChar mit zwei gleichwertigen Artefakten + einem Favoriten gespeichert', r.status === 200, r.status);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); await wait(100);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
+    const favBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(favBtn) favBtn.click();
+    await wait(150);
+    const favZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const favArtefaktSelect = Array.from(favZeile.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === "Marco's Mystic Marker"));
+    check('Lieblingsartefakt gewinnt den Tiebreaker bei gleichem Buff-Wert', favArtefaktSelect && favArtefaktSelect.value === "Marco's Mystic Marker", favArtefaktSelect && favArtefaktSelect.value);
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');

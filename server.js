@@ -519,7 +519,7 @@ app.post('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
   res.status(201).json({ name });
 });
 
-const GP_CHAR_ALLOWED_KEYS = ['klasse', 'handle', 'rollen', 'besitz'];
+const GP_CHAR_ALLOWED_KEYS = ['klasse', 'handle', 'rollen', 'besitz', 'lieblingsartefakte'];
 const GP_CHAR_MAX_BYTES = 50000; // reine Checklisten - deutlich kleiner als Stats-Charaktere
 app.put('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
   const users = readJson(USERS_FILE, {});

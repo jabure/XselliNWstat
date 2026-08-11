@@ -332,6 +332,35 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.26.0: Optimierer auch für freie Namen + Lieblingsartefakte
+  (Nutzervorgabe).**
+  - **Freie Namen (kein zuweisbarer Charakter) werden jetzt auch optimiert**:
+    `gpApplyBestSetup` verlangte bisher zwingend `row.charKey`. Jetzt reicht
+    auch nur `row.freierName` - ohne Charakter-Profil gibt es keine
+    Besitz-Checkliste, also wird für jede Kategorie die KOMPLETTE
+    Referenzliste als "Besitz" angenommen (`kat.liste().map(e=>e.name)`
+    statt der Checkliste) - "es wird angenommen, dass die Leute alles haben"
+    (Nutzerzitat). Rollen-Regeln (Mount/Gefährten-Bonus bei DPS
+    unangetastet, Rollen-Präferenz bei Artefakten) gelten dabei unverändert
+    weiter.
+  - **Lieblingsartefakte**: neues Feld `data.lieblingsartefakte` je
+    Charakter, eigener Chip-Bereich im Charakter-Editor unterhalb der
+    Besitz-Checkliste - Optionen sind bewusst NUR die schon angekreuzten
+    Besitz-Artefakte (ein Favorit ohne Besitz wäre wirkungslos). Wird im
+    Optimierer (`gpBestOwned`, neuer 4. Parameter `favoriten`) NUR als
+    Tiebreaker bei GLEICHEM Rangwert verwendet (Nutzervorgabe "max dps geht
+    in der Regel vor") - ein objektiv höherer Wert gewinnt immer, Favoriten
+    entscheiden nur zwischen gleichwertigen Kandidaten. `favKey:
+    'lieblingsartefakte'` an der Artefakte-Kategorie markiert, für welche
+    Kategorie das gilt (aktuell nur Artefakte, wie angefragt). Server:
+    `GP_CHAR_ALLOWED_KEYS` um `'lieblingsartefakte'` erweitert.
+  - Smoke-Test um freien-Namen-Optimierung (DPS und Tank, inkl. Zusammen-
+    spiel mit der Rollen-Präferenz) und den Favoriten-Tiebreaker erweitert -
+    dabei fiel auf, dass ein älterer Test (Icon-Upload) den ERSTEN
+    Tabelleneintrag umbenennt statt eine neue Zeile anzulegen - "Demogorgon's
+    Reach" heißt seither "Icon-Test-Artefakt" (Buff-Wert 10,56 % bleibt
+    aber der höchste in der Liste) - betroffene Erwartungswerte angepasst.
+    Alle 223 Checks grün.
 - **Seit v0.25.0: Gruppenplaner-Charakternamen nachträglich änderbar
   (Nutzerwunsch).**
   - Neuer Server-Endpunkt `POST /api/gp/characters/:name/rename` (analog zu

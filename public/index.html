@@ -5164,8 +5164,13 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 //   (Artefakte: "rolle", z. B. "Tank") - der Optimierer bevorzugt unter den
 //   eigenen Einträgen zuerst die zur Zeilen-Rolle passenden, sonst wie
 //   bisher schlicht den mit dem höchsten Wert.
+// - favKey: Feld im Charakter-Datensatz (data.<favKey>), das dessen
+//   Lieblingseinträge dieser Kategorie enthält (Artefakte: "lieblings-
+//   artefakte") - wird im Optimierer NUR als Tiebreaker bei GLEICHEM
+//   Rangwert benutzt (Nutzervorgabe "max dps geht in der Regel vor"), nie
+//   um einen objektiv schlechteren Eintrag vorzuziehen.
 const GP_BESITZ_KATEGORIEN = [
-  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle' },
+  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle', favKey:'lieblingsartefakte' },
   { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', optimizeRollen:['Tank','Heiler'] },
   { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', optimizeRollen:['Tank','Heiler'] },
   { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', dpsDmgKey:'schaden', rowField:'gefaehrte' },
@@ -5249,7 +5254,11 @@ function gpGroupDmgBuffSum(g){
 // - roleKey: unter den eigenen Einträgen wird zuerst nach zur Zeilen-Rolle
 //   passenden gesucht (per Rangfeld sortiert); nur wenn keiner passt, gilt
 //   wie bisher schlicht der Eintrag mit dem höchsten Rangwert.
-function gpBestOwned(kat, ownedNames, rolle){
+// Seit v0.26.0: dritter Parameter "favoriten" (Nutzerwunsch "Lieblings-
+// artefakte auswählen können, aber max dps geht in der Regel vor") - wird
+// NUR als Tiebreaker bei GLEICHEM Rangwert benutzt, überstimmt nie einen
+// objektiv höheren Wert.
+function gpBestOwned(kat, ownedNames, rolle, favoriten){
   if(kat.optimizeRollen && rolle && !kat.optimizeRollen.includes(rolle)) return null;
   if(!ownedNames || !ownedNames.length) return '';
   const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
@@ -5258,35 +5267,45 @@ function gpBestOwned(kat, ownedNames, rolle){
     const e = gpKatItemByName(kat, n);
     return e && e[rankKey] !== undefined && e[rankKey] !== '' && !isNaN(e[rankKey]) ? Number(e[rankKey]) : null;
   };
-  if(kat.roleKey && rolle){
-    let bestMatch = '', bestMatchVal = -Infinity;
-    ownedNames.forEach(n => {
-      const e = gpKatItemByName(kat, n);
-      if(!e || e[kat.roleKey] !== rolle) return;
+  const istFavorit = n => !!favoriten && favoriten.includes(n);
+  // Höchster Rangwert gewinnt immer; bei GLEICHSTAND wird ein Favorit dem
+  // bisherigen Favoriten-losen Kandidaten vorgezogen (reine Tiebreaker-Regel).
+  const pickBest = kandidaten => {
+    let best = '', bestVal = -Infinity;
+    kandidaten.forEach(n => {
       const val = rankOf(n);
-      if(val !== null && val > bestMatchVal){ bestMatchVal = val; bestMatch = n; }
+      if(val === null) return;
+      if(val > bestVal || (val === bestVal && istFavorit(n) && !istFavorit(best))){ bestVal = val; best = n; }
     });
+    return best;
+  };
+  if(kat.roleKey && rolle){
+    const bestMatch = pickBest(ownedNames.filter(n => { const e = gpKatItemByName(kat, n); return e && e[kat.roleKey] === rolle; }));
     if(bestMatch) return bestMatch;
   }
-  let best = '', bestVal = -Infinity;
-  ownedNames.forEach(n => {
-    const val = rankOf(n);
-    if(val !== null && val > bestVal){ bestVal = val; best = n; }
-  });
-  return best;
+  return pickBest(ownedNames);
 }
 // Wendet das beste eigene Setup auf eine Zeile an (mutiert row, rendert NICHT
 // neu - das übernimmt der Aufrufer, damit gpOptimizeGroup nicht pro Zeile neu
-// rendern muss). Gibt zurück, ob überhaupt etwas angewendet werden konnte
-// (false = keine Charakter-Zuweisung, z. B. freier Name ohne Profil).
+// rendern muss). Gibt zurück, ob überhaupt etwas angewendet werden konnte.
+// Seit v0.26.0 (Nutzerwunsch "auch Zeilen ohne zuweisbaren Charakter, also
+// mit freiem Namen, sollen optimiert werden - dort wird angenommen, dass die
+// Leute alles haben"): auch für freie Namen (kein charKey, nur freierName)
+// wird jetzt optimiert - ohne Charakter-Profil gibt es keine Besitz-
+// Checkliste, also wird für JEDE Kategorie die komplette Referenzliste als
+// "Besitz" angenommen (bestmöglicher Wert über alle Einträge). Bei
+// zugewiesenem Charakter bleibt es wie bisher bei dessen ANGEKREUZTER
+// Besitz-Checkliste (kein Eintrag = Kategorie bleibt unangetastet).
 function gpApplyBestSetup(row){
-  if(!row.charKey) return false;
-  const rec = gpFindChar(row.charKey);
-  if(!rec) return false;
-  const besitz = (rec.data && rec.data.besitz) || {};
+  if(!row.charKey && !row.freierName) return false;
+  const rec = row.charKey ? gpFindChar(row.charKey) : null;
+  if(row.charKey && !rec) return false;
+  const besitz = (rec && rec.data && rec.data.besitz) || {};
   GP_BESITZ_KATEGORIEN.forEach(kat => {
     if(!kat.dmgKey && !kat.optimizeRollen) return;
-    const best = gpBestOwned(kat, besitz[kat.key], row.rolle);
+    const owned = rec ? besitz[kat.key] : kat.liste().map(e => e.name);
+    const favoriten = kat.favKey && rec && rec.data ? rec.data[kat.favKey] : null;
+    const best = gpBestOwned(kat, owned, row.rolle, favoriten);
     if(best) row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
   });
   return true;
@@ -5294,7 +5313,7 @@ function gpApplyBestSetup(row){
 function gpOptimizeRow(gi, ri){
   const row = currentGpPlanData.groups[gi].rows[ri];
   if(!gpApplyBestSetup(row)){
-    alert('Nur für Zeilen mit zugewiesenem Charakter (mit eigenem Profil) möglich - bei freien Namen fehlt die Besitz-Checkliste.');
+    alert('Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.');
     return;
   }
   renderGpPlanBoard();
@@ -5306,7 +5325,7 @@ function gpOptimizeGroup(gi){
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = count
     ? `Bestes eigenes Setup für ${count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
-    : 'Keine Zeile mit zugewiesenem Charakter (mit Profil) in dieser Gruppe gefunden.';
+    : 'Keine besetzte Zeile (Charakter oder freier Name) in dieser Gruppe gefunden.';
 }
 // Sammelt für die kompakte Charakterliste alle Icons der angekreuzten Besitz-Einträge
 // (über alle Kategorien hinweg, dedupliziert wird nicht extra gebraucht - Namen sind
@@ -5352,6 +5371,23 @@ function renderGpCharEditor(){
         <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
       </button><div class="body"><div class="besitz-grid">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div></div>`;
   }).join('');
+  // Seit v0.26.0 (Nutzerwunsch "Lieblingsartefakte auswählen können, max dps
+  // geht aber in der Regel vor"): eigener Chip-Bereich, der Optionen sind
+  // bewusst NUR die schon angekreuzten Besitz-Artefakte (Favorit ohne Besitz
+  // wäre wirkungslos) - erst Artefakte oben ankreuzen+speichern, dann hier
+  // Favoriten markieren.
+  const ownedArtefakte = besitz.artefakte || [];
+  const lieblinge = d.lieblingsartefakte || [];
+  const lieblingsChips = ownedArtefakte.length ? ownedArtefakte.map(name => {
+    const e = gpKatItemByName(GP_BESITZ_KATEGORIEN[0], name);
+    const checked = lieblinge.includes(name);
+    return `<label class="besitz-chip${checked?' checked':''}">
+      <input type="checkbox" data-gplieblinge value="${escapeHtml(name)}" ${checked?'checked':''}
+        onchange="this.closest('.besitz-chip').classList.toggle('checked', this.checked)">
+      ${gpRefIconImgHtml((e&&e.icon)||'')}
+      <span>${escapeHtml(name)}</span>
+    </label>`;
+  }).join('') : '<p class="helptext">Zuerst oben bei Artefakte Besitz ankreuzen und speichern - danach lassen sich hier Favoriten daraus markieren.</p>';
   el.innerHTML = `<div class="card">
     <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
@@ -5363,6 +5399,8 @@ function renderGpCharEditor(){
     </div>
     <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">Besitz (für die Aufstellungs-Dropdowns im Board)</h3>
     ${kategorien}
+    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">Lieblingsartefakte <span class="muted" style="font-weight:400;">(werden im Optimierer nur bei Gleichstand bevorzugt - der höchste Dmg-Buff geht immer vor)</span></h3>
+    <div class="besitz-grid">${lieblingsChips}</div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">Speichern</button></div>
   </div>`;
 }
@@ -5377,8 +5415,12 @@ async function gpSaveCharEditor(){
   document.querySelectorAll('input[data-gpbesitz]').forEach(cb=>{
     if(cb.checked) besitz[cb.dataset.gpbesitz].push(cb.value);
   });
+  const lieblingsartefakte = [];
+  document.querySelectorAll('input[data-gplieblinge]').forEach(cb=>{
+    if(cb.checked) lieblingsartefakte.push(cb.value);
+  });
   try{
-    await apiGpSaveCharacter(name, { klasse, handle, rollen, besitz });
+    await apiGpSaveCharacter(name, { klasse, handle, rollen, besitz, lieblingsartefakte });
     await ensureGpCharactersLoaded(true);
     document.getElementById('saveStatus').textContent = `"${name}" gespeichert.`;
     renderGpCharList();
