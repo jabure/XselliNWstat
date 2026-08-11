@@ -332,6 +332,42 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.23.0: Rollenabhängige Optimierer-Logik + zwei neue Referenzfelder
+  (Nutzervorgabe, Screenshot des Optimierer-Ergebnisses).**
+  - **Mount & Gefährten-Bonus bei DPS unangetastet**: DPS haben laut Nutzer
+    ein reines Selbstbuff-Mount und Supports übernehmen die wichtigen
+    Gefährten-Boni - `GP_BESITZ_KATEGORIEN[...].optimizeRollen` (`['Tank',
+    'Heiler']`) sorgt dafür, dass `gpBestOwned` für DPS-Zeilen `null`
+    zurückgibt ("nicht anfassen", bewusst verschieden von `''` = "leeren").
+    Gilt für Mount, Mount-Ausrüstungsbonus UND Gefährten-Verstärkung.
+  - **Mount-Ausrüstungsbonus "fix" für Supports**: die Kategorie hat kein
+    `dmgKey` (nichts zum Sortieren) - `gpBestOwned` übernimmt für Tank/
+    Heiler jetzt trotzdem einfach den (einzigen/ersten) eigenen Eintrag
+    ("fix einplanen" laut Nutzer), weiterhin `null` für DPS.
+  - **Gefährte: Schaden statt Buff bei DPS**: neues Feld `schaden` in der
+    Gefährten-Referenzliste (`GP_REF_SPECS`, Spalte "Schaden (DPS)" neben
+    "Dmg Buff % (Support)"). `dpsDmgKey:'schaden'` an der Kategorie lässt
+    `gpBestOwned` bei Rolle DPS nach diesem Feld statt nach `buff` sortieren;
+    Tank/Heiler bleiben unverändert beim Support-Buff.
+  - **Artefakte: "Bevorzugt für"-Rolle**: neues `select`-Feld `rolle` (Werte
+    `''/DPS/Heiler/Tank`) in der Artefakte-Referenzliste. `roleKey:'rolle'`
+    an der Kategorie lässt `gpBestOwned` unter den eigenen Artefakten zuerst
+    nach zur Zeilen-Rolle passenden (nach `buff` sortiert) suchen, erst wenn
+    keins passt gilt wie bisher schlicht der höchste `buff`-Wert. Wird auch
+    im Options-Text (`gpOptionLabel`, ` · Tank`) und im Badge-Tooltip
+    (`gpDmgBadgeHtml`) angezeigt.
+  - **Referenz-Editor unterstützt jetzt `select`-Felder**: `gpRefFieldHtml`
+    rendert bei `f.select` (Array erlaubter Werte) ein `<select>` statt
+    `<input type=text>`; `gpCollectRefList` liest über `[data-field=...]`
+    (statt `input[data-field=...]`) jetzt beide Feldtypen ein.
+  - `gpBestOwned(kat, ownedNames, rolle)` hat jetzt einen dritten Parameter
+    (vorher wurde die Rolle gar nicht berücksichtigt); `gpApplyBestSetup`
+    reicht `row.rolle` durch und lässt die Kategorie bei `!kat.dmgKey &&
+    !kat.optimizeRollen` weiterhin komplett aus (z. B. falls künftig weitere
+    reine Freitext-Kategorien ohne jede Optimierer-Anbindung dazukommen).
+  - Smoke-Test grundlegend überarbeitet: testet jetzt separat den DPS- und
+    den Support-Pfad derselben Zeile (Rollenwechsel per `gpUpdateRowRolle`
+    mitten im Test) - alle 188 Checks grün.
 - **Seit v0.22.3: Icon steht vor statt unter dem Auswahlfeld (Nutzerkorrektur
   zu v0.22.2, per Screenshot).**
   - Neue CSS-Klasse `.gp-select-icon-wrap` (flex, `gap:6px`) umschließt Badge

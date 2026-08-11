@@ -5109,24 +5109,42 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 // rowField: wie das jeweilige Board-Zeilenfeld heißt (gpNewSlot()) - macht
 // Summen-/Optimierer-Code generisch statt 5x fast identischen Code zu
 // wiederholen (seit v0.21.0).
+// Seit v0.23.0 (Nutzervorgabe zur Rollen-Logik des Optimierers):
+// - optimizeRollen: Kategorie wird vom Optimierer NUR für diese Rollen
+//   überhaupt angefasst (DPS haben laut Nutzer ein reines Selbstbuff-Mount
+//   und geben Gefährten-Boni an die Supports weiter - Mount und Gefährten-
+//   Bonus bleiben bei DPS also unangetastet). Ohne diese Eigenschaft gilt die
+//   Kategorie für alle Rollen (Artefakte, Gefährte selbst).
+// - dpsDmgKey: bei DPS wird statt dmgKey dieses Feld zum Sortieren benutzt
+//   (Gefährten: DPS bevorzugen den mit dem höchsten EIGENEN Schaden
+//   ("schaden"), Supports weiterhin den mit dem höchsten Dmg-Buff ("buff")).
+// - roleKey: Feld in der Referenzliste, das eine bevorzugte Rolle markiert
+//   (Artefakte: "rolle", z. B. "Tank") - der Optimierer bevorzugt unter den
+//   eigenen Einträgen zuerst die zur Zeilen-Rolle passenden, sonst wie
+//   bisher schlicht den mit dem höchsten Wert.
 const GP_BESITZ_KATEGORIEN = [
-  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt' },
-  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount' },
-  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus' },
-  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrte' },
-  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus' },
+  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle' },
+  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', optimizeRollen:['Tank','Heiler'] },
+  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', optimizeRollen:['Tank','Heiler'] },
+  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', dpsDmgKey:'schaden', rowField:'gefaehrte' },
+  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus', optimizeRollen:['Tank','Heiler'] },
 ];
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
 // Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
 // Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
 // der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
-// sehen, nicht erst danach als Badge). Ohne dmgKey oder ohne hinterlegten
-// Wert bleibt es beim reinen Namen.
+// sehen, nicht erst danach als Badge). Bei Artefakten (roleKey) wird
+// zusätzlich die bevorzugte Rolle angehängt, falls hinterlegt. Ohne dmgKey
+// oder ohne hinterlegten Wert bleibt es beim reinen Namen.
 function gpOptionLabel(kat, name){
-  if(!kat.dmgKey) return name;
   const e = gpKatItemByName(kat, name);
-  const val = e ? e[kat.dmgKey] : undefined;
-  return (val !== undefined && val !== '' && !isNaN(val)) ? `${name} (${fmt(val)} %)` : name;
+  let label = name;
+  if(kat.dmgKey){
+    const val = e ? e[kat.dmgKey] : undefined;
+    if(val !== undefined && val !== '' && !isNaN(val)) label = `${label} (${fmt(val)} %)`;
+  }
+  if(kat.roleKey && e && e[kat.roleKey]) label = `${label} · ${e[kat.roleKey]}`;
+  return label;
 }
 // Kompaktes Icon-Badge neben einer Artefakt-/Mount-Auswahl im Board. Zeigt
 // seit v0.22.2 NUR noch das Icon (Nutzerwunsch: der %-Wert steht bereits im
@@ -5137,7 +5155,8 @@ function gpDmgBadgeHtml(kat, name){
   if(!kat.dmgKey) return '';
   const e = gpKatItemByName(kat, name);
   if(!e || !e.icon) return '';
-  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name)}">${gpRefIconImgHtml(e.icon)}</span>`;
+  const rolleSuffix = (kat.roleKey && e[kat.roleKey]) ? ' · bevorzugt: ' + e[kat.roleKey] : '';
+  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name + rolleSuffix)}">${gpRefIconImgHtml(e.icon)}</span>`;
 }
 // Grobe Summe der Dmg-Buffs (Artefakte + Mounts) über alle Zeilen einer Gruppe -
 // nur zur schnellen Orientierung, KEINE exakte Nachbildung der Spiel-Stapel-
@@ -5163,12 +5182,42 @@ function gpGroupDmgBuffSum(g){
 // aus, es gibt nichts, was zwischen Zeilen "aufgeteilt" werden müsste - eine
 // ganze Gruppe optimieren heißt hier also: diese Auswahl für jede Zeile mit
 // zugewiesenem Charakter einmal anwenden (gpOptimizeGroup).
-function gpBestOwned(kat, ownedNames){
-  if(!kat.dmgKey || !ownedNames || !ownedNames.length) return '';
+//
+// Seit v0.23.0 rollenabhängig (Nutzervorgabe):
+// - optimizeRollen: Kategorie wird für die Zeilen-Rolle NICHT angefasst,
+//   wenn sie nicht in der Liste steht -> gibt null zurück ("nicht anfassen",
+//   ausdrücklich verschieden von "" = "auf leer zurücksetzen"). Beispiel:
+//   Mount/Gefährten-Verstärkung bleiben bei DPS unangetastet.
+// - Ohne dmgKey (Mount-Ausrüstungsbonus) aber MIT optimizeRollen für die
+//   passende Rolle: es gibt keine Rangzahl zum Sortieren, daher wird einfach
+//   der (erste) eigene Eintrag "fix" übernommen.
+// - dpsDmgKey: bei Rolle DPS wird statt dmgKey dieses Feld zum Sortieren
+//   verwendet (Gefährten: DPS nach höchstem eigenen Schaden).
+// - roleKey: unter den eigenen Einträgen wird zuerst nach zur Zeilen-Rolle
+//   passenden gesucht (per Rangfeld sortiert); nur wenn keiner passt, gilt
+//   wie bisher schlicht der Eintrag mit dem höchsten Rangwert.
+function gpBestOwned(kat, ownedNames, rolle){
+  if(kat.optimizeRollen && rolle && !kat.optimizeRollen.includes(rolle)) return null;
+  if(!ownedNames || !ownedNames.length) return '';
+  const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
+  if(!rankKey) return kat.optimizeRollen ? ownedNames[0] : '';
+  const rankOf = n => {
+    const e = gpKatItemByName(kat, n);
+    return e && e[rankKey] !== undefined && e[rankKey] !== '' && !isNaN(e[rankKey]) ? Number(e[rankKey]) : null;
+  };
+  if(kat.roleKey && rolle){
+    let bestMatch = '', bestMatchVal = -Infinity;
+    ownedNames.forEach(n => {
+      const e = gpKatItemByName(kat, n);
+      if(!e || e[kat.roleKey] !== rolle) return;
+      const val = rankOf(n);
+      if(val !== null && val > bestMatchVal){ bestMatchVal = val; bestMatch = n; }
+    });
+    if(bestMatch) return bestMatch;
+  }
   let best = '', bestVal = -Infinity;
   ownedNames.forEach(n => {
-    const e = gpKatItemByName(kat, n);
-    const val = e && e[kat.dmgKey] !== undefined && e[kat.dmgKey] !== '' && !isNaN(e[kat.dmgKey]) ? Number(e[kat.dmgKey]) : null;
+    const val = rankOf(n);
     if(val !== null && val > bestVal){ bestVal = val; best = n; }
   });
   return best;
@@ -5183,9 +5232,9 @@ function gpApplyBestSetup(row){
   if(!rec) return false;
   const besitz = (rec.data && rec.data.besitz) || {};
   GP_BESITZ_KATEGORIEN.forEach(kat => {
-    if(!kat.dmgKey) return;
-    const best = gpBestOwned(kat, besitz[kat.key]);
-    if(best) row[kat.rowField] = best;
+    if(!kat.dmgKey && !kat.optimizeRollen) return;
+    const best = gpBestOwned(kat, besitz[kat.key], row.rolle);
+    if(best) row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
   });
   return true;
 }
@@ -5344,6 +5393,19 @@ function gpClearIconField(btn){
   preview.src = GPREF_BLANK_ICON;
   preview.classList.add('empty');
 }
+// Seit v0.23.0: Referenzfelder können statt eines Text-Inputs auch ein
+// <select> sein (f.select = Array erlaubter Werte, erster Eintrag "" wird
+// als "–" angezeigt) - für die neue "Bevorzugt für"-Rollenauswahl bei
+// Artefakten (feste Werte statt Freitext, damit der Optimierer exakt
+// matchen kann).
+function gpRefFieldHtml(e, f){
+  const cur = e[f.key] !== undefined ? String(e[f.key]) : '';
+  if(f.select){
+    const opts = f.select.map(o=>`<option value="${escapeHtml(o)}" ${cur===o?'selected':''}>${o?escapeHtml(o):'–'}</option>`).join('');
+    return `<select class="gpref-field" data-field="${f.key}" style="width:100%;">${opts}</select>`;
+  }
+  return `<input type="text" class="gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${cur.replace(/"/g,'&quot;')}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}">`;
+}
 function gpRefRowHtml(e, fields){
   const iconVal = String(e.icon||'');
   return `<tr>
@@ -5353,7 +5415,7 @@ function gpRefRowHtml(e, fields){
       ${gpRefIconFileHtml()}
       <button type="button" class="action small" onclick="gpClearIconField(this)" title="Icon entfernen">✕</button>
     </div></td>
-    ${fields.map(f=>`<td><input type="text" class="gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${String(e[f.key]!==undefined?e[f.key]:'').replace(/"/g,'&quot;')}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}"></td>`).join('')}
+    ${fields.map(f=>`<td>${gpRefFieldHtml(e, f)}</td>`).join('')}
     <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen">✕</button></td>
   </tr>`;
 }
@@ -5380,7 +5442,10 @@ function gpCollectRefList(listId, fields){
     const iconInp = row.querySelector('input[data-field="icon"]');
     obj.icon = iconInp ? iconInp.value.trim() : '';
     fields.forEach(f=>{
-      const inp = row.querySelector(`input[data-field="${f.key}"]`);
+      // Seit v0.23.0: [data-field=...] statt input[data-field=...], damit
+      // auch <select>-Felder (z. B. die Rollen-Auswahl bei Artefakten)
+      // mit erfasst werden, nicht nur <input>.
+      const inp = row.querySelector(`[data-field="${f.key}"]`);
       const val = inp ? inp.value.trim() : '';
       if(f.key === 'name' && val) hasName = true;
       obj[f.key] = f.numeric ? parsePct(val) : val;
@@ -5390,7 +5455,11 @@ function gpCollectRefList(listId, fields){
   return out;
 }
 const GP_REF_SPECS = [
-  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true}] },
+  // Seit v0.23.0: "rolle" markiert, für welche Rolle dieses Artefakt
+  // bevorzugt geeignet ist (Nutzerwunsch "Zusatzinfo präferiert DPS/Tank/
+  // Heal") - fester Auswahlwert (select) statt Freitext, damit der
+  // Optimierer (gpBestOwned) exakt gegen die Zeilen-Rolle matchen kann.
+  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']}] },
   { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true}] },
   { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
@@ -5399,7 +5468,10 @@ const GP_REF_SPECS = [
   // kann. Alte Einträge ohne diesen Wert werden beim Speichern automatisch
   // auf 0 normalisiert (parsePct('') -> 0, wie bei allen numerischen Feldern
   // in diesem Projekt) - kein Migrationsschritt nötig.
-  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true}] },
+  // Seit v0.23.0: zusätzliches "schaden"-Feld (eigener Schaden des Gefährten,
+  // getrennt vom Support-Dmg-Buff "buff") - der Optimierer bevorzugt dieses
+  // Feld bei DPS-Zeilen (dpsDmgKey), Supports bleiben weiter beim Dmg-Buff.
+  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true}] },
   { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true}] },
 ];
 function renderGpReferenz(){

@@ -758,25 +758,44 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // dmgBonus (Defaults: Pegasus 7,89 < Zauberkessel der Vettel 9,41) und zwei
     // Gefährten, denen hier extra ein buff-Wert gesetzt wird (Defaults haben
     // noch keinen).
+    // Seit v0.23.0 (Nutzervorgabe zur Rollen-Logik): zusätzlich ein "schaden"-
+    // Wert je Gefährte (Skorpion 10 > Flapjack 3 - umgekehrt zum Buff-Wert, s.
+    // u.) sowie buff-Werte für zwei Gefährten-Verstärkungen, um DPS- und
+    // Support-Pfad des Optimierers getrennt zu testen.
     // Über die echte Referenzlisten-Seite speichern (nicht per Roh-API direkt
     // in shared.json) - sonst bliebe die im Frontend gehaltene gpGefaehrten-
     // Variable veraltet (sie wird nur beim Laden bzw. bei gpSaveReferenzlisten()
     // selbst aktualisiert, nicht durch fremde Server-Änderungen).
     win.showGpPage('referenz'); await wait(300);
     const refGefTableOpti = doc.getElementById('gpref-gpGefaehrten');
-    const setBuffFuer = (name, val) => {
-      const row = Array.from(refGefTableOpti.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === name);
-      if(row) input(win, row.querySelector('input[data-field="buff"]'), String(val));
+    const setFeldFuer = (table, name, feld, val) => {
+      const row = Array.from(table.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === name);
+      if(row) input(win, row.querySelector(`input[data-field="${feld}"]`), String(val));
       return !!row;
     };
-    const skorpionGefunden = setBuffFuer('Skorpion', 2);
-    const flapjackGefunden = setBuffFuer('Flapjack', 5);
+    const skorpionGefunden = setFeldFuer(refGefTableOpti, 'Skorpion', 'buff', 2) && setFeldFuer(refGefTableOpti, 'Skorpion', 'schaden', 10);
+    const flapjackGefunden = setFeldFuer(refGefTableOpti, 'Flapjack', 'buff', 5) && setFeldFuer(refGefTableOpti, 'Flapjack', 'schaden', 3);
     check('Optimierer-Test: Skorpion/Flapjack in der Referenzliste gefunden', skorpionGefunden && flapjackGefunden);
+    const refGefVerstTableOpti = doc.getElementById('gpref-gpGefaehrtenVerstaerkung');
+    const ruestungsbruchGefunden = setFeldFuer(refGefVerstTableOpti, 'Rüstungsbruch', 'buff', 3);
+    const verwundbarkeitGefunden = setFeldFuer(refGefVerstTableOpti, 'Verwundbarkeit', 'buff', 7);
+    check('Optimierer-Test: Rüstungsbruch/Verwundbarkeit in der Referenzliste gefunden', ruestungsbruchGefunden && verwundbarkeitGefunden);
+    // Seit v0.23.0: "Bevorzugt für"-Rollenauswahl bei Artefakten (Select statt
+    // Freitext) - Tentacle Rod hier als Tank-bevorzugt markieren, um die
+    // Rollen-Präferenz im Optimierer separat zu testen.
+    const refArtefakteTableOpti = doc.getElementById('gpref-gpArtefakte');
+    const tentacleRodRolleSelect = Array.from(refArtefakteTableOpti.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === 'Tentacle Rod')?.querySelector('select[data-field="rolle"]');
+    check('Referenzlisten: Artefakte haben eine "Bevorzugt für"-Rollenauswahl', !!tentacleRodRolleSelect);
+    if(tentacleRodRolleSelect){ tentacleRodRolleSelect.value = 'Tank'; tentacleRodRolleSelect.dispatchEvent(new win.Event('change', { bubbles: true })); }
     await win.gpSaveReferenzlisten(); await wait(300);
     const sharedNachGefBuff = (await api('/api/shared')).data;
     const skorpionGespeichert = (sharedNachGefBuff.gpGefaehrten || []).find(e => e.name === 'Skorpion');
     const flapjackGespeichert = (sharedNachGefBuff.gpGefaehrten || []).find(e => e.name === 'Flapjack');
-    check('Gefährten-Referenzliste: Dmg-Buff-Werte für den Optimierer-Test gespeichert', skorpionGespeichert && skorpionGespeichert.buff === 2 && flapjackGespeichert && flapjackGespeichert.buff === 5, { skorpionGespeichert, flapjackGespeichert });
+    check('Gefährten-Referenzliste: Buff- UND Schaden-Werte für den Optimierer-Test gespeichert',
+      skorpionGespeichert && skorpionGespeichert.buff === 2 && skorpionGespeichert.schaden === 10 && flapjackGespeichert && flapjackGespeichert.buff === 5 && flapjackGespeichert.schaden === 3,
+      { skorpionGespeichert, flapjackGespeichert });
+    const tentacleRodGespeichert = (sharedNachGefBuff.gpArtefakte || []).find(e => e.name === 'Tentacle Rod');
+    check('Artefakt-Referenzliste: "Bevorzugt für"-Rolle wird gespeichert', tentacleRodGespeichert && tentacleRodGespeichert.rolle === 'Tank', tentacleRodGespeichert);
     // showGpPage('planung') leert #gpPlanBoard (renderGpPlanList tut das immer,
     // unabhängig vom aktuellen Plan) - currentGpPlanData bleibt aber unverändert,
     // also das Board explizit neu zeichnen statt es implizit zu verlieren.
@@ -786,28 +805,62 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Optimierer-Test: eigener Charakter "OptiChar" angelegt', r.status === 201, r.status);
     r = await api('/api/gp/characters/OptiChar', { method: 'PUT', body: JSON.stringify({
       klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
-      besitz: { mounts: ['Pegasus', 'Zauberkessel der Vettel'], gefaehrten: ['Skorpion', 'Flapjack'] },
+      besitz: {
+        artefakte: ['Tentacle Rod'], mounts: ['Pegasus', 'Zauberkessel der Vettel'],
+        mountBonus: ['Mystische Aura'], gefaehrten: ['Skorpion', 'Flapjack'],
+        gefaehrtenVerstaerkung: ['Rüstungsbruch', 'Verwundbarkeit'],
+      },
     }) }, token);
     check('Optimierer-Test: Besitz von OptiChar gespeichert', r.status === 200, r.status);
 
     await win.ensureGpCharactersLoaded(true); await wait(300);
     win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(150);
+    // Zeile 0 einer frisch angelegten Dungeon-Gruppe (gpAddGroup()) ist per
+    // Default Rolle DPS - genau der Fall aus der Nutzervorgabe (v0.23.0):
+    // DPS haben ein reines Selbstbuff-Mount und geben Gefährten-Boni an die
+    // Supports weiter, Mount/Gefährten-Bonus bleiben also unangetastet;
+    // beim Gefährten selbst zählt für DPS der eigene Schaden statt des
+    // Support-Buffs (Skorpion 10 > Flapjack 3, umgekehrt zum Buff-Wert).
     const optiZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
     const optiBtn = Array.from(optiZeile.querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
     check('"Bestes eigenes Setup"-Knopf (🏆) ist pro Zeile vorhanden', !!optiBtn);
+    const optiMountVorher = optiZeile.querySelectorAll('select')[2].value; // Rolle=0,Artefakt=1,Mount=2 - vor Klick erfassen
     if(optiBtn) optiBtn.click();
     await wait(150);
     const optiZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
-    const optiSelects = optiZeileNach.querySelectorAll('select');
-    const optiMountSelect = Array.from(optiSelects).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
-    const optiGefaehrteSelect = Array.from(optiSelects).find(sel => Array.from(sel.options).some(o => o.value === 'Flapjack'));
-    check('Optimierer wählt den Mount mit dem höheren Dmg-Bonus (Zauberkessel der Vettel statt Pegasus)', optiMountSelect && optiMountSelect.value === 'Zauberkessel der Vettel', optiMountSelect && optiMountSelect.value);
-    check('Optimierer wählt den Gefährten mit dem höheren Dmg-Buff (Flapjack statt Skorpion)', optiGefaehrteSelect && optiGefaehrteSelect.value === 'Flapjack', optiGefaehrteSelect && optiGefaehrteSelect.value);
+    const optiSelectsNach = optiZeileNach.querySelectorAll('select');
+    const optiArtefaktSelect = Array.from(optiSelectsNach).find(sel => Array.from(sel.options).some(o => o.value === 'Tentacle Rod'));
+    const optiMountSelect = Array.from(optiSelectsNach).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
+    const optiGefaehrteSelect = Array.from(optiSelectsNach).find(sel => Array.from(sel.options).some(o => o.value === 'Flapjack'));
+    check('DPS: Artefakt wird trotzdem optimiert (einziger Besitz-Eintrag)', optiArtefaktSelect && optiArtefaktSelect.value === 'Tentacle Rod', optiArtefaktSelect && optiArtefaktSelect.value);
+    check('DPS: Mount bleibt unangetastet (Selbstbuff, laut Nutzervorgabe nicht vom Optimierer anfassen)', optiMountSelect && optiMountSelect.value === optiMountVorher, optiMountSelect && [optiMountVorher, optiMountSelect.value]);
+    check('DPS: Gefährte wird nach eigenem SCHADEN gewählt (Skorpion statt Flapjack, obwohl Flapjack den höheren Support-Buff hat)', optiGefaehrteSelect && optiGefaehrteSelect.value === 'Skorpion', optiGefaehrteSelect && optiGefaehrteSelect.value);
+    const optiGefBonusSelect = optiZeileNach.querySelectorAll('select')[5]; // Rolle,Artefakt,Mount,MountBonus,Gefährte,GefährtenBonus
+    check('DPS: Gefährten-Bonus bleibt unangetastet (Support-Feld laut Nutzervorgabe)', optiGefBonusSelect && optiGefBonusSelect.value === '', optiGefBonusSelect && optiGefBonusSelect.value);
+    const optiMountBonusSelect = optiZeileNach.querySelectorAll('select')[3];
+    check('DPS: Mount-Bonus bleibt unangetastet (nur für Supports fix eingeplant)', optiMountBonusSelect && optiMountBonusSelect.value === '', optiMountBonusSelect && optiMountBonusSelect.value);
+
+    // Dieselbe Zeile jetzt auf Tank umstellen und erneut optimieren: Mount/
+    // Gefährten-Bonus/Mount-Bonus werden jetzt SEHR wohl gesetzt (Supports),
+    // und der Gefährte wechselt zurück auf den höheren Support-BUFF
+    // (Flapjack statt Skorpion) - exakt umgekehrt zum DPS-Fall oben.
+    win.gpUpdateRowRolle(neueGruppeIdx, 0, 'Tank'); await wait(100);
+    const optiBtnTank = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(optiBtnTank) optiBtnTank.click();
+    await wait(150);
+    const optiZeileTank = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const optiSelectsTank = optiZeileTank.querySelectorAll('select');
+    const optiMountSelectTank = Array.from(optiSelectsTank).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
+    const optiGefaehrteSelectTank = Array.from(optiSelectsTank).find(sel => Array.from(sel.options).some(o => o.value === 'Flapjack'));
+    check('Tank: Mount wird jetzt optimiert (höherer Dmg-Bonus, Zauberkessel der Vettel statt Pegasus)', optiMountSelectTank && optiMountSelectTank.value === 'Zauberkessel der Vettel', optiMountSelectTank && optiMountSelectTank.value);
+    check('Tank: Gefährte wechselt zurück auf den höheren Support-Buff (Flapjack statt Skorpion)', optiGefaehrteSelectTank && optiGefaehrteSelectTank.value === 'Flapjack', optiGefaehrteSelectTank && optiGefaehrteSelectTank.value);
+    check('Tank: Gefährten-Bonus wird jetzt gesetzt (höherer Buff, Verwundbarkeit statt Rüstungsbruch)', optiSelectsTank[5] && optiSelectsTank[5].value === 'Verwundbarkeit', optiSelectsTank[5] && optiSelectsTank[5].value);
+    check('Tank: Mount-Bonus wird "fix" auf den einzigen eigenen Eintrag gesetzt (Mystische Aura, kein Rangwert vorhanden)', optiSelectsTank[3] && optiSelectsTank[3].value === 'Mystische Aura', optiSelectsTank[3] && optiSelectsTank[3].value);
 
     // "Alle Zeilen optimieren" auf Gruppenebene: wirkt auf JEDE Zeile mit
     // zugewiesenem Charakter - hier nur die eine OptiChar-Zeile in dieser
-    // Gruppe, der Rest der 5 Zeilen bleibt leer (kein charKey -> übersprungen,
-    // kein Fehler).
+    // Gruppe (weiterhin Rolle Tank aus dem Schritt oben), der Rest der 5
+    // Zeilen bleibt leer (kein charKey -> übersprungen, kein Fehler).
     win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); // Zeile zurücksetzen, um den Gruppen-Knopf isoliert zu testen
     await wait(100);
     win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
