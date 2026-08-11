@@ -5123,16 +5123,16 @@ function gpOptionLabel(kat, name){
   const val = e ? e[kat.dmgKey] : undefined;
   return (val !== undefined && val !== '' && !isNaN(val)) ? `${name} (${fmt(val)} %)` : name;
 }
-// Kompaktes Badge (Icon + %) neben einer Artefakt-/Mount-Auswahl im Board,
-// bzw. leer wenn die Kategorie kein dmgKey hat oder nichts ausgewählt ist.
+// Kompaktes Icon-Badge neben einer Artefakt-/Mount-Auswahl im Board. Zeigt
+// seit v0.22.2 NUR noch das Icon (Nutzerwunsch: der %-Wert steht bereits im
+// Options-Text des Selects selbst, s. gpOptionLabel - doppelte Anzeige des
+// Werts entfernt). Leer wenn die Kategorie kein dmgKey hat, nichts gewählt
+// ist oder der Eintrag kein Icon hat.
 function gpDmgBadgeHtml(kat, name){
   if(!kat.dmgKey) return '';
   const e = gpKatItemByName(kat, name);
-  if(!e) return '';
-  const val = e[kat.dmgKey];
-  const hasVal = val !== undefined && val !== '' && !isNaN(val);
-  if(!hasVal && !e.icon) return '';
-  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name)}">${gpRefIconImgHtml(e.icon||'')}${hasVal?`<span>${fmt(val)} %</span>`:''}</span>`;
+  if(!e || !e.icon) return '';
+  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name)}">${gpRefIconImgHtml(e.icon)}</span>`;
 }
 // Grobe Summe der Dmg-Buffs (Artefakte + Mounts) über alle Zeilen einer Gruppe -
 // nur zur schnellen Orientierung, KEINE exakte Nachbildung der Spiel-Stapel-

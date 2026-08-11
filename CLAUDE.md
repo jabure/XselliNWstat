@@ -332,6 +332,13 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.22.2: Doppelte Prozent-Anzeige entfernt (Nutzerkorrektur zu
+  v0.22.1, per Screenshot: Wert stand im Select-Text UND nochmal im Badge
+  darunter).**
+  - `gpDmgBadgeHtml` zeigt jetzt NUR noch das Icon, keinen %-Text mehr - der
+    Wert steht seit v0.22.1 bereits im Options-Text des Selects
+    (`gpOptionLabel`). Kein Icon hinterlegt -> Badge bleibt leer (wie
+    vorher schon bei fehlendem Wert).
 - **Seit v0.22.1: Dmg-Buff-Prozentwert direkt in der Dropdown-Option
   (Nutzerwunsch, siehe Screenshot: Wert sollte schon BEIM Auswählen sichtbar
   sein, nicht erst danach als Badge).**

@@ -578,13 +578,13 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const pegasusOption = mountSelectGp && Array.from(mountSelectGp.options).find(o => o.value === 'Pegasus');
     check('Dropdown-Option zeigt den Dmg-Buff-Wert direkt im Text an', pegasusOption && pegasusOption.textContent.includes('Pegasus') && pegasusOption.textContent.includes('7,89 %'), pegasusOption && pegasusOption.textContent);
 
-    // Seit v0.20.0: der Dmg-Buff des zugewiesenen Mounts/Artefakts wird als Badge
-    // mit Icon direkt neben der Auswahl angezeigt (Pegasus hat dmgBonus 7.89 in
-    // den Default-Referenzdaten). Zusätzlich zeigt der Gruppen-Header eine grobe
-    // Summe (Σ Dmg-Buff) über alle Zeilen der Gruppe.
+    // Seit v0.22.2 (Nutzerwunsch: Wert stand doppelt da, im Select-Text UND im
+    // Badge): das Badge zeigt jetzt NUR noch das Icon, keinen Text mehr - der
+    // %-Wert steht seit v0.22.1 bereits im Options-Text (s. o.). Pegasus hat in
+    // den Default-Referenzdaten kein Icon hinterlegt, das Badge bleibt für ihn
+    // also leer.
     const mountBadge = mountSelectGp.parentElement.querySelector('.dmgbuff-badge');
-    // fmt() formatiert mit de-DE-Locale (Komma statt Punkt) - siehe Delta-Konvention.
-    check('Dmg-Buff-Badge zeigt den Mount-Bonus (7,89 %) an', mountBadge && mountBadge.textContent.includes('7,89'), mountBadge && mountBadge.textContent);
+    check('Icon-loses Badge bleibt leer (kein doppelter %-Text mehr)', !mountBadge, mountBadge && mountBadge.outerHTML);
     // (Nicht gpBoard.querySelector('.entry-head') - das trifft zuerst den
     // Plan-Titel-Header, nicht den Gruppen-Header; groupNameInput sitzt bereits
     // im richtigen .entry-head der Gruppenkarte.)
@@ -709,6 +709,10 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       artefaktSelect1 && artefaktSelect2 && artefaktSelect1.value === 'Icon-Test-Artefakt' && artefaktSelect2.value === 'Icon-Test-Artefakt' &&
       (artefaktSelect1.getAttribute('style') || '').includes('var(--off)') && (artefaktSelect2.getAttribute('style') || '').includes('var(--off)'),
       [artefaktSelect1 && artefaktSelect1.value, artefaktSelect1 && artefaktSelect1.getAttribute('style'), artefaktSelect2 && artefaktSelect2.value, artefaktSelect2 && artefaktSelect2.getAttribute('style')]);
+    // 'Icon-Test-Artefakt' hat ein gespeichertes Icon (s. o.), aber keinen
+    // Buff-Wert - das Badge zeigt seit v0.22.2 dafür ein Icon ohne Text an.
+    const artefaktBadge1 = artefaktSelect1.parentElement.querySelector('.dmgbuff-badge');
+    check('Badge mit Icon zeigt keinen zusätzlichen %-Text mehr an', artefaktBadge1 && !!artefaktBadge1.querySelector('img') && !/\d/.test(artefaktBadge1.textContent), artefaktBadge1 && artefaktBadge1.outerHTML);
     win.gpUpdateRowField(0, 2, 'artefakt', ''); win.renderGpPlanBoard(); await wait(100);
     const gpRowsArtefaktNach = doc.querySelectorAll('#gpPlanBoard .card')[0].querySelectorAll('tbody tr');
     const artefaktSelect1Nach = gpRowsArtefaktNach[1].querySelectorAll('select')[1];
