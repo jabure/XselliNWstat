@@ -332,6 +332,17 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.22.3: Icon steht vor statt unter dem Auswahlfeld (Nutzerkorrektur
+  zu v0.22.2, per Screenshot).**
+  - Neue CSS-Klasse `.gp-select-icon-wrap` (flex, `gap:6px`) umschließt Badge
+    + Select in den Board-Zellen Artefakt/Mount; das Select bekommt darin
+    `width:auto;flex:1` statt der globalen `width:100%`, sonst würde es das
+    Badge weiterhin in eine neue Zeile drängen. In der Nur-Ansicht (reiner
+    Text statt Select) steht das Icon jetzt ebenso vor statt nach dem Namen.
+  - Rein visuelle Änderung, `gpDmgBadgeHtml`/`gpOptionLabel` selbst
+    unverändert. Alle 178 Smoke-Test-Checks bleiben grün (Badge-Selektoren
+    finden das Icon weiterhin über `select.parentElement`, da Select und
+    Badge weiterhin Geschwister im selben Wrapper-Element sind).
 - **Seit v0.22.2: Doppelte Prozent-Anzeige entfernt (Nutzerkorrektur zu
   v0.22.1, per Screenshot: Wert stand im Select-Text UND nochmal im Badge
   darunter).**

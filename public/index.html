@@ -352,6 +352,11 @@
      Artefakt-/Mount-Auswahl einer Zeile (Nutzerwunsch). */
   .dmgbuff-badge{display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--gold); background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft); border-radius:10px; padding:1px 7px; margin-left:5px; white-space:nowrap;}
   .dmgbuff-badge img{width:16px; height:16px; border-radius:3px; object-fit:cover; flex:none;}
+  /* Icon VOR statt UNTER dem Select (Nutzerwunsch) - select ist width:100% und
+     würde das Badge sonst in eine neue Zeile umbrechen lassen. */
+  .gp-select-icon-wrap{display:flex; align-items:center; gap:6px;}
+  .gp-select-icon-wrap select{width:auto; flex:1; min-width:0;}
+  .gp-select-icon-wrap .dmgbuff-badge{margin-left:0; flex:none;}
   .ins-col-left .ins-stat-row{flex-direction:column;}
   .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
@@ -5659,8 +5664,8 @@ function renderGpPlanBoard(){
           </select></td>` : ''}
         ${g.showAusruestung ? `<td><input type="text" value="${escapeHtml(row.weapon||'')}" oninput="gpUpdateRowField(${gi},${ri},'weapon',this.value)" style="width:110px;"></td>
           <td><input type="text" value="${escapeHtml(row.ausruestung||'')}" oninput="gpUpdateRowField(${gi},${ri},'ausruestung',this.value)" style="width:110px;"></td>` : ''}
-        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt',istArtefaktDoppelt(row.artefakt))}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
-        <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
+        <td><div class="gp-select-icon-wrap">${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt',istArtefaktDoppelt(row.artefakt))}</div></td>
+        <td><div class="gp-select-icon-wrap">${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}</div></td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
@@ -5715,8 +5720,8 @@ function gpPlanAnsichtHtml(){
       <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
       <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
       ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
-      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${escapeHtml(row.artefakt||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
-      <td>${escapeHtml(row.mount||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
+      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${escapeHtml(row.artefakt||'–')}</td>
+      <td>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${escapeHtml(row.mount||'–')}</td>
       <td>${escapeHtml(row.mountBonus||'–')}</td>
       <td>${escapeHtml(row.gefaehrte||'–')}</td>
       <td>${escapeHtml(row.gefaehrtenBonus||'–')}</td>
