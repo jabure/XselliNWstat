@@ -527,6 +527,20 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const gespeichertesArtefakt = (sharedNachIcon.gpArtefakte || []).find(e => e.name === 'Icon-Test-Artefakt');
     check('Referenzlisten: Icon-URL wird mit dem Eintrag gespeichert', gespeichertesArtefakt && gespeichertesArtefakt.icon === 'https://example.invalid/icon.png', gespeichertesArtefakt);
 
+    // Seit v0.20.0 (Nutzerwunsch "Icon direkt reinladen statt URL eintippen"):
+    // das Icon-Feld ist ein Datei-Upload (input type=file), das Textfeld ist nur
+    // noch ein verstecktes Trägerfeld für den erzeugten data:URL-String. Der
+    // eigentliche Bild-Resize-Pfad (FileReader/Image/canvas) lässt sich in jsdom
+    // nicht sauber simulieren - hier wird nur die Feldstruktur und der
+    // "Icon entfernen"-Knopf geprüft, das Speichern des Ergebnisses deckt der
+    // Test oben (identisches Feld, ob URL oder data:URL) bereits ab.
+    const refFileInput = refTable.querySelector('tbody tr input[type="file"]');
+    check('Referenzlisten: Icon-Feld ist ein Datei-Upload (kein Text-URL-Feld mehr)', !!refFileInput && refIconInput.type === 'hidden');
+    const refClearBtn = Array.from(refTable.querySelectorAll('tbody tr:first-child button')).find(b => b.title === 'Icon entfernen');
+    check('Referenzlisten: "Icon entfernen"-Knopf vorhanden', !!refClearBtn);
+    refClearBtn.click();
+    check('Referenzlisten: "Icon entfernen" leert das Feld', refIconInput.value === '');
+
     win.showGpPage('charaktere'); await wait(300);
     btnCharA.click(); await wait(200);
     const gpAccBtn2 = doc.querySelector('#gpCharEditor .accordion button');
@@ -551,6 +565,18 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Datalist bietet den Charakter als Vorschlag an', !!doc.querySelector(`#gpCharDatalist option[value="TankMax (${user})"]`));
     const mountSelectGp = Array.from(gpBoard.querySelectorAll('tbody select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
     check('Mount-Dropdown ist auf Besitz gefiltert (nur Pegasus + Leer)', mountSelectGp && mountSelectGp.options.length === 2, mountSelectGp && Array.from(mountSelectGp.options).map(o => o.value));
+
+    // Seit v0.20.0: der Dmg-Buff des zugewiesenen Mounts/Artefakts wird als Badge
+    // mit Icon direkt neben der Auswahl angezeigt (Pegasus hat dmgBonus 7.89 in
+    // den Default-Referenzdaten). Zusätzlich zeigt der Gruppen-Header eine grobe
+    // Summe (Σ Dmg-Buff) über alle Zeilen der Gruppe.
+    const mountBadge = mountSelectGp.parentElement.querySelector('.dmgbuff-badge');
+    // fmt() formatiert mit de-DE-Locale (Komma statt Punkt) - siehe Delta-Konvention.
+    check('Dmg-Buff-Badge zeigt den Mount-Bonus (7,89 %) an', mountBadge && mountBadge.textContent.includes('7,89'), mountBadge && mountBadge.textContent);
+    // (Nicht gpBoard.querySelector('.entry-head') - das trifft zuerst den
+    // Plan-Titel-Header, nicht den Gruppen-Header; groupNameInput sitzt bereits
+    // im richtigen .entry-head der Gruppenkarte.)
+    check('Gruppen-Header zeigt eine Σ-Dmg-Buff-Summe', groupNameInput.closest('.entry-head').textContent.includes('Σ Dmg-Buff'));
 
     // Rolle einer bestehenden Zeile nachträglich ändern (DPS -> Heiler), ohne die
     // Zeile zu löschen und neu anzulegen.

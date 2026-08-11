@@ -332,6 +332,34 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.20.0: zwei weitere Gruppenplaner-Erweiterungen (Nutzerwunsch).**
+  1) Referenzlisten-Icon ist jetzt ein Datei-Upload statt eines Text-URL-Felds
+     (`gpRefIconFileHtml`/`gpHandleIconUpload`, neue Konstante `GPREF_ICON_SIZE
+     = 48`). Läuft KOMPLETT im Browser: FileReader liest die gewählte Datei,
+     ein `<canvas>` schneidet sie quadratisch zu (mittiger Crop auf die
+     kürzere Seite) und verkleinert auf 48×48, `canvas.toDataURL('image/png')`
+     liefert eine data:URL, die in dasselbe (jetzt `type=hidden`) `icon`-Feld
+     geschrieben wird wie vorher die URL - `gpCollectRefList` und alle
+     Anzeige-Stellen (`gpRefIconImgHtml`) brauchten dafür KEINE Änderung, weil
+     `icon` weiterhin einfach ein String ist. Kein neuer Server-Endpunkt, kein
+     Multer/Multipart nötig. Ein "Icon entfernen"-Knopf (`gpClearIconField`)
+     setzt das Feld zurück auf `GPREF_BLANK_ICON`. Alte, per URL gesetzte
+     Icons funktionieren unverändert weiter (data:- und https:-URLs sind für
+     `<img src>` gleichwertig) - beim Testen in jsdom lässt sich der
+     Resize-Pfad (Image/canvas) nicht sauber simulieren, der Smoke-Test prüft
+     deshalb nur Feldstruktur + Clear-Knopf, nicht den Pixel-Pfad.
+  2) Dmg-Buff wird im Board jetzt sichtbar: `GP_BESITZ_KATEGORIEN[].dmgKey`
+     markiert, welches Feld einer Kategorie ein Dmg-Buff ist (`artefakte` ->
+     `buff`, `mounts` -> `dmgBonus`, die anderen 3 Kategorien haben keins).
+     `gpDmgBadgeHtml(kat, name)` rendert ein kleines Badge (Icon + %-Wert)
+     direkt neben der Artefakt-/Mount-Auswahl einer Board-Zeile UND in der
+     Nur-Ansicht. `gpGroupDmgBuffSum(g)` addiert Artefakt-Buff + Mount-
+     Dmg-Bonus über alle Zeilen einer Gruppe zu einer "Σ Dmg-Buff"-Anzeige im
+     Gruppen-Header - AUSDRÜCKLICH nur grobe Orientierung (Tooltip weist
+     darauf hin), keine Nachbildung der echten Spiel-Stapelmechanik.
+  Smoke-Test erweitert: Icon-Feldstruktur (file statt text) + Clear-Knopf,
+  Dmg-Buff-Badge zeigt den korrekten Mount-Bonus (Pegasus, 7,89 %), Σ-Anzeige
+  im Gruppen-Header vorhanden.
 - **Seit v0.19.0: drei Gruppenplaner-Erweiterungen (Nutzerwunsch).**
   1) Referenzlisten-Editor (Presets-Unterseite "Referenzlisten") ist jetzt eine
      echte `<table class="gpref-table">` statt einer Karte pro Eintrag

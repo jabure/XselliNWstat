@@ -325,10 +325,17 @@
   .gpref-table td{padding:3px 6px; vertical-align:middle;}
   .gpref-table tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
   .gpref-table input[type="text"]{padding:5px 7px; font-size:0.83rem;}
-  .gpref-icon-cell{display:flex; align-items:center; gap:6px;}
-  .gpref-icon-cell input{width:112px; flex:none;}
+  .gpref-icon-cell{display:flex; align-items:center; gap:4px;}
   .gpref-icon-preview{width:22px; height:22px; border-radius:5px; object-fit:cover; background:var(--panel-2); border:1px solid var(--border); flex:none;}
   .gpref-icon-preview.empty{opacity:0.3;}
+  .gpref-icon-cell input[type="file"]{
+    width:98px; flex:none; padding:2px; font-size:0.68rem; border:none; background:none;
+  }
+  .gpref-icon-cell input[type="file"]::file-selector-button{
+    font-size:0.68rem; padding:3px 6px; border-radius:5px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+  }
+  .gpref-icon-cell button.action.small{padding:3px 6px; flex:none;}
   /* Besitz-Checkliste im Charakter-Editor: kompaktes Chip-Grid statt einer
      Checkbox-Zeile pro Eintrag - zeigt außerdem das Icon aus der Referenzliste. */
   .besitz-grid{display:flex; flex-wrap:wrap; gap:6px; padding:8px 2px;}
@@ -341,6 +348,10 @@
      angekreuzten Besitz-Einträge, ohne die ganze Checkliste aufklappen zu müssen). */
   .besitz-icons{display:inline-flex; align-items:center; gap:3px;}
   .besitz-icons img{width:18px; height:18px; border-radius:4px; object-fit:cover; border:1px solid var(--border);}
+  /* Dmg-Buff-Badge im Gruppenplaner-Board: Icon + %-Wert direkt neben der
+     Artefakt-/Mount-Auswahl einer Zeile (Nutzerwunsch). */
+  .dmgbuff-badge{display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--gold); background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft); border-radius:10px; padding:1px 7px; margin-left:5px; white-space:nowrap;}
+  .dmgbuff-badge img{width:16px; height:16px; border-radius:3px; object-fit:cover; flex:none;}
   .ins-col-left .ins-stat-row{flex-direction:column;}
   .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
@@ -5083,13 +5094,43 @@ const GP_KLASSEN = ['Kämpfer','Waldläufer','Schurke','Barbar','Paladin','Kleri
 // Wiedererkennung.
 const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'🗡️','Barbar':'🪓','Paladin':'🛡️','Kleriker':'✨','Hexenmeister':'🔮','Magier':'🧙','Barde':'🎵' };
 // Welche Checkliste (Besitz) gegen welche Referenzliste geprüft wird, mit Anzeige-Feldern.
+// dmgKey: welches numerische Feld dieser Kategorie ein Dmg-Buff ist (falls
+// vorhanden) - wird seit v0.20.0 im Board neben der Auswahl als Badge mit
+// Icon angezeigt (Nutzerwunsch "auch der dmg buff angezeigt wird, mit den
+// Icons"). Nur Artefakte (buff) und Mounts (dmgBonus) haben so ein Feld -
+// die anderen 3 Kategorien liefern dann einfach keinen Badge.
 const GP_BESITZ_KATEGORIEN = [
-  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'' },
-  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'' },
+  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff' },
+  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus' },
   { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'' },
   { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'' },
   { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'' },
 ];
+function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
+// Kompaktes Badge (Icon + %) neben einer Artefakt-/Mount-Auswahl im Board,
+// bzw. leer wenn die Kategorie kein dmgKey hat oder nichts ausgewählt ist.
+function gpDmgBadgeHtml(kat, name){
+  if(!kat.dmgKey) return '';
+  const e = gpKatItemByName(kat, name);
+  if(!e) return '';
+  const val = e[kat.dmgKey];
+  const hasVal = val !== undefined && val !== '' && !isNaN(val);
+  if(!hasVal && !e.icon) return '';
+  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name)}">${gpRefIconImgHtml(e.icon||'')}${hasVal?`<span>${fmt(val)} %</span>`:''}</span>`;
+}
+// Grobe Summe der Dmg-Buffs (Artefakte + Mounts) über alle Zeilen einer Gruppe -
+// nur zur schnellen Orientierung, KEINE exakte Nachbildung der Spiel-Stapel-
+// mechanik (manche Buffs stapeln nicht 1:1 additiv).
+function gpGroupDmgBuffSum(g){
+  let sum = 0;
+  g.rows.forEach(row => {
+    const a = gpKatItemByName(GP_BESITZ_KATEGORIEN[0], row.artefakt);
+    if(a && !isNaN(a.buff) && a.buff !== '') sum += Number(a.buff);
+    const m = gpKatItemByName(GP_BESITZ_KATEGORIEN[1], row.mount);
+    if(m && !isNaN(m.dmgBonus) && m.dmgBonus !== '') sum += Number(m.dmgBonus);
+  });
+  return sum;
+}
 // Sammelt für die kompakte Charakterliste alle Icons der angekreuzten Besitz-Einträge
 // (über alle Kategorien hinweg, dedupliziert wird nicht extra gebraucht - Namen sind
 // je Kategorie eindeutig), auf 8 Stück begrenzt mit "+N" für den Rest.
@@ -5177,13 +5218,65 @@ function gpRefIconImgHtml(iconVal){
   const has = !!iconVal;
   return `<img class="gpref-icon-preview${has?'':' empty'}" src="${has?escapeHtml(iconVal):GPREF_BLANK_ICON}" onerror="this.src='${GPREF_BLANK_ICON}';this.classList.add('empty');">`;
 }
+// Seit v0.20.0 (Nutzerwunsch "Icon direkt reinladen statt URL eintippen"): das
+// Icon-Feld ist ein Datei-Upload (input type=file) statt eines Text-URL-Felds.
+// Die Datei wird NIE zum Server hochgeladen (kein neuer Endpunkt nötig) - sie
+// wird komplett im Browser per <canvas> quadratisch zugeschnitten und auf
+// GPREF_ICON_SIZE verkleinert, dann als PNG-data:URL in genau dasselbe
+// (unsichtbare) `icon`-Textfeld geschrieben, das vorher die URL enthielt.
+// gpCollectRefList/gpSaveReferenzlisten brauchten dadurch KEINE Änderung - für
+// sie ist "icon" weiterhin einfach ein String im JSON. Alte, vor diesem Update
+// per URL gesetzte Icons funktionieren unverändert weiter (data:- und
+// https:-URLs sind für <img src> gleichwertig).
+const GPREF_ICON_SIZE = 48;
+function gpRefIconFileHtml(){
+  return `<input type="file" accept="image/*" class="gpref-icon-file" title="Icon-Bild wählen" onchange="gpHandleIconUpload(this)">`;
+}
+function gpHandleIconUpload(fileInput){
+  const file = fileInput.files && fileInput.files[0];
+  if(!file) return;
+  if(!file.type || !file.type.startsWith('image/')){
+    alert('Bitte eine Bilddatei wählen.'); fileInput.value = ''; return;
+  }
+  const cell = fileInput.closest('.gpref-icon-cell');
+  const hidden = cell.querySelector('input[data-field="icon"]');
+  const preview = cell.querySelector('.gpref-icon-preview');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = GPREF_ICON_SIZE; canvas.height = GPREF_ICON_SIZE;
+      canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, GPREF_ICON_SIZE, GPREF_ICON_SIZE);
+      const dataUrl = canvas.toDataURL('image/png');
+      hidden.value = dataUrl;
+      preview.src = dataUrl;
+      preview.classList.remove('empty');
+      fileInput.value = '';
+    };
+    img.onerror = () => { alert('Bild konnte nicht gelesen werden.'); fileInput.value = ''; };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function gpClearIconField(btn){
+  const cell = btn.closest('.gpref-icon-cell');
+  const hidden = cell.querySelector('input[data-field="icon"]');
+  const preview = cell.querySelector('.gpref-icon-preview');
+  hidden.value = '';
+  preview.src = GPREF_BLANK_ICON;
+  preview.classList.add('empty');
+}
 function gpRefRowHtml(e, fields){
   const iconVal = String(e.icon||'');
   return `<tr>
     <td><div class="gpref-icon-cell">
       ${gpRefIconImgHtml(iconVal)}
-      <input type="text" class="gpref-field" data-field="icon" placeholder="Icon-URL" value="${iconVal.replace(/"/g,'&quot;')}"
-        oninput="const im=this.previousElementSibling; im.src=this.value||'${GPREF_BLANK_ICON}'; im.classList.toggle('empty', !this.value);">
+      <input type="hidden" class="gpref-field" data-field="icon" value="${iconVal.replace(/"/g,'&quot;')}">
+      ${gpRefIconFileHtml()}
+      <button type="button" class="action small" onclick="gpClearIconField(this)" title="Icon entfernen">✕</button>
     </div></td>
     ${fields.map(f=>`<td><input type="text" class="gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${String(e[f.key]!==undefined?e[f.key]:'').replace(/"/g,'&quot;')}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}"></td>`).join('')}
     <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen">✕</button></td>
@@ -5454,8 +5547,8 @@ function renderGpPlanBoard(){
           </select></td>` : ''}
         ${g.showAusruestung ? `<td><input type="text" value="${escapeHtml(row.weapon||'')}" oninput="gpUpdateRowField(${gi},${ri},'weapon',this.value)" style="width:110px;"></td>
           <td><input type="text" value="${escapeHtml(row.ausruestung||'')}" oninput="gpUpdateRowField(${gi},${ri},'ausruestung',this.value)" style="width:110px;"></td>` : ''}
-        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt')}</td>
-        <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[0],'artefakt')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
+        <td>${selectFor(GP_BESITZ_KATEGORIEN[1],'mount')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
@@ -5468,6 +5561,7 @@ function renderGpPlanBoard(){
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> Dungeon (5)</label>
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> Trial (10, 2 Untergruppen A/B)</label>
         <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
+        <span class="muted" style="font-size:0.78rem;" title="Grobe Orientierung (Summe aus Artefakt- und Mount-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
         <button type="button" class="action danger small" style="margin-left:auto;" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
       </div>
       <div class="wide-table-scroll"><table>
@@ -5502,14 +5596,16 @@ function gpPlanAnsichtHtml(){
       <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
       <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
       ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
-      <td>${escapeHtml(row.artefakt||'–')}</td>
-      <td>${escapeHtml(row.mount||'–')}</td>
+      <td>${escapeHtml(row.artefakt||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}</td>
+      <td>${escapeHtml(row.mount||'–')}${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}</td>
       <td>${escapeHtml(row.mountBonus||'–')}</td>
       <td>${escapeHtml(row.gefaehrte||'–')}</td>
       <td>${escapeHtml(row.gefaehrtenBonus||'–')}</td>
     </tr>`).join('');
     return `<div class="card">
-      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span></h3>
+      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span>
+        <span class="muted" style="font-weight:400;font-size:0.78rem;margin-left:8px;">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
+      </h3>
       <div class="wide-table-scroll"><table>
         <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="8" class="muted">Noch niemand eingetragen.</td></tr>'}</tbody>

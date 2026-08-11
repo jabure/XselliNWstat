@@ -142,7 +142,11 @@ und höher sichtbar (wird später für alle geöffnet).
   beim Anlegen automatisch um den eigenen Accountnamen ergänzt (z. B.
   "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts
   eindeutig bleiben. Die Referenzlisten (Artefakte/Mounts/...) sind eine
-  platzsparende Tabelle mit optionalem Icon (Bild-URL) je Eintrag. Officer legen mehrere benannte Aufstellungs-Pläne an
+  platzsparende Tabelle mit optionalem Icon je Eintrag - das Icon wird direkt
+  als Bilddatei hochgeladen (kein Einfügen einer URL nötig) und automatisch
+  passend zugeschnitten. Im Aufstellungs-Board wird der Dmg-Buff von
+  Artefakt/Mount direkt als Badge mit Icon neben der Auswahl angezeigt, dazu
+  eine grobe Summe pro Gruppe. Officer legen mehrere benannte Aufstellungs-Pläne an
   (umbenennbar, duplizierbar, gegen gleichzeitiges Bearbeiten durch einen
   Versionszähler geschützt); im Board filtern sich die Ausrüstungs-Dropdowns
   automatisch auf das, was der zugewiesene Charakter tatsächlich besitzt,
