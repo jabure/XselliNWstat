@@ -5097,14 +5097,19 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 // dmgKey: welches numerische Feld dieser Kategorie ein Dmg-Buff ist (falls
 // vorhanden) - wird seit v0.20.0 im Board neben der Auswahl als Badge mit
 // Icon angezeigt (Nutzerwunsch "auch der dmg buff angezeigt wird, mit den
-// Icons"). Nur Artefakte (buff) und Mounts (dmgBonus) haben so ein Feld -
-// die anderen 3 Kategorien liefern dann einfach keinen Badge.
+// Icons"). Seit v0.21.0 haben auch Gefährten/Gefährten-Verstärkung ein
+// dmgKey ("buff") - Voraussetzung für den Gruppen-Optimierer (gpBestOwned).
+// Mount-Ausrüstungsbonus bleibt ohne dmgKey (rein beschreibend, kein
+// eigener Zahlenwert in der Referenzliste).
+// rowField: wie das jeweilige Board-Zeilenfeld heißt (gpNewSlot()) - macht
+// Summen-/Optimierer-Code generisch statt 5x fast identischen Code zu
+// wiederholen (seit v0.21.0).
 const GP_BESITZ_KATEGORIEN = [
-  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff' },
-  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus' },
-  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'' },
-  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'' },
-  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'' },
+  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt' },
+  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount' },
+  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus' },
+  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrte' },
+  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus' },
 ];
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
 // Kompaktes Badge (Icon + %) neben einer Artefakt-/Mount-Auswahl im Board,
@@ -5124,12 +5129,66 @@ function gpDmgBadgeHtml(kat, name){
 function gpGroupDmgBuffSum(g){
   let sum = 0;
   g.rows.forEach(row => {
-    const a = gpKatItemByName(GP_BESITZ_KATEGORIEN[0], row.artefakt);
-    if(a && !isNaN(a.buff) && a.buff !== '') sum += Number(a.buff);
-    const m = gpKatItemByName(GP_BESITZ_KATEGORIEN[1], row.mount);
-    if(m && !isNaN(m.dmgBonus) && m.dmgBonus !== '') sum += Number(m.dmgBonus);
+    GP_BESITZ_KATEGORIEN.forEach(kat => {
+      if(!kat.dmgKey) return;
+      const e = gpKatItemByName(kat, row[kat.rowField]);
+      if(e && !isNaN(e[kat.dmgKey]) && e[kat.dmgKey] !== '') sum += Number(e[kat.dmgKey]);
+    });
   });
   return sum;
+}
+// Seit v0.21.0 (Nutzerwunsch "Gruppen-Optimierung mit Artefakte/Gefährten"):
+// wählt für einen Charakter, über alle Kategorien mit dmgKey (Artefakte,
+// Mounts, Gefährten, Gefährten-Verstärkung), aus dessen ANGEKREUZTEN
+// Besitz-Einträgen jeweils den mit dem höchsten Dmg-Buff-Wert. Kategorien
+// ohne Besitz-Eintrag oder ohne dmgKey (Mount-Ausrüstungsbonus) bleiben
+// unangetastet. Bewusst PRO CHARAKTER statt eines fremden Gruppen-weiten
+// Zuteilungs-Algorithmus: in Neverwinter rüstet jeder Spieler sich selbst
+// aus, es gibt nichts, was zwischen Zeilen "aufgeteilt" werden müsste - eine
+// ganze Gruppe optimieren heißt hier also: diese Auswahl für jede Zeile mit
+// zugewiesenem Charakter einmal anwenden (gpOptimizeGroup).
+function gpBestOwned(kat, ownedNames){
+  if(!kat.dmgKey || !ownedNames || !ownedNames.length) return '';
+  let best = '', bestVal = -Infinity;
+  ownedNames.forEach(n => {
+    const e = gpKatItemByName(kat, n);
+    const val = e && e[kat.dmgKey] !== undefined && e[kat.dmgKey] !== '' && !isNaN(e[kat.dmgKey]) ? Number(e[kat.dmgKey]) : null;
+    if(val !== null && val > bestVal){ bestVal = val; best = n; }
+  });
+  return best;
+}
+// Wendet das beste eigene Setup auf eine Zeile an (mutiert row, rendert NICHT
+// neu - das übernimmt der Aufrufer, damit gpOptimizeGroup nicht pro Zeile neu
+// rendern muss). Gibt zurück, ob überhaupt etwas angewendet werden konnte
+// (false = keine Charakter-Zuweisung, z. B. freier Name ohne Profil).
+function gpApplyBestSetup(row){
+  if(!row.charKey) return false;
+  const rec = gpFindChar(row.charKey);
+  if(!rec) return false;
+  const besitz = (rec.data && rec.data.besitz) || {};
+  GP_BESITZ_KATEGORIEN.forEach(kat => {
+    if(!kat.dmgKey) return;
+    const best = gpBestOwned(kat, besitz[kat.key]);
+    if(best) row[kat.rowField] = best;
+  });
+  return true;
+}
+function gpOptimizeRow(gi, ri){
+  const row = currentGpPlanData.groups[gi].rows[ri];
+  if(!gpApplyBestSetup(row)){
+    alert('Nur für Zeilen mit zugewiesenem Charakter (mit eigenem Profil) möglich - bei freien Namen fehlt die Besitz-Checkliste.');
+    return;
+  }
+  renderGpPlanBoard();
+}
+function gpOptimizeGroup(gi){
+  const g = currentGpPlanData.groups[gi];
+  let count = 0;
+  g.rows.forEach(row => { if(gpApplyBestSetup(row)) count++; });
+  renderGpPlanBoard();
+  document.getElementById('saveStatus').textContent = count
+    ? `Bestes eigenes Setup für ${count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
+    : 'Keine Zeile mit zugewiesenem Charakter (mit Profil) in dieser Gruppe gefunden.';
 }
 // Sammelt für die kompakte Charakterliste alle Icons der angekreuzten Besitz-Einträge
 // (über alle Kategorien hinweg, dedupliziert wird nicht extra gebraucht - Namen sind
@@ -5318,8 +5377,14 @@ const GP_REF_SPECS = [
   { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true}] },
   { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true}] },
   { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
-  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
-  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
+  // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
+  // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
+  // dafür, dass der Gruppen-Optimierer (gpBestOwned) sie mitberücksichtigen
+  // kann. Alte Einträge ohne diesen Wert werden beim Speichern automatisch
+  // auf 0 normalisiert (parsePct('') -> 0, wie bei allen numerischen Feldern
+  // in diesem Projekt) - kein Migrationsschritt nötig.
+  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true}] },
 ];
 function renderGpReferenz(){
   const el = document.getElementById('gpPageReferenz');
@@ -5552,7 +5617,10 @@ function renderGpPlanBoard(){
         <td>${selectFor(GP_BESITZ_KATEGORIEN[2],'mountBonus')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
-        <td><button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})">✕</button></td>
+        <td>
+          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="Bestes eigenes Setup (höchster Dmg-Buff aus Artefakt/Mount/Gefährte/Gefährten-Verstärkung) auswählen">🏆</button>
+          <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})">✕</button>
+        </td>
       </tr>`;
     }).join('');
     return `<div class="card">
@@ -5561,7 +5629,7 @@ function renderGpPlanBoard(){
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> Dungeon (5)</label>
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> Trial (10, 2 Untergruppen A/B)</label>
         <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
-        <span class="muted" style="font-size:0.78rem;" title="Grobe Orientierung (Summe aus Artefakt- und Mount-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
+        <span class="muted" style="font-size:0.78rem;" title="Grobe Orientierung (Summe aus Artefakt-, Mount-, Gefährten- und Gefährten-Verstärkungs-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
         <button type="button" class="action danger small" style="margin-left:auto;" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
       </div>
       <div class="wide-table-scroll"><table>
@@ -5572,6 +5640,7 @@ function renderGpPlanBoard(){
         <button type="button" class="action small" onclick="gpAddRow(${gi},'DPS')">+ DPS</button>
         <button type="button" class="action small" onclick="gpAddRow(${gi},'Heiler')">+ Heiler</button>
         <button type="button" class="action small" onclick="gpAddRow(${gi},'Tank')">+ Tank</button>
+        <button type="button" class="action gold small" style="margin-left:auto;" onclick="gpOptimizeGroup(${gi})" title="Wendet für jede Zeile mit zugewiesenem Charakter dessen bestes eigenes Setup an">🏆 Alle Zeilen optimieren</button>
       </div>
     </div>`;
   }).join('');

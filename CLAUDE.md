@@ -332,6 +332,59 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.21.0: "Bestes eigenes Setup"-Optimierer im Gruppenplaner-Board
+  (Nutzerwunsch, inspiriert von nwo-guides.gitlab.io/neverwinter-party-
+  optimizer - deren tatsächliche Optimierungslogik ließ sich technisch NICHT
+  auslesen, da es eine reine JS-SPA ist und das Web-Fetch-Werkzeug nur die
+  initiale Menü-Ansicht rendert, keine Interaktion/Deep-Links. Diese
+  Implementierung ist deshalb komplett eigenständig entworfen, nicht
+  nachgebaut.)**
+  - `GP_BESITZ_KATEGORIEN[]` hat jetzt zusätzlich `rowField` (Name des
+    zugehörigen Board-Zeilenfelds aus `gpNewSlot()`) - macht Summen-/
+    Optimierer-Code generisch über alle 5 Kategorien statt 5x fast
+    identischen Code.
+  - Gefährten UND Gefährten-Verstärkung haben jetzt auch ein optionales
+    numerisches `buff`-Feld in der Referenzliste (`GP_REF_SPECS`), genau wie
+    Artefakte (`buff`) und Mounts (`dmgBonus`) es schon hatten - dadurch
+    `dmgKey:'buff'` auch bei diesen beiden Kategorien in
+    `GP_BESITZ_KATEGORIEN`. Mount-Ausrüstungsbonus bleibt bewusst ohne
+    dmgKey (rein beschreibend). Alte Einträge ohne diesen Wert werden beim
+    nächsten Speichern automatisch auf 0 normalisiert (`parsePct('')` -> 0,
+    wie bei jedem numerischen Feld in diesem Projekt) - keine Migration
+    nötig, aber bis Officer echte Werte eintragen, zeigt das Dmg-Buff-Badge
+    für diese Einträge "0 %" an (kein Bug, nur unbefüllte Daten).
+  - `gpBestOwned(kat, ownedNames)`: wählt aus den ANGEKREUZTEN Besitz-
+    Einträgen einer Kategorie den mit dem höchsten `dmgKey`-Wert.
+    `gpApplyBestSetup(row)`: wendet das für ALLE dmgKey-Kategorien auf eine
+    Board-Zeile an (mutiert `row`, rendert NICHT selbst - das übernimmt der
+    Aufrufer, damit `gpOptimizeGroup` nicht pro Zeile neu rendern muss).
+    `gpOptimizeRow(gi,ri)` (🏆-Knopf pro Zeile) und `gpOptimizeGroup(gi)`
+    (🏆-Knopf im Gruppen-Footer, wendet es auf JEDE Zeile mit zugewiesenem
+    Charakter an) sind die beiden UI-Einstiege.
+  - BEWUSSTE Design-Entscheidung: pro CHARAKTER optimieren, kein fremder
+    Cross-Zeilen-Zuteilungsalgorithmus ("welcher Spieler bekommt welches
+    Artefakt") - in Neverwinter rüstet sich jeder Spieler selbst aus, es
+    gibt nichts zwischen Zeilen aufzuteilen. "Gruppe optimieren" heißt hier
+    also: die Pro-Charakter-Auswahl für jede Zeile der Gruppe einmal
+    anwenden. `gpGroupDmgBuffSum` (Σ-Anzeige im Gruppen-Header, seit v0.20.0)
+    wurde beim Umbau ebenfalls generisch über `rowField`/`dmgKey`
+    geschrieben statt nur Artefakt+Mount zu summieren - berücksichtigt jetzt
+    auch Gefährten/Gefährten-Verstärkung.
+  - Test-Falle beim Bauen des Smoke-Tests: eine Referenzlisten-Änderung
+    direkt per Roh-API (`PUT /api/shared/presets`) am Frontend vorbei
+    gespeichert wird vom Frontend NICHT bemerkt, weil `gpArtefakte`/
+    `gpGefaehrten`/... top-level `let`-Variablen sind, die nur beim
+    initialen Laden bzw. innerhalb von `gpSaveReferenzlisten()` selbst
+    aktualisiert werden - für Tests immer über die echte Referenzlisten-
+    Seite (DOM-Felder befüllen + `gpSaveReferenzlisten()` aufrufen) gehen,
+    nicht die Server-API direkt patchen. Zweite Falle: `showGpPage(...)`
+    leert `#gpPlanBoard` IMMER beim Wechsel zur Seite "planung"
+    (`renderGpPlanList()` tut das unbedingt) - `currentGpPlanData` bleibt
+    zwar erhalten, das Board muss aber explizit mit `renderGpPlanBoard()`
+    neu gezeichnet werden, sonst ist es einfach leer.
+  Smoke-Test um 8 neue Checks erweitert (Referenzfelder vorhanden, Buff-
+  Werte werden gespeichert, Optimierer wählt pro Zeile UND pro Gruppe
+  korrekt den höherwertigen Mount/Gefährten).
 - **Seit v0.20.0: zwei weitere Gruppenplaner-Erweiterungen (Nutzerwunsch).**
   1) Referenzlisten-Icon ist jetzt ein Datei-Upload statt eines Text-URL-Felds
      (`gpRefIconFileHtml`/`gpHandleIconUpload`, neue Konstante `GPREF_ICON_SIZE

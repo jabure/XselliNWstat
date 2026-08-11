@@ -518,6 +518,13 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.showGpPage('referenz'); await wait(300);
     const refTable = doc.getElementById('gpref-gpArtefakte');
     check('Referenzlisten: Artefakte als <table> mit Icon-Spalte', !!refTable && refTable.tagName === 'TABLE' && !!refTable.querySelector('input[data-field="icon"]'));
+    // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
+    // numerisches Dmg-Buff-Feld (vorher nur Freitext-Beschreibung) - Voraus-
+    // setzung für den weiter unten getesteten Gruppen-Optimierer.
+    const refGefaehrtenTable = doc.getElementById('gpref-gpGefaehrten');
+    check('Referenzlisten: Gefährten haben jetzt ein numerisches Dmg-Buff-Feld', !!refGefaehrtenTable && !!refGefaehrtenTable.querySelector('input[data-field="buff"]'));
+    const refGefaehrtenVerstTable = doc.getElementById('gpref-gpGefaehrtenVerstaerkung');
+    check('Referenzlisten: Gefährten-Verstärkung hat jetzt ein numerisches Dmg-Buff-Feld', !!refGefaehrtenVerstTable && !!refGefaehrtenVerstTable.querySelector('input[data-field="buff"]'));
     const refNameInput = refTable.querySelector('tbody tr input[data-field="name"]');
     const refIconInput = refTable.querySelector('tbody tr input[data-field="icon"]');
     input(win, refNameInput, 'Icon-Test-Artefakt');
@@ -697,6 +704,76 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.confirm = () => true; // Rückwechsel fragt nach, im Test immer bestätigen
     win.gpSetGroupModus(neueGruppeIdx, 'dungeon'); await wait(100);
     check('Trial -> Dungeon kürzt nach Bestätigung wieder auf 5 Zeilen', zeilenImCard(neueGruppeIdx) === 5, zeilenImCard(neueGruppeIdx));
+
+    // Seit v0.21.0 (Nutzerwunsch "Gruppen-Optimierung mit Artefakte/Gefährten"):
+    // "Bestes eigenes Setup"-Knopf pro Zeile wählt aus den ANGEKREUZTEN
+    // Besitz-Einträgen des zugewiesenen Charakters jeweils den mit dem höchsten
+    // Dmg-Buff. Getrennter Test-Charakter "OptiChar" statt TankMax wiederzuver-
+    // wenden, damit die bestehenden "gefiltert auf Pegasus + Leer"-Assertions
+    // von oben unangetastet bleiben. Zwei Mounts mit unterschiedlichem
+    // dmgBonus (Defaults: Pegasus 7,89 < Zauberkessel der Vettel 9,41) und zwei
+    // Gefährten, denen hier extra ein buff-Wert gesetzt wird (Defaults haben
+    // noch keinen).
+    // Über die echte Referenzlisten-Seite speichern (nicht per Roh-API direkt
+    // in shared.json) - sonst bliebe die im Frontend gehaltene gpGefaehrten-
+    // Variable veraltet (sie wird nur beim Laden bzw. bei gpSaveReferenzlisten()
+    // selbst aktualisiert, nicht durch fremde Server-Änderungen).
+    win.showGpPage('referenz'); await wait(300);
+    const refGefTableOpti = doc.getElementById('gpref-gpGefaehrten');
+    const setBuffFuer = (name, val) => {
+      const row = Array.from(refGefTableOpti.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === name);
+      if(row) input(win, row.querySelector('input[data-field="buff"]'), String(val));
+      return !!row;
+    };
+    const skorpionGefunden = setBuffFuer('Skorpion', 2);
+    const flapjackGefunden = setBuffFuer('Flapjack', 5);
+    check('Optimierer-Test: Skorpion/Flapjack in der Referenzliste gefunden', skorpionGefunden && flapjackGefunden);
+    await win.gpSaveReferenzlisten(); await wait(300);
+    const sharedNachGefBuff = (await api('/api/shared')).data;
+    const skorpionGespeichert = (sharedNachGefBuff.gpGefaehrten || []).find(e => e.name === 'Skorpion');
+    const flapjackGespeichert = (sharedNachGefBuff.gpGefaehrten || []).find(e => e.name === 'Flapjack');
+    check('Gefährten-Referenzliste: Dmg-Buff-Werte für den Optimierer-Test gespeichert', skorpionGespeichert && skorpionGespeichert.buff === 2 && flapjackGespeichert && flapjackGespeichert.buff === 5, { skorpionGespeichert, flapjackGespeichert });
+    // showGpPage('planung') leert #gpPlanBoard (renderGpPlanList tut das immer,
+    // unabhängig vom aktuellen Plan) - currentGpPlanData bleibt aber unverändert,
+    // also das Board explizit neu zeichnen statt es implizit zu verlieren.
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'OptiChar' }) }, token);
+    check('Optimierer-Test: eigener Charakter "OptiChar" angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/characters/OptiChar', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
+      besitz: { mounts: ['Pegasus', 'Zauberkessel der Vettel'], gefaehrten: ['Skorpion', 'Flapjack'] },
+    }) }, token);
+    check('Optimierer-Test: Besitz von OptiChar gespeichert', r.status === 200, r.status);
+
+    await win.ensureGpCharactersLoaded(true); await wait(300);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(150);
+    const optiZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const optiBtn = Array.from(optiZeile.querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    check('"Bestes eigenes Setup"-Knopf (🏆) ist pro Zeile vorhanden', !!optiBtn);
+    if(optiBtn) optiBtn.click();
+    await wait(150);
+    const optiZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const optiSelects = optiZeileNach.querySelectorAll('select');
+    const optiMountSelect = Array.from(optiSelects).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
+    const optiGefaehrteSelect = Array.from(optiSelects).find(sel => Array.from(sel.options).some(o => o.value === 'Flapjack'));
+    check('Optimierer wählt den Mount mit dem höheren Dmg-Bonus (Zauberkessel der Vettel statt Pegasus)', optiMountSelect && optiMountSelect.value === 'Zauberkessel der Vettel', optiMountSelect && optiMountSelect.value);
+    check('Optimierer wählt den Gefährten mit dem höheren Dmg-Buff (Flapjack statt Skorpion)', optiGefaehrteSelect && optiGefaehrteSelect.value === 'Flapjack', optiGefaehrteSelect && optiGefaehrteSelect.value);
+
+    // "Alle Zeilen optimieren" auf Gruppenebene: wirkt auf JEDE Zeile mit
+    // zugewiesenem Charakter - hier nur die eine OptiChar-Zeile in dieser
+    // Gruppe, der Rest der 5 Zeilen bleibt leer (kein charKey -> übersprungen,
+    // kein Fehler).
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); // Zeile zurücksetzen, um den Gruppen-Knopf isoliert zu testen
+    await wait(100);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
+    const gruppenOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    check('"Alle Zeilen optimieren"-Knopf auf Gruppenebene vorhanden', !!gruppenOptiBtn);
+    if(gruppenOptiBtn) gruppenOptiBtn.click();
+    await wait(150);
+    const optiZeileGruppe = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const optiMountSelectGruppe = Array.from(optiZeileGruppe.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Zauberkessel der Vettel'));
+    check('Gruppen-Optimierung wendet das beste Setup auch über den Gruppen-Knopf an', optiMountSelectGruppe && optiMountSelectGruppe.value === 'Zauberkessel der Vettel', optiMountSelectGruppe && optiMountSelectGruppe.value);
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');

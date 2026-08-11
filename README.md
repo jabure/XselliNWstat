@@ -145,8 +145,11 @@ und höher sichtbar (wird später für alle geöffnet).
   platzsparende Tabelle mit optionalem Icon je Eintrag - das Icon wird direkt
   als Bilddatei hochgeladen (kein Einfügen einer URL nötig) und automatisch
   passend zugeschnitten. Im Aufstellungs-Board wird der Dmg-Buff von
-  Artefakt/Mount direkt als Badge mit Icon neben der Auswahl angezeigt, dazu
-  eine grobe Summe pro Gruppe. Officer legen mehrere benannte Aufstellungs-Pläne an
+  Artefakt/Mount/Gefährte/Gefährten-Verstärkung direkt als Badge mit Icon
+  neben der Auswahl angezeigt, dazu eine grobe Summe pro Gruppe. Ein "Bestes
+  eigenes Setup"-Knopf (pro Zeile oder für die ganze Gruppe auf einmal) wählt
+  aus dem angekreuzten Besitz eines Charakters automatisch die Kombination
+  mit dem höchsten Dmg-Buff. Officer legen mehrere benannte Aufstellungs-Pläne an
   (umbenennbar, duplizierbar, gegen gleichzeitiges Bearbeiten durch einen
   Versionszähler geschützt); im Board filtern sich die Ausrüstungs-Dropdowns
   automatisch auf das, was der zugewiesene Charakter tatsächlich besitzt,
