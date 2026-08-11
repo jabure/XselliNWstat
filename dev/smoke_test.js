@@ -505,6 +505,35 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     gpAccBtn.click(); await wait(100);
     check('Besitz-Akkordeon lässt sich per Klick öffnen (Artefakte-Liste)', gpAccDiv.classList.contains('open'));
 
+    // Seit v0.19.0: der gespeicherte Charaktername ist "Charname@Accountname" (schützt
+    // vor Verwechslung bei gleichnamigen Charakteren verschiedener Accounts), die
+    // eigene Liste zeigt zur Lesbarkeit aber nur den Kurznamen (gpOwnDisplayName).
+    r = await api('/api/gp/characters', {}, token);
+    check('Neu angelegter GP-Charakter heißt "Charname@Accountname"', r.data.some(c => c.name === `CharA@${user}`), JSON.stringify(r.data.map(c => c.name)));
+    check('"Meine Charaktere"-Liste zeigt den Kurznamen ohne @Account', !doc.getElementById('gpCharList').textContent.includes(`CharA@${user}`) && doc.getElementById('gpCharList').textContent.includes('CharA'));
+
+    // Referenzlisten: kompakte <table> statt einer Karte pro Eintrag (Nutzerwunsch
+    // "platzsparender"), inkl. Icon-Spalte je Eintrag - Icon wird mitgespeichert und
+    // taucht in der Besitz-Checkliste des Charakter-Editors als <img> auf.
+    win.showGpPage('referenz'); await wait(300);
+    const refTable = doc.getElementById('gpref-gpArtefakte');
+    check('Referenzlisten: Artefakte als <table> mit Icon-Spalte', !!refTable && refTable.tagName === 'TABLE' && !!refTable.querySelector('input[data-field="icon"]'));
+    const refNameInput = refTable.querySelector('tbody tr input[data-field="name"]');
+    const refIconInput = refTable.querySelector('tbody tr input[data-field="icon"]');
+    input(win, refNameInput, 'Icon-Test-Artefakt');
+    input(win, refIconInput, 'https://example.invalid/icon.png');
+    await win.gpSaveReferenzlisten(); await wait(300);
+    const sharedNachIcon = (await api('/api/shared')).data;
+    const gespeichertesArtefakt = (sharedNachIcon.gpArtefakte || []).find(e => e.name === 'Icon-Test-Artefakt');
+    check('Referenzlisten: Icon-URL wird mit dem Eintrag gespeichert', gespeichertesArtefakt && gespeichertesArtefakt.icon === 'https://example.invalid/icon.png', gespeichertesArtefakt);
+
+    win.showGpPage('charaktere'); await wait(300);
+    btnCharA.click(); await wait(200);
+    const gpAccBtn2 = doc.querySelector('#gpCharEditor .accordion button');
+    gpAccBtn2.click(); await wait(100);
+    const besitzChip = Array.from(doc.querySelectorAll('#gpCharEditor .besitz-chip')).find(c => c.textContent.includes('Icon-Test-Artefakt'));
+    check('Besitz-Checkliste zeigt das Icon des Referenzeintrags als <img>', !!besitzChip && !!besitzChip.querySelector('img'), besitzChip && besitzChip.innerHTML);
+
     win.showGpPage('planung'); await wait(500);
     const oeffnenBtn = Array.from(doc.querySelectorAll('#gpPlanList button')).find(b => b.textContent.trim() === 'Öffnen');
     check('Plan-Liste: "Öffnen"-Button vorhanden', !!oeffnenBtn);

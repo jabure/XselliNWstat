@@ -332,6 +332,39 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.19.0: drei Gruppenplaner-Erweiterungen (Nutzerwunsch).**
+  1) Referenzlisten-Editor (Presets-Unterseite "Referenzlisten") ist jetzt eine
+     echte `<table class="gpref-table">` statt einer Karte pro Eintrag
+     (Nutzerwunsch "platzsparender") - eine Tabellenzeile pro Eintrag. Jede
+     Zeile hat zusätzlich eine Icon-Spalte (`icon`-Feld, einfache Bild-URL,
+     kein Upload) mit Live-Vorschau (`gpRefIconImgHtml`, `GPREF_BLANK_ICON` als
+     1x1-Platzhalter-PNG, `onerror` fällt bei kaputter URL zurück). `icon` ist
+     KEIN Feld aus `GP_REF_SPECS[].fields`, sondern wird in `gpRefRowHtml`
+     immer zusätzlich gerendert/gesammelt (`gpCollectRefList` liest es separat
+     aus `input[data-field="icon"]`) - beim Hinzufügen eines 6. Referenztyps
+     NICHT vergessen, dass die Icon-Spalte automatisch mitkommt, ohne sie in
+     `fields` eintragen zu müssen.
+  2) Beim GP-Charakter-Anlegen (`gpCreateCharacter`) wird der gespeicherte Name
+     jetzt IMMER zu `Charname@Accountname` zusammengesetzt (ein evtl. selbst
+     eingetipptes `@...` wird vorher abgeschnitten) - schützt vor Verwechslung
+     bei gleichnamigen Charakteren verschiedener Accounts. `gpDisplayName(c)`
+     zeigt den vollen Namen, WENN er ein `@` enthält, sonst (ältere Charaktere
+     von vor diesem Update) den alten Rückfall `Name (Konto)` - überall
+     verwendet, wo bisher `${c.name} (${c.owner})` von Hand gebaut wurde
+     (`gpCharLabelMap`, `gpRowSpielerText`, Board-Datalist). Auf der eigenen
+     "Meine Charaktere"-Liste wird der `@Accountname`-Teil zur Lesbarkeit
+     wieder abgeschnitten (`gpOwnDisplayName` - nur eine Anzeige-Kürzung, der
+     volle Name bleibt in der Datenbank/im Vergleich/Board unverändert).
+  3) "Meine Charaktere" + Charakter-Editor kompakter/übersichtlicher: die
+     Besitz-Checklisten (Artefakte/Mounts/...) sind jetzt ein `.besitz-grid`
+     aus `.besitz-chip`-Pillen (mit Icon aus der Referenzliste) statt einer
+     Checkbox pro Zeile. Die Zeichen-Liste selbst zeigt zusätzlich ein
+     Klassen-Emoji (`GP_KLASSE_ICON`, rein dekorativ) und eine kompakte Reihe
+     der Icons aller angekreuzten Besitz-Einträge (`gpOwnedIconsHtml`, auf 8
+     Icons gedeckelt mit "+N"-Rest).
+  Smoke-Test erweitert: neues Charakter-Namensformat, `<table>`-Struktur der
+  Referenzliste, Icon wird über `PUT /api/shared/presets` mitgespeichert und
+  taucht als `<img>` in der Besitz-Checkliste wieder auf.
 - **Seit v0.14.0:** Buff-Food-Optimierer (optimizeBuffFood/runBuffFoodOptimierung
   in index.html): Knopf "Bestes Buff Food wählen" im Buff-Food-Bereich probiert
   alle Kombinationen der Nicht-Utility-Slots (category !== 'Utility') durch;

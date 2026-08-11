@@ -138,7 +138,11 @@ und höher sichtbar (wird später für alle geöffnet).
 - **Gruppenplaner:** komplett getrennt von den Stats-Charakteren. Jeder
   pflegt eigene, einfache Charakterprofile (Klasse, Rollen, und eine
   Besitz-Checkliste für Artefakte/Mounts/Mount-Boni/Gefährten/Gefährten-
-  Verstärkungen). Officer legen mehrere benannte Aufstellungs-Pläne an
+  Verstärkungen, kompakt als Icon-Chips dargestellt). Ein Charaktername wird
+  beim Anlegen automatisch um den eigenen Accountnamen ergänzt (z. B.
+  "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts
+  eindeutig bleiben. Die Referenzlisten (Artefakte/Mounts/...) sind eine
+  platzsparende Tabelle mit optionalem Icon (Bild-URL) je Eintrag. Officer legen mehrere benannte Aufstellungs-Pläne an
   (umbenennbar, duplizierbar, gegen gleichzeitiges Bearbeiten durch einen
   Versionszähler geschützt); im Board filtern sich die Ausrüstungs-Dropdowns
   automatisch auf das, was der zugewiesene Charakter tatsächlich besitzt,

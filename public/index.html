@@ -317,6 +317,30 @@
      Bildschirmen (Handy) auf eine Spalte um. */
   .ins-layout{display:grid; grid-template-columns:minmax(260px,1fr) minmax(320px,1.4fr); gap:20px; align-items:start;}
   @media (max-width:800px){ .ins-layout{grid-template-columns:1fr;} }
+  /* Gruppenplaner-Referenzlisten: kompakte Tabelle statt einer Karte pro Eintrag
+     (Nutzerwunsch "platzsparender") - eine Zeile pro Eintrag, inkl. optionalem
+     Icon (Bild-URL) links. */
+  .gpref-table{width:100%; border-collapse:collapse; font-size:0.85rem;}
+  .gpref-table th{text-align:left; font-size:0.72rem; color:var(--text-dim); font-weight:600; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .gpref-table td{padding:3px 6px; vertical-align:middle;}
+  .gpref-table tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
+  .gpref-table input[type="text"]{padding:5px 7px; font-size:0.83rem;}
+  .gpref-icon-cell{display:flex; align-items:center; gap:6px;}
+  .gpref-icon-cell input{width:112px; flex:none;}
+  .gpref-icon-preview{width:22px; height:22px; border-radius:5px; object-fit:cover; background:var(--panel-2); border:1px solid var(--border); flex:none;}
+  .gpref-icon-preview.empty{opacity:0.3;}
+  /* Besitz-Checkliste im Charakter-Editor: kompaktes Chip-Grid statt einer
+     Checkbox-Zeile pro Eintrag - zeigt außerdem das Icon aus der Referenzliste. */
+  .besitz-grid{display:flex; flex-wrap:wrap; gap:6px; padding:8px 2px;}
+  .besitz-chip{display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border); border-radius:16px; padding:4px 10px 4px 5px; font-size:0.78rem; cursor:pointer;}
+  .besitz-chip.checked{border-color:var(--gold-soft); background:rgba(200,149,46,0.12);}
+  .besitz-chip input{width:auto; margin:0; flex:none;}
+  .besitz-chip img{width:18px; height:18px; border-radius:4px; object-fit:cover; flex:none;}
+  .besitz-chip .muted{font-size:0.72rem;}
+  /* Kleine Icon-Reihe in der "Meine Charaktere"-Liste (zeigt die Icons der
+     angekreuzten Besitz-Einträge, ohne die ganze Checkliste aufklappen zu müssen). */
+  .besitz-icons{display:inline-flex; align-items:center; gap:3px;}
+  .besitz-icons img{width:18px; height:18px; border-radius:4px; object-fit:cover; border:1px solid var(--border);}
   .ins-col-left .ins-stat-row{flex-direction:column;}
   .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
@@ -601,9 +625,10 @@
       <p class="helptext">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
       <div id="gpCharList"></div>
       <div class="btnrow" style="margin-top:12px;">
-        <input type="text" id="gpNewCharName" placeholder="Name eingeben..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
+        <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <button type="button" class="action gold" onclick="gpCreateCharacter()">Charakter anlegen</button>
       </div>
+      <p class="helptext" style="margin-top:6px;">Der Name wird automatisch um deinen Accountnamen ergänzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben.</p>
     </div>
     <div id="gpCharEditor"></div>
   </div>
@@ -4962,6 +4987,18 @@ function showGpPage(name){
 }
 function gpCharKey(owner, name){ return owner + '::' + name; }
 function gpFindChar(key){ return (gpCharacters||[]).find(c => gpCharKey(c.owner,c.name) === key); }
+// Anzeigename für einen GP-Charakter: neue Charaktere (seit v0.19.0) heißen
+// schon "Charname@Accountname" und brauchen keine zusätzliche Kontoangabe mehr;
+// ältere, vor dem Update angelegte Charaktere haben das noch nicht im Namen -
+// für die bleibt der alte "Name (Konto)"-Anzeigestil als Rückfall erhalten.
+function gpDisplayName(c){ return c.name.includes('@') ? c.name : `${c.name} (${c.owner})`; }
+// Für die eigene "Meine Charaktere"-Liste ist der "@Accountname"-Teil überflüssig
+// (es sind ohnehin nur die eigenen Charaktere) - dort wird er zur besseren
+// Lesbarkeit wieder abgeschnitten, der volle Name (mit @) bleibt aber die
+// gespeicherte Wahrheit und wird überall sonst (Board, Referenzabgleich) benutzt.
+function gpOwnDisplayName(name){
+  return (currentUser && name.endsWith('@'+currentUser)) ? name.slice(0, -(currentUser.length+1)) : name;
+}
 
 async function ensureGpCharactersLoaded(force){
   if((gpCharacters !== null && !force) || gpCharListLoading) return;
@@ -4994,11 +5031,18 @@ function renderGpCharList(){
   if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
   const mine = gpCharacters.filter(c => c.isOwner);
   gpMyCharsOrder = mine.map(c => c.name);
-  el.innerHTML = mine.length ? mine.map((c,i) => `<div class="char-item">
-      <span style="flex:1;">${escapeHtml(c.name)} <span class="muted">${escapeHtml(c.data.klasse||'')}</span></span>
+  el.innerHTML = mine.length ? mine.map((c,i) => {
+      const klasseIcon = GP_KLASSE_ICON[c.data.klasse] || '';
+      return `<div class="char-item">
+      <span style="flex:1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <strong>${klasseIcon?klasseIcon+' ':''}${escapeHtml(gpOwnDisplayName(c.name))}</strong>
+        <span class="muted">${escapeHtml(c.data.klasse||'')}</span>
+        ${gpOwnedIconsHtml(c.data)}
+      </span>
       <button type="button" class="action small" onclick="gpEditCharacterByIndex(${i})">Bearbeiten</button>
       <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">Löschen</button>
-    </div>`).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
+    </div>`;
+    }).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
   renderGpCharEditor();
 }
 function gpEditCharacterByIndex(i){
@@ -5006,10 +5050,16 @@ function gpEditCharacterByIndex(i){
   renderGpCharEditor();
 }
 function gpDeleteCharacterByIndex(i){ gpDeleteCharacter(gpMyCharsOrder[i]); }
+// Seit v0.19.0 (Nutzerwunsch): der gespeicherte Name ist immer
+// "Charname@Accountname" - macht gleichnamige Charaktere verschiedener Konten
+// auf Anhieb unterscheidbar, ohne dass man noch zusätzlich den Kontonamen
+// dranschreiben/nachschlagen muss. Ein evtl. selbst eingetipptes "@..." wird
+// dafür zuerst entfernt, damit nicht zweimal angehängt wird.
 async function gpCreateCharacter(){
   const nameEl = document.getElementById('gpNewCharName');
-  const name = nameEl.value.trim();
-  if(!name) return;
+  const rawName = nameEl.value.trim().split('@')[0].trim();
+  if(!rawName || !currentUser) return;
+  const name = `${rawName}@${currentUser}`;
   try{
     await apiGpCreateCharacter(name);
     nameEl.value = '';
@@ -5028,6 +5078,10 @@ async function gpDeleteCharacter(name){
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }
 const GP_KLASSEN = ['Kämpfer','Waldläufer','Schurke','Barbar','Paladin','Kleriker','Hexenmeister','Magier','Barde','-'];
+// Rein dekoratives Emoji-Icon pro Klasse, für die kompakte "Meine Charaktere"-Liste
+// (Nutzerwunsch "übersichtlicher") - keine Spielmechanik, nur schnellere optische
+// Wiedererkennung.
+const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'🗡️','Barbar':'🪓','Paladin':'🛡️','Kleriker':'✨','Hexenmeister':'🔮','Magier':'🧙','Barde':'🎵' };
 // Welche Checkliste (Besitz) gegen welche Referenzliste geprüft wird, mit Anzeige-Feldern.
 const GP_BESITZ_KATEGORIEN = [
   { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'' },
@@ -5036,6 +5090,23 @@ const GP_BESITZ_KATEGORIEN = [
   { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'' },
   { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'' },
 ];
+// Sammelt für die kompakte Charakterliste alle Icons der angekreuzten Besitz-Einträge
+// (über alle Kategorien hinweg, dedupliziert wird nicht extra gebraucht - Namen sind
+// je Kategorie eindeutig), auf 8 Stück begrenzt mit "+N" für den Rest.
+function gpOwnedIconsHtml(data){
+  const besitz = (data && data.besitz) || {};
+  const icons = [];
+  GP_BESITZ_KATEGORIEN.forEach(kat => {
+    const owned = besitz[kat.key] || [];
+    if(!owned.length) return;
+    const byName = new Map(kat.liste().map(e => [e.name, e]));
+    owned.forEach(n => { const e = byName.get(n); if(e && e.icon) icons.push({ name:e.name, icon:e.icon }); });
+  });
+  if(!icons.length) return '';
+  const shown = icons.slice(0, 8);
+  const rest = icons.length - shown.length;
+  return `<span class="besitz-icons">${shown.map(i=>`<img src="${escapeHtml(i.icon)}" title="${escapeHtml(i.name)}" onerror="this.style.display='none';">`).join('')}${rest>0?`<span class="muted">+${rest}</span>`:''}</span>`;
+}
 function renderGpCharEditor(){
   const el = document.getElementById('gpCharEditor');
   if(!gpEditingCharName){ el.innerHTML = ''; return; }
@@ -5046,15 +5117,22 @@ function renderGpCharEditor(){
   const besitz = d.besitz || {};
   const klasseOptions = GP_KLASSEN.map(k=>`<option value="${k}" ${d.klasse===k?'selected':''}>${k}</option>`).join('');
   const rolleChk = (key,label) => `<label class="slot-check"><input type="checkbox" data-gprolle="${key}" ${rollen[key]?'checked':''}> ${label}</label>`;
+  // Seit v0.19.0 (Nutzerwunsch "übersichtlicher"): Besitz-Checkliste als kompaktes
+  // Chip-Grid statt einer Checkbox pro Zeile - inkl. Icon aus der Referenzliste.
   const kategorien = GP_BESITZ_KATEGORIEN.map(kat => {
     const owned = besitz[kat.key] || [];
-    const items = kat.liste().map(e => `<label class="slot-check" style="display:block;margin:2px 0;">
-        <input type="checkbox" data-gpbesitz="${kat.key}" value="${escapeHtml(e.name)}" ${owned.includes(e.name)?'checked':''}>
-        ${escapeHtml(e.name)}${kat.sub(e) ? ` <span class="muted" style="font-size:0.75rem;">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}
-      </label>`).join('');
+    const items = kat.liste().map(e => {
+      const checked = owned.includes(e.name);
+      return `<label class="besitz-chip${checked?' checked':''}">
+        <input type="checkbox" data-gpbesitz="${kat.key}" value="${escapeHtml(e.name)}" ${checked?'checked':''}
+          onchange="this.closest('.besitz-chip').classList.toggle('checked', this.checked)">
+        ${gpRefIconImgHtml(e.icon||'')}
+        <span>${escapeHtml(e.name)}${kat.sub(e) ? ` <span class="muted">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}</span>
+      </label>`;
+    }).join('');
     return `<div class="accordion" id="acc-dmg-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
         <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
-      </button><div class="body">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div>`;
+      </button><div class="body"><div class="besitz-grid">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div></div>`;
   }).join('');
   el.innerHTML = `<div class="card">
     <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
@@ -5090,34 +5168,51 @@ async function gpSaveCharEditor(){
 /* ---------- Unterseite "Referenzlisten" (Moderator pflegt die Stammdaten) ---------- */
 // Generischer Editor: eine Liste von Objekten mit benannten Textfeldern, Zeilen
 // hinzufügen/entfernen. Wird für alle 5 Gruppenplaner-Referenzlisten wiederverwendet.
+// Seit v0.19.0 (Nutzerwunsch "platzsparender"): echte <table> statt einer Karte
+// pro Eintrag - eine Tabellenzeile pro Eintrag, plus ein optionales Icon
+// (Bild-URL) je Zeile, das auch im Charakter-Editor (Besitz-Checkliste) und in
+// den Aufstellungs-Dropdowns wiederverwendet wird.
+const GPREF_BLANK_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+function gpRefIconImgHtml(iconVal){
+  const has = !!iconVal;
+  return `<img class="gpref-icon-preview${has?'':' empty'}" src="${has?escapeHtml(iconVal):GPREF_BLANK_ICON}" onerror="this.src='${GPREF_BLANK_ICON}';this.classList.add('empty');">`;
+}
+function gpRefRowHtml(e, fields){
+  const iconVal = String(e.icon||'');
+  return `<tr>
+    <td><div class="gpref-icon-cell">
+      ${gpRefIconImgHtml(iconVal)}
+      <input type="text" class="gpref-field" data-field="icon" placeholder="Icon-URL" value="${iconVal.replace(/"/g,'&quot;')}"
+        oninput="const im=this.previousElementSibling; im.src=this.value||'${GPREF_BLANK_ICON}'; im.classList.toggle('empty', !this.value);">
+    </div></td>
+    ${fields.map(f=>`<td><input type="text" class="gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${String(e[f.key]!==undefined?e[f.key]:'').replace(/"/g,'&quot;')}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}"></td>`).join('')}
+    <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen">✕</button></td>
+  </tr>`;
+}
 function gpRefListEditorHtml(listId, entries, fields){
-  const rows = entries.map((e,i) => `<div class="preset-card" data-idx="${i}">
-    <div class="entry-head">
-      ${fields.map(f=>`<input type="text" class="entry-name gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${String(e[f.key]!==undefined?e[f.key]:'').replace(/"/g,'&quot;')}" style="flex:${f.flex||1};">`).join('')}
-      <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
-    </div>
-  </div>`).join('');
-  return `<div id="${listId}">${rows}</div><div class="btnrow" style="margin-top:8px;">
+  const headCells = `<th style="width:78px;">Icon</th>` + fields.map(f=>`<th${f.numeric?' style="text-align:right;"':''}>${f.label}</th>`).join('') + `<th></th>`;
+  const rows = entries.map(e => gpRefRowHtml(e, fields)).join('');
+  return `<div style="overflow-x:auto;"><table class="gpref-table" id="${listId}"><thead><tr>${headCells}</tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="btnrow" style="margin-top:8px;">
     <button type="button" class="action small" onclick="gpAddRefRow('${listId}', ${JSON.stringify(fields).replace(/"/g,'&quot;')})">+ Neuer Eintrag</button>
   </div>`;
 }
 function gpAddRefRow(listId, fields){
-  const container = document.getElementById(listId);
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `<div class="preset-card"><div class="entry-head">
-    ${fields.map(f=>`<input type="text" class="entry-name gpref-field" data-field="${f.key}" placeholder="${f.label}" value="" style="flex:${f.flex||1};">`).join('')}
-    <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
-  </div></div>`;
-  container.appendChild(wrap.firstElementChild);
+  const tbody = document.getElementById(listId).querySelector('tbody');
+  const wrap = document.createElement('tbody');
+  wrap.innerHTML = gpRefRowHtml({}, fields);
+  tbody.appendChild(wrap.firstElementChild);
 }
 function gpCollectRefList(listId, fields){
-  const container = document.getElementById(listId);
+  const table = document.getElementById(listId);
   const out = [];
-  container.querySelectorAll(':scope > .preset-card').forEach(card=>{
+  table.querySelectorAll('tbody tr').forEach(row=>{
     const obj = {};
     let hasName = false;
+    const iconInp = row.querySelector('input[data-field="icon"]');
+    obj.icon = iconInp ? iconInp.value.trim() : '';
     fields.forEach(f=>{
-      const inp = card.querySelector(`input[data-field="${f.key}"]`);
+      const inp = row.querySelector(`input[data-field="${f.key}"]`);
       const val = inp ? inp.value.trim() : '';
       if(f.key === 'name' && val) hasName = true;
       obj[f.key] = f.numeric ? parsePct(val) : val;
@@ -5271,10 +5366,10 @@ function gpUpdateRowField(gi, ri, field, val){ currentGpPlanData.groups[gi].rows
 // Zeile löschen und neu anlegen zu müssen.
 function gpUpdateRowRolle(gi, ri, val){ currentGpPlanData.groups[gi].rows[ri].rolle = val; renderGpPlanBoard(); }
 // Baut aus allen bekannten Gruppenplaner-Charakteren eine Zuordnung
-// Anzeigetext ("Name (Konto)") -> charKey, für den Spieler-Kombifeld-Abgleich.
+// Anzeigetext (gpDisplayName) -> charKey, für den Spieler-Kombifeld-Abgleich.
 function gpCharLabelMap(){
   const map = new Map();
-  (gpCharacters||[]).forEach(c => map.set(`${c.name} (${c.owner})`, gpCharKey(c.owner,c.name)));
+  (gpCharacters||[]).forEach(c => map.set(gpDisplayName(c), gpCharKey(c.owner,c.name)));
   return map;
 }
 // Anzeigetext für eine Zeile: Name des zugewiesenen Charakters, sonst der frei
@@ -5282,7 +5377,7 @@ function gpCharLabelMap(){
 function gpRowSpielerText(row){
   if(row.charKey){
     const rec = gpFindChar(row.charKey);
-    if(rec) return `${rec.name} (${rec.owner})`;
+    if(rec) return gpDisplayName(rec);
   }
   return row.freierName || '';
 }
@@ -5324,7 +5419,7 @@ function renderGpPlanBoard(){
     g.rows.forEach(row => { if(row.charKey === '__frei__') row.charKey = ''; });
   });
   const gpCharDatalistHtml = '<datalist id="gpCharDatalist">' +
-    (gpCharacters||[]).map(c => `<option value="${escapeHtml(c.name)} (${escapeHtml(c.owner)})">`).join('') + '</datalist>';
+    (gpCharacters||[]).map(c => `<option value="${escapeHtml(gpDisplayName(c))}">`).join('') + '</datalist>';
   const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r}</option>`).join('');
 
   // Doppelte Spieler-Zuweisungen über den GANZEN Plan hinweg erkennen (nicht nur
