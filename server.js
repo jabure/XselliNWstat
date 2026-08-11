@@ -546,6 +546,54 @@ app.delete('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) =>
   res.json({ ok: true });
 });
 
+// GP-Charakter umbenennen (Nutzerwunsch v0.25.0 "Charakternamen auch
+// nachträglich ändern können") - nur der Besitzer darf das, analog zu
+// /api/characters/:name/rename für die Stats-Charaktere. Der Name ist
+// gleichzeitig Teil des charKey ("Account::Charname") - bestehende
+// Gruppenplaner-Zuweisungen in ALLEN Plänen (nicht nur eigenen) werden
+// deshalb im selben Zug auf den neuen Key nachgezogen, sonst würde eine
+// bestehende Aufstellung den Charakter beim Umbenennen "verlieren".
+app.post('/api/gp/characters/:name/rename', authMiddleware, gpRoleGate, (req, res) => {
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user || !(user.gpCharacters || []).includes(req.params.name)){
+    return res.status(404).json({ error: 'Charakter nicht gefunden (oder gehört dir nicht)' });
+  }
+  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(newName === req.params.name) return res.json({ ok: true, name: newName });
+  if(user.gpCharacters.includes(newName)){
+    return res.status(409).json({ error: 'Diesen Charakternamen hast du schon vergeben' });
+  }
+
+  const oldFile = gpCharFile(req.username, req.params.name);
+  const newFile = gpCharFile(req.username, newName);
+  try{ fs.renameSync(oldFile, newFile); }
+  catch(e){ writeJson(newFile, readJson(oldFile, {})); }
+
+  user.gpCharacters = user.gpCharacters.map(c => c === req.params.name ? newName : c);
+  writeJson(USERS_FILE, users);
+
+  const oldKey = req.username + '::' + req.params.name;
+  const newKey = req.username + '::' + newName;
+  try{
+    const planFiles = fs.readdirSync(GP_PLAN_DIR).filter(f => f.endsWith('.json'));
+    planFiles.forEach(f => {
+      const full = path.join(GP_PLAN_DIR, f);
+      const plan = readJson(full, null);
+      if(!plan || !Array.isArray(plan.groups)) return;
+      let changed = false;
+      plan.groups.forEach(g => (g.rows || []).forEach(row => {
+        if(row.charKey === oldKey){ row.charKey = newKey; changed = true; }
+      }));
+      if(changed) writeJson(full, plan);
+    });
+  }catch(e){ /* Umbenennen selbst ist trotzdem erfolgreich, auch wenn das
+                 Nachziehen in den Plänen fehlschlägt */ }
+
+  res.json({ ok: true, name: newName });
+});
+
 // Geteilte, benannte Aufstellungs-Pläne (z. B. "Trial Sonntag 20 Uhr"). Mehrere
 // Pläne gleichzeitig möglich; jeder Plan enthält beliebig viele Gruppen mit
 // DPS/Heiler/Tank-Slots. Bearbeiten ist Moderator-Sache (wie Presets).

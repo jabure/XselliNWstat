@@ -332,6 +332,23 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.25.0: Gruppenplaner-Charakternamen nachträglich änderbar
+  (Nutzerwunsch).**
+  - Neuer Server-Endpunkt `POST /api/gp/characters/:name/rename` (analog zu
+    `/api/characters/:name/rename` für Stats-Charaktere) - benennt die
+    Datenablage-Datei um und aktualisiert `user.gpCharacters`. Da der Name
+    Teil des `charKey` ist (`"Account::Charname"`), werden zusätzlich ALLE
+    Gruppenplaner-Pläne (nicht nur eigene, `GP_PLAN_DIR` wird komplett
+    durchsucht) nach Zeilen mit dem alten `charKey` durchsucht und auf den
+    neuen umgeschrieben - sonst würde eine bestehende Aufstellung den
+    Charakter beim Umbenennen "verlieren" (charKey zeigt ins Leere).
+  - Frontend: neuer "Umbenennen"-Knopf pro Charakter in "Meine Charaktere"
+    (`gpRenameCharacterByIndex`), per `prompt()` wie beim bestehenden
+    Plan-Umbenennen - der `@Accountname`-Suffix wird wie bei der Anlage
+    automatisch wieder angehängt, man tippt nur den Kurznamen.
+  - Smoke-Test um Button-Test (inkl. "Restdaten wie Handle bleiben erhalten")
+    und einen isolierten Wegwerf-Charakter/-Plan-Test für das
+    charKey-Nachziehen in Plänen erweitert - alle 214 Checks grün.
 - **Seit v0.24.0: Ingame-Handle, Rollen-Passung, Ausrüstung bei Charakter-
   wechsel erhalten, "Plan speichern" schließt nicht mehr, Icon im Select
   (Nutzervorgabe, mehrteilige Anfrage).**

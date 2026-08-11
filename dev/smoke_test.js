@@ -518,6 +518,38 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('"Meine Charaktere"-Liste zeigt den Handle mit an', doc.getElementById('gpCharList').textContent.includes('@charb_handle'), doc.getElementById('gpCharList').textContent);
     }
 
+    // Seit v0.25.0 (Nutzerwunsch "Charakternamen auch nachträglich ändern
+    // können"): Umbenennen-Button pro Charakter im "Meine Charaktere"-Bereich,
+    // analog zum bestehenden Plan-Umbenennen.
+    const charBItem = Array.from(doc.querySelectorAll('#gpCharList .char-item')).find(item => item.textContent.includes('CharB'));
+    const umbenennenCharBtn = charBItem && Array.from(charBItem.querySelectorAll('button')).find(b => b.textContent.trim() === 'Umbenennen');
+    check('"Umbenennen"-Knopf pro Charakter vorhanden', !!umbenennenCharBtn);
+    win.prompt = () => 'CharB_Renamed';
+    if(umbenennenCharBtn){ umbenennenCharBtn.click(); await wait(400); }
+    r = await api('/api/gp/characters', {}, token);
+    check('Charakter wurde über den Button umbenannt', r.data.some(c => c.name === `CharB_Renamed@${user}`) && !r.data.some(c => c.name === `CharB@${user}`), JSON.stringify(r.data.map(c=>c.name)));
+    const charBRenamedRec = r.data.find(c => c.name === `CharB_Renamed@${user}`);
+    check('Umbenennen behält die restlichen Daten (Ingame-Handle) bei', charBRenamedRec && charBRenamedRec.data && charBRenamedRec.data.handle === 'charb_handle', charBRenamedRec);
+    check('"Meine Charaktere"-Liste zeigt den neuen Kurznamen', doc.getElementById('gpCharList').textContent.includes('CharB_Renamed') && !doc.getElementById('gpCharList').textContent.includes(`CharB_Renamed@${user}`), doc.getElementById('gpCharList').textContent);
+
+    // Umbenennen zieht bestehende Gruppenplaner-Zuweisungen (charKey =
+    // "Account::Charname") in ALLEN Plänen nach - eigener, isolierter
+    // Wegwerf-Charakter/-Plan statt TankMax wiederzuverwenden, damit die
+    // vielen späteren TankMax-Tests unangetastet bleiben.
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'RenameTestChar' }) }, token);
+    check('Umbenennen-Test: Wegwerf-Charakter angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/plans', { method: 'POST', body: JSON.stringify({ name: 'Umbenennen-Testplan' }) }, token);
+    check('Umbenennen-Test: Wegwerf-Plan angelegt', r.status === 201, r.status);
+    r = await api('/api/gp/plans/' + encodeURIComponent('Umbenennen-Testplan'), { method: 'PUT', body: JSON.stringify({ groups: [{ name: 'G', modus: 'dungeon',
+      rows: [{ rolle: 'Tank', charKey: user + '::RenameTestChar', artefakt: '', mount: '', mountBonus: '', gefaehrte: '', gefaehrtenBonus: '' }] }] }) }, token);
+    check('Umbenennen-Test: Charakter im Wegwerf-Plan zugewiesen', r.status === 200, r.status);
+    r = await api('/api/gp/characters/RenameTestChar/rename', { method: 'POST', body: JSON.stringify({ newName: 'RenameTestChar2' }) }, token);
+    check('Umbenennen-Test: Rename-Endpunkt liefert Erfolg', r.status === 200 && r.data.name === 'RenameTestChar2', r.status + '/' + JSON.stringify(r.data));
+    r = await api('/api/gp/plans/' + encodeURIComponent('Umbenennen-Testplan'), {}, token);
+    check('Umbenennen-Test: charKey im Plan wurde automatisch auf den neuen Namen nachgezogen', r.data.data.groups[0].rows[0].charKey === user + '::RenameTestChar2', r.data.data.groups[0].rows[0].charKey);
+    await api('/api/gp/plans/' + encodeURIComponent('Umbenennen-Testplan'), { method: 'DELETE' }, token);
+    await api('/api/gp/characters/RenameTestChar2', { method: 'DELETE' }, token);
+
     // Seit v0.19.0: der gespeicherte Charaktername ist "Charname@Accountname" (schützt
     // vor Verwechslung bei gleichnamigen Charakteren verschiedener Accounts), die
     // eigene Liste zeigt zur Lesbarkeit aber nur den Kurznamen (gpOwnDisplayName).

@@ -1042,6 +1042,7 @@ const apiGpCharacters = () => apiRequest('/api/gp/characters');
 const apiGpCreateCharacter = (name) => apiRequest('/api/gp/characters', {method:'POST', body:JSON.stringify({name})});
 const apiGpSaveCharacter = (name, data) => apiRequest('/api/gp/characters/'+encodeURIComponent(name), {method:'PUT', body:JSON.stringify(data)});
 const apiGpDeleteCharacter = (name) => apiRequest('/api/gp/characters/'+encodeURIComponent(name), {method:'DELETE'});
+const apiGpRenameCharacter = (name, newName) => apiRequest('/api/gp/characters/'+encodeURIComponent(name)+'/rename', {method:'POST', body:JSON.stringify({newName})});
 const apiGpPlans = () => apiRequest('/api/gp/plans');
 const apiGpCreatePlan = (name) => apiRequest('/api/gp/plans', {method:'POST', body:JSON.stringify({name})});
 const apiGpGetPlan = (name) => apiRequest('/api/gp/plans/'+encodeURIComponent(name));
@@ -5071,6 +5072,7 @@ function renderGpCharList(){
         ${gpOwnedIconsHtml(c.data)}
       </span>
       <button type="button" class="action small" onclick="gpEditCharacterByIndex(${i})">Bearbeiten</button>
+      <button type="button" class="action small" onclick="gpRenameCharacterByIndex(${i})">Umbenennen</button>
       <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">Löschen</button>
     </div>`;
     }).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
@@ -5081,6 +5083,27 @@ function gpEditCharacterByIndex(i){
   renderGpCharEditor();
 }
 function gpDeleteCharacterByIndex(i){ gpDeleteCharacter(gpMyCharsOrder[i]); }
+// Seit v0.25.0 (Nutzerwunsch "Charakternamen auch nachträglich ändern
+// können"): Umbenennen-Button pro Charakter, analog zum bestehenden
+// Plan-Umbenennen (gpRenamePlanPrompt) - ein prompt() für den neuen
+// (Kurz-)Namen, der Accountname-Suffix wird wie bei der Anlage automatisch
+// wieder angehängt. Der Server zieht bestehende Gruppenplaner-Zuweisungen
+// (charKey) in allen Plänen automatisch auf den neuen Namen nach.
+async function gpRenameCharacterByIndex(i){
+  const name = gpMyCharsOrder[i];
+  const kurzname = name.includes('@') ? name.split('@')[0] : name;
+  const neu = prompt('Neuer Charaktername:', kurzname);
+  if(!neu || !neu.trim() || neu.trim() === kurzname) return;
+  const newName = `${neu.trim()}@${currentUser}`;
+  try{
+    await apiGpRenameCharacter(name, newName);
+    if(gpEditingCharName === name) gpEditingCharName = newName;
+    await ensureGpCharactersLoaded(true);
+    await ensureGpPlansLoaded(true); // charKeys könnten sich in Plänen geändert haben - Liste neu laden
+    renderGpCharList();
+    document.getElementById('saveStatus').textContent = `Charakter zu "${neu.trim()}" umbenannt.`;
+  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+}
 // Seit v0.19.0 (Nutzerwunsch): der gespeicherte Name ist immer
 // "Charname@Accountname" - macht gleichnamige Charaktere verschiedener Konten
 // auf Anhieb unterscheidbar, ohne dass man noch zusätzlich den Kontonamen
