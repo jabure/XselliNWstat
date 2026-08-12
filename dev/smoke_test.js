@@ -1041,7 +1041,12 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // dabei den ERSTEN Tabelleneintrag umbenannt statt eine neue Zeile
     // hinzugefügt hat) "Icon-Test-Artefakt" mit dem ehemaligen Buff-Wert von
     // "Demogorgon's Reach" (10,56 %, weiterhin der höchste in der Liste).
-    check('Freier Name (DPS) wird ebenfalls optimiert: Artefakt = global höchster Buff-Wert', freieDpsSelects[1] && freieDpsSelects[1].value === 'Icon-Test-Artefakt', freieDpsSelects[1] && freieDpsSelects[1].value);
+    // Seit v0.28.0 ist die Duplikat-Vermeidung PLANWEIT (nicht mehr nur
+    // innerhalb der Gruppe) - "Icon-Test-Artefakt" ist bereits in Gruppe 0
+    // (Zeile 1, vom Artefakt-Duplikat-Test weiter oben) vergeben und wird
+    // deshalb hier gemieden; nächstbester Wert ist "Xeleth's Blast Scepter /
+    // Halaster's" (6 %).
+    check('Freier Name (DPS) wird ebenfalls optimiert: Artefakt = höchster NICHT bereits im Plan vergebener Buff-Wert', freieDpsSelects[1] && freieDpsSelects[1].value === "Xeleth's Blast Scepter / Halaster's", freieDpsSelects[1] && freieDpsSelects[1].value);
     check('Freier Name (DPS): Mount bleibt unangetastet (Selbstbuff-Regel gilt auch ohne Profil)', freieDpsSelects[2] && freieDpsSelects[2].value === '', freieDpsSelects[2] && freieDpsSelects[2].value);
     // Seit v0.27.0 ("auch Sachen nicht doppelt zuweisen"): Zeile 0 (OptiChar)
     // trägt zu diesem Zeitpunkt bereits "Skorpion" als Gefährte (aus dem
@@ -1129,8 +1134,11 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const dupArtefakt2 = Array.from(dupZeilen[dupIdx2].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Icon-Test-Artefakt'));
     const dupWerte = [dupArtefakt1 && dupArtefakt1.value, dupArtefakt2 && dupArtefakt2.value];
     check('Optimierer vergibt dasselbe Artefakt nicht doppelt, wenn eine Alternative existiert', dupWerte[0] && dupWerte[1] && dupWerte[0] !== dupWerte[1], dupWerte);
-    check('Beide erhalten trotzdem jeweils einen Top-Wert (Icon-Test-Artefakt + Xeleths Blast Scepter)',
-      dupWerte.includes('Icon-Test-Artefakt') && dupWerte.includes("Xeleth's Blast Scepter / Halaster's"), dupWerte);
+    // "Icon-Test-Artefakt" ist planweit bereits in Gruppe 0 vergeben (s. o.),
+    // die beiden nächstbesten (noch freien) Werte sind "Xeleth's Blast
+    // Scepter / Halaster's" und "Mythallar Fragment" (beide 6 %).
+    check('Beide erhalten trotzdem jeweils einen der nächstbesten freien Top-Werte (Xeleths Blast Scepter + Mythallar Fragment)',
+      dupWerte.includes("Xeleth's Blast Scepter / Halaster's") && dupWerte.includes('Mythallar Fragment'), dupWerte);
     win.gpRemoveRow(neueGruppeIdx, dupIdx2); await wait(50);
     win.gpRemoveRow(neueGruppeIdx, dupIdx1); await wait(50);
 
@@ -1164,6 +1172,95 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Ohne Alternative wird trotzdem dupliziert statt leer zu bleiben', fbArtefakt1 && fbArtefakt1.value === 'Broken Halo' && fbArtefakt2 && fbArtefakt2.value === 'Broken Halo', [fbArtefakt1 && fbArtefakt1.value, fbArtefakt2 && fbArtefakt2.value]);
     win.gpRemoveRow(neueGruppeIdx, fbIdx2); await wait(50);
     win.gpRemoveRow(neueGruppeIdx, fbIdx1); await wait(50);
+
+    // Seit v0.28.0 (Nutzerwunsch "extra angehakt darf es doppelt sein"):
+    // "Mehrfachvergabe erlaubt"-Checkbox in der Referenzliste - markierte
+    // Einträge werden NIE als "bereits vergeben" gezählt, dürfen also
+    // beliebig oft im Plan vorkommen (hier: zwei DPS-Zeilen, deren einziges
+    // Artefakt "Broken Halo" ist, jetzt als mehrfach-erlaubt markiert -
+    // beide sollen es unverändert bekommen, ohne auf eine Alternative
+    // auszuweichen).
+    win.showGpPage('referenz'); await wait(300);
+    const refArtefakteTableMehrfach = doc.getElementById('gpref-gpArtefakte');
+    const brokenHaloMehrfachCb = Array.from(refArtefakteTableMehrfach.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === 'Broken Halo')?.querySelector('input[data-field="mehrfachErlaubt"]');
+    check('Referenzlisten: Artefakte haben eine "Mehrfachvergabe erlaubt"-Checkbox', !!brokenHaloMehrfachCb);
+    if(brokenHaloMehrfachCb){ brokenHaloMehrfachCb.checked = true; brokenHaloMehrfachCb.dispatchEvent(new win.Event('change', { bubbles: true })); }
+    // Seit v0.28.0: editierbare Optimierungsregeln (Rollen je Kategorie) am
+    // Ende der Referenzlisten-Seite - hier unverändert mitgespeichert, nur
+    // die Anwesenheit wird geprüft (Verhalten separat unten getestet).
+    const regelCheckbox = doc.querySelector('input[data-gpregel="mounts"][data-gpregelrolle="tank"]');
+    check('Referenzlisten: Optimierungsregeln-Bereich mit editierbaren Rollen-Checkboxen vorhanden', !!regelCheckbox && regelCheckbox.checked);
+    await win.gpSaveReferenzlisten(); await wait(300);
+    const sharedNachMehrfach = (await api('/api/shared')).data;
+    const brokenHaloGespeichert = (sharedNachMehrfach.gpArtefakte || []).find(e => e.name === 'Broken Halo');
+    check('"Mehrfachvergabe erlaubt" wird gespeichert', brokenHaloGespeichert && brokenHaloGespeichert.mehrfachErlaubt === true, brokenHaloGespeichert);
+    check('Optimierungsregeln werden mitgespeichert', sharedNachMehrfach.gpOptimizerRegeln && sharedNachMehrfach.gpOptimizerRegeln.mounts && sharedNachMehrfach.gpOptimizerRegeln.mounts.tank === true, sharedNachMehrfach.gpOptimizerRegeln);
+
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    r = await api('/api/gp/characters/DupChar1', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false }, besitz: { artefakte: ['Broken Halo'] },
+    }) }, token);
+    r = await api('/api/gp/characters/DupChar2', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false }, besitz: { artefakte: ['Broken Halo'] },
+    }) }, token);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(50);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(100);
+    let mfZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const mfIdx1 = mfZeilen.length - 2, mfIdx2 = mfZeilen.length - 1;
+    win.gpResolveRowSpieler(neueGruppeIdx, mfIdx1, `DupChar1 (${user})`); await wait(50);
+    win.gpResolveRowSpieler(neueGruppeIdx, mfIdx2, `DupChar2 (${user})`); await wait(100);
+    const mfOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    if(mfOptiBtn) mfOptiBtn.click();
+    await wait(200);
+    mfZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const mfArtefakt1 = Array.from(mfZeilen[mfIdx1].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Broken Halo'));
+    const mfArtefakt2 = Array.from(mfZeilen[mfIdx2].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Broken Halo'));
+    check('Als "Mehrfachvergabe erlaubt" markierte Werte werden problemlos dupliziert', mfArtefakt1 && mfArtefakt1.value === 'Broken Halo' && mfArtefakt2 && mfArtefakt2.value === 'Broken Halo', [mfArtefakt1 && mfArtefakt1.value, mfArtefakt2 && mfArtefakt2.value]);
+    win.gpRemoveRow(neueGruppeIdx, mfIdx2); await wait(50);
+    win.gpRemoveRow(neueGruppeIdx, mfIdx1); await wait(50);
+
+    // Deaktiviert: Mount-Optimierung für Tank ausschalten -> ein Tank-Charakter
+    // bekommt beim Optimieren keinen Mount mehr zugewiesen.
+    win.showGpPage('referenz'); await wait(200);
+    const regelTankMountCb = doc.querySelector('input[data-gpregel="mounts"][data-gpregelrolle="tank"]');
+    regelTankMountCb.checked = false; regelTankMountCb.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await win.gpSaveReferenzlisten(); await wait(300);
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    win.gpAddRow(neueGruppeIdx, 'Tank'); await wait(100);
+    let regelZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const regelIdx = regelZeilen.length - 1;
+    win.gpResolveRowSpieler(neueGruppeIdx, regelIdx, `DupChar1 (${user})`); // dps:true, aber Rolle jetzt Tank -> würde eigentlich abgelehnt
+    await wait(100);
+    // DupChar1 ist nur dps:true - für einen sauberen Test hier stattdessen
+    // TankMax (nur tank:true) verwenden, das zur Zeilen-Rolle passt.
+    win.gpResolveRowSpieler(neueGruppeIdx, regelIdx, `TankMax (${user})`); await wait(100);
+    const regelOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[regelIdx].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(regelOptiBtn) regelOptiBtn.click();
+    await wait(150);
+    const regelZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[regelIdx];
+    const regelMountSelect = Array.from(regelZeileNach.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Pegasus'));
+    check('Deaktivierte Optimierungsregel wird respektiert: Mount bleibt für Tank leer, wenn "Tank" abgehakt wurde', regelMountSelect && regelMountSelect.value === '', regelMountSelect && regelMountSelect.value);
+    win.gpRemoveRow(neueGruppeIdx, regelIdx); await wait(50);
+    // Regel wieder zurücksetzen, damit sie den Standardzustand für spätere/
+    // weitere Nutzung des Systems nicht dauerhaft verändert.
+    win.showGpPage('referenz'); await wait(200);
+    const regelTankMountCbReset = doc.querySelector('input[data-gpregel="mounts"][data-gpregelrolle="tank"]');
+    regelTankMountCbReset.checked = true; regelTankMountCbReset.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await win.gpSaveReferenzlisten(); await wait(300);
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+
+    // Seit v0.28.0: "Alle Gruppen optimieren"-Knopf nur ab 2 Gruppen im Plan
+    // sichtbar (Trial mit 2 Untergruppen oder mehrere Dungeon-Gruppen) - der
+    // aktuell offene Plan hat an dieser Stelle bereits 2 Gruppen ("Gruppe 1"
+    // + die weiter oben angelegte "Neue Gruppe"), der Knopf muss also da sein.
+    check('"Alle Gruppen optimieren"-Knopf ab 2 Gruppen im Plan vorhanden', gpCards().length > 1 && Array.from(doc.querySelectorAll('#gpPlanBoard .btnrow button')).some(b => b.textContent.includes('Alle Gruppen optimieren')), gpCards().length);
+    // Mit nur einer verbleibenden Gruppe muss der Knopf wieder verschwinden.
+    while(gpCards().length > 1){ win.gpRemoveGroup(gpCards().length - 1); await wait(50); }
+    check('"Alle Gruppen optimieren"-Knopf verschwindet wieder bei nur einer Gruppe', !Array.from(doc.querySelectorAll('#gpPlanBoard .btnrow button')).some(b => b.textContent.includes('Alle Gruppen optimieren')), gpCards().length);
 
     win.showApp('insignien'); await wait(300);
     const insStart = doc.getElementById('insStart'), insZiel = doc.getElementById('insZiel'), insMenge = doc.getElementById('insMenge'), insPulver = doc.getElementById('insPulver');

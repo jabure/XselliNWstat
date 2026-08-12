@@ -701,7 +701,7 @@ app.put('/api/shared/presets', authMiddleware, requireRole('moderator'), (req, r
     // Gruppenplaner-Referenzlisten und Insignien-Marktpreise - bewusst über denselben
     // Presets-Endpunkt (Moderator, gleicher rev-Schutz/Historie), aber eigene Schlüssel,
     // komplett getrennt von den Stats-Datenbanken oben.
-    'gpArtefakte', 'gpMounts', 'gpMountBonus', 'gpGefaehrten', 'gpGefaehrtenVerstaerkung', 'insigniePreise']);
+    'gpArtefakte', 'gpMounts', 'gpMountBonus', 'gpGefaehrten', 'gpGefaehrtenVerstaerkung', 'gpOptimizerRegeln', 'insigniePreise']);
 });
 app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, res) => {
   saveShared(req, res, ['formulas', 'maxPrOverrides', 'wehrVerteilung']);

@@ -4143,6 +4143,7 @@ async function reloadShared(){
   gpMountBonus = shared.gpMountBonus || JSON.parse(JSON.stringify(DEFAULT_GP_MOUNTBONUS));
   gpGefaehrten = shared.gpGefaehrten || JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN));
   gpGefaehrtenVerstaerkung = shared.gpGefaehrtenVerstaerkung || JSON.parse(JSON.stringify(DEFAULT_GP_GEFAEHRTEN_VERSTAERKUNG));
+  gpOptimizerRegeln = shared.gpOptimizerRegeln || JSON.parse(JSON.stringify(DEFAULT_GP_OPTIMIZER_REGELN));
   insigniePreise = migrateInsigniePreise(shared.insigniePreise);
   if(shared.foodSlots) shared.foodSlots.forEach((def, i)=>{ if(FOOD_SLOTS[i]) FOOD_SLOTS[i].items = def.items; });
   refresh(true);
@@ -4703,6 +4704,7 @@ async function init(){
     if(shared.gpMountBonus) gpMountBonus = shared.gpMountBonus;
     if(shared.gpGefaehrten) gpGefaehrten = shared.gpGefaehrten;
     if(shared.gpGefaehrtenVerstaerkung) gpGefaehrtenVerstaerkung = shared.gpGefaehrtenVerstaerkung;
+    if(shared.gpOptimizerRegeln) gpOptimizerRegeln = shared.gpOptimizerRegeln;
     if(shared.insigniePreise) insigniePreise = migrateInsigniePreise(shared.insigniePreise);
   }catch(e){
     console.warn('Presets/Formeln konnten nicht vom Server geladen werden:', e.message);
@@ -5169,14 +5171,44 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 //   artefakte") - wird im Optimierer NUR als Tiebreaker bei GLEICHEM
 //   Rangwert benutzt (Nutzervorgabe "max dps geht in der Regel vor"), nie
 //   um einen objektiv schlechteren Eintrag vorzuziehen.
+// - rollenKonfigurierbar: seit v0.28.0 ersetzt dies das früher fest codierte
+//   optimizeRollen:['Tank','Heiler'] - für welche Rollen diese Kategorie
+//   optimiert wird, steht jetzt in gpOptimizerRegeln (editierbar auf der
+//   Referenzlisten-Seite, Nutzerwunsch "Optimierungsregeln nachträglich
+//   bearbeiten können") statt hier fest im Code. Siehe gpOptimizeRolleErlaubt.
 const GP_BESITZ_KATEGORIEN = [
   { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle', favKey:'lieblingsartefakte' },
-  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', optimizeRollen:['Tank','Heiler'] },
-  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', optimizeRollen:['Tank','Heiler'] },
+  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', rollenKonfigurierbar:true },
+  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', rollenKonfigurierbar:true },
   { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', dpsDmgKey:'schaden', rowField:'gefaehrte' },
-  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus', optimizeRollen:['Tank','Heiler'] },
+  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus', rollenKonfigurierbar:true },
 ];
+// Seit v0.28.0 (Nutzerwunsch): editierbare Rollen-Regel je "rollenKonfigurierbar"-
+// Kategorie - für welche Rollen (dps/heal/tank) optimiert der 🏆-Knopf diese
+// Kategorie überhaupt? Defaults entsprechen dem bisherigen fest codierten
+// Verhalten (nur Tank/Heiler). Geteilt & persistiert wie die Referenzlisten,
+// editierbar auf der Referenzlisten-Seite unten.
+const DEFAULT_GP_OPTIMIZER_REGELN = {
+  mounts: { dps:false, heal:true, tank:true },
+  mountBonus: { dps:false, heal:true, tank:true },
+  gefaehrtenVerstaerkung: { dps:false, heal:true, tank:true },
+};
+let gpOptimizerRegeln = JSON.parse(JSON.stringify(DEFAULT_GP_OPTIMIZER_REGELN));
+function gpOptimizeRolleErlaubt(kat, rolle){
+  if(!kat.rollenKonfigurierbar) return true;
+  const regel = (gpOptimizerRegeln && gpOptimizerRegeln[kat.key]) || DEFAULT_GP_OPTIMIZER_REGELN[kat.key];
+  return !!(regel && regel[gpRolleFlagKey(rolle)]);
+}
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
+// Seit v0.28.0 (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein
+// außer es ist extra angehakt"): true, wenn der Referenzeintrag mit dem
+// Häkchen "Mehrfachvergabe erlaubt" markiert ist - solche Werte werden vom
+// Optimierer NIE als "bereits vergeben" gezählt (s. gpBelegteWerte), dürfen
+// also beliebig oft im Plan vorkommen.
+function gpMehrfachErlaubt(kat, name){
+  const e = gpKatItemByName(kat, name);
+  return !!(e && e.mehrfachErlaubt);
+}
 // Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
 // Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
 // der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
@@ -5265,10 +5297,10 @@ function gpGroupDmgBuffSum(g){
 // Treffer, fällt die Auswahl auf den besten Kandidaten insgesamt zurück
 // (lieber ein Duplikat als gar keine Auswahl).
 function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
-  if(kat.optimizeRollen && rolle && !kat.optimizeRollen.includes(rolle)) return null;
+  if(kat.rollenKonfigurierbar && rolle && !gpOptimizeRolleErlaubt(kat, rolle)) return null;
   if(!ownedNames || !ownedNames.length) return '';
   const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
-  if(!rankKey) return kat.optimizeRollen ? ownedNames[0] : '';
+  if(!rankKey) return kat.rollenKonfigurierbar ? ownedNames[0] : '';
   const rankOf = n => {
     const e = gpKatItemByName(kat, n);
     return e && e[rankKey] !== undefined && e[rankKey] !== '' && !isNaN(e[rankKey]) ? Number(e[rankKey]) : null;
@@ -5320,7 +5352,7 @@ function gpApplyBestSetup(row, belegt){
   if(row.charKey && !rec) return false;
   const besitz = (rec && rec.data && rec.data.besitz) || {};
   GP_BESITZ_KATEGORIEN.forEach(kat => {
-    if(!kat.dmgKey && !kat.optimizeRollen) return;
+    if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
     const owned = rec ? besitz[kat.key] : kat.liste().map(e => e.name);
     const favoriten = kat.favKey && rec && rec.data ? rec.data[kat.favKey] : null;
     const taken = (kat.dmgKey && belegt) ? belegt[kat.key] : null;
@@ -5333,19 +5365,25 @@ function gpApplyBestSetup(row, belegt){
   return true;
 }
 // Baut für den Optimierer eine Belegungs-Übersicht (Kategorie-Schlüssel -> Set
-// bereits vergebener Werte) über alle Zeilen EINER Gruppe außer "ausserZeile"
-// (Zeilenindex, oder -1 für keine Ausnahme) - damit derselbe Wert möglichst
-// nicht mehrfach vergeben wird (Nutzerwunsch, relevant vor allem bei
-// Artefakten: deren Buff stapelt nicht bei doppelter Vergabe in der Gruppe,
-// siehe die bestehende Artefakt-Duplikat-Markierung im Board).
-function gpBelegteWerte(g, ausserZeile){
+// bereits vergebener Werte) - seit v0.28.0 PLANWEIT über ALLE Gruppen des
+// aktuell offenen Plans (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt
+// sein"), vorher nur innerhalb der jeweiligen Gruppe. "ausserGi"/"ausserRi"
+// identifizieren die Zelle, die selbst ausgenommen wird (damit eine Zeile
+// beim eigenen Optimieren nicht an ihrem EIGENEN aktuellen Wert scheitert).
+// Werte von Referenzeinträgen mit angehaktem "Mehrfachvergabe erlaubt"
+// (gpMehrfachErlaubt) fließen NICHT in die Belegungsliste ein - sie dürfen
+// also beliebig oft im Plan vergeben werden.
+function gpBelegteWerte(ausserGi, ausserRi){
   const belegt = {};
   GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey) belegt[kat.key] = new Set(); });
-  g.rows.forEach((row, ri) => {
-    if(ri === ausserZeile) return;
-    GP_BESITZ_KATEGORIEN.forEach(kat => {
-      if(!kat.dmgKey) return;
-      if(row[kat.rowField]) belegt[kat.key].add(row[kat.rowField]);
+  currentGpPlanData.groups.forEach((g, gi) => {
+    g.rows.forEach((row, ri) => {
+      if(gi === ausserGi && ri === ausserRi) return;
+      GP_BESITZ_KATEGORIEN.forEach(kat => {
+        if(!kat.dmgKey) return;
+        const val = row[kat.rowField];
+        if(val && !gpMehrfachErlaubt(kat, val)) belegt[kat.key].add(val);
+      });
     });
   });
   return belegt;
@@ -5353,7 +5391,7 @@ function gpBelegteWerte(g, ausserZeile){
 function gpOptimizeRow(gi, ri){
   const g = currentGpPlanData.groups[gi];
   const row = g.rows[ri];
-  if(!gpApplyBestSetup(row, gpBelegteWerte(g, ri))){
+  if(!gpApplyBestSetup(row, gpBelegteWerte(gi, ri))){
     alert('Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.');
     return;
   }
@@ -5362,10 +5400,11 @@ function gpOptimizeRow(gi, ri){
 function gpOptimizeGroup(gi){
   const g = currentGpPlanData.groups[gi];
   let count = 0;
-  // "belegt" wird PRO ZEILE neu aus dem aktuellen Stand der Gruppe gebaut
-  // (statt einmal vorab) - so sieht jede Zeile auch die bereits in DIESEM
-  // Durchlauf optimierten Vorgänger-Zeilen, ohne sich selbst zu blockieren.
-  g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(g, ri))) count++; });
+  // "belegt" wird PRO ZEILE neu aus dem aktuellen Stand des GESAMTEN Plans
+  // gebaut (nicht nur dieser Gruppe) - so sieht jede Zeile auch die bereits
+  // in diesem Durchlauf optimierten Vorgänger-Zeilen UND alle anderen Gruppen
+  // desselben Plans, ohne sich selbst zu blockieren.
+  g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(gi, ri))) count++; });
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = count
     ? `Bestes eigenes Setup für ${count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
@@ -5541,6 +5580,9 @@ function gpClearIconField(btn){
 // matchen kann).
 function gpRefFieldHtml(e, f){
   const cur = e[f.key] !== undefined ? String(e[f.key]) : '';
+  if(f.checkbox){
+    return `<input type="checkbox" class="gpref-field" data-field="${f.key}" ${e[f.key]?'checked':''} title="${escapeHtml(f.label)}">`;
+  }
   if(f.select){
     const opts = f.select.map(o=>`<option value="${escapeHtml(o)}" ${cur===o?'selected':''}>${o?escapeHtml(o):'–'}</option>`).join('');
     return `<select class="gpref-field" data-field="${f.key}" style="width:100%;">${opts}</select>`;
@@ -5585,8 +5627,10 @@ function gpCollectRefList(listId, fields){
     fields.forEach(f=>{
       // Seit v0.23.0: [data-field=...] statt input[data-field=...], damit
       // auch <select>-Felder (z. B. die Rollen-Auswahl bei Artefakten)
-      // mit erfasst werden, nicht nur <input>.
+      // mit erfasst werden, nicht nur <input>. Seit v0.28.0: Checkbox-Felder
+      // (z. B. "Mehrfachvergabe erlaubt") lesen .checked statt .value.
       const inp = row.querySelector(`[data-field="${f.key}"]`);
+      if(f.checkbox){ obj[f.key] = inp ? inp.checked : false; return; }
       const val = inp ? inp.value.trim() : '';
       if(f.key === 'name' && val) hasName = true;
       obj[f.key] = f.numeric ? parsePct(val) : val;
@@ -5600,8 +5644,12 @@ const GP_REF_SPECS = [
   // bevorzugt geeignet ist (Nutzerwunsch "Zusatzinfo präferiert DPS/Tank/
   // Heal") - fester Auswahlwert (select) statt Freitext, damit der
   // Optimierer (gpBestOwned) exakt gegen die Zeilen-Rolle matchen kann.
-  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']}] },
-  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true}] },
+  // Seit v0.28.0: "mehrfachErlaubt" (Checkbox) - Nutzerwunsch "im gesamten
+  // [Plan] soll nichts doppelt sein außer es ist extra angehakt" - markierte
+  // Einträge werden von der planweiten Duplikat-Vermeidung des Optimierers
+  // ausgenommen (s. gpMehrfachErlaubt/gpBelegteWerte).
+  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
+  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
@@ -5612,25 +5660,61 @@ const GP_REF_SPECS = [
   // Seit v0.23.0: zusätzliches "schaden"-Feld (eigener Schaden des Gefährten,
   // getrennt vom Support-Dmg-Buff "buff") - der Optimierer bevorzugt dieses
   // Feld bei DPS-Zeilen (dpsDmgKey), Supports bleiben weiter beim Dmg-Buff.
-  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true}] },
-  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true}] },
+  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
 ];
+// Seit v0.28.0 (Nutzerwunsch "schreibe alle Optimierungsregeln in die
+// Referenzliste, damit ich sie nachträglich bearbeiten kann"): editierbare
+// Rollen-Checkboxen für die "rollenKonfigurierbar"-Kategorien + eine
+// Klartext-Zusammenfassung ALLER Optimierer-Regeln (auch der nicht
+// editierbaren, rein zur Dokumentation).
+function gpOptimizerRegelnHtml(){
+  const rollen = [['dps','DPS'],['heal','Heiler'],['tank','Tank']];
+  const checkboxZeilen = GP_BESITZ_KATEGORIEN.filter(k => k.rollenKonfigurierbar).map(kat => {
+    const regel = gpOptimizerRegeln[kat.key] || DEFAULT_GP_OPTIMIZER_REGELN[kat.key];
+    const boxen = rollen.map(([flag,label]) => `<label class="slot-check"><input type="checkbox" data-gpregel="${kat.key}" data-gpregelrolle="${flag}" ${regel[flag]?'checked':''}> ${label}</label>`).join(' ');
+    return `<div style="margin:6px 0;"><strong>${kat.label}</strong> optimieren für: ${boxen}</div>`;
+  }).join('');
+  return `<div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Optimierungsregeln (🏆-Knopf)</h2>
+    <p class="helptext">Für welche Rollen der Optimierer folgende Kategorien überhaupt anfasst - editierbar:</p>
+    ${checkboxZeilen}
+    <p class="helptext" style="margin-top:14px;">Fest eingebaute Regeln (nicht änderbar, hier nur zur Übersicht):</p>
+    <ul class="helptext" style="margin:4px 0 0 18px; padding:0;">
+      <li><strong>Artefakte:</strong> für alle Rollen; höchster Buff-Wert gewinnt. Hat das Artefakt eine "Bevorzugt für"-Rolle passend zur Zeile, wird unter den dazu passenden zuerst gesucht. Bei GLEICHSTAND entscheidet ein hinterlegtes Lieblingsartefakt (s. Charakter-Editor) - ein objektiv höherer Wert gewinnt aber immer.</li>
+      <li><strong>Gefährte:</strong> für alle Rollen; bei DPS zählt der eigene Schaden ("Schaden (DPS)"-Spalte), bei Heiler/Tank der Support-Dmg-Buff ("Dmg Buff % (Support)"-Spalte).</li>
+      <li><strong>Freie Namen (kein zuweisbarer Charakter):</strong> es wird angenommen, dass diese Person alles aus der jeweiligen Referenzliste besitzt.</li>
+      <li><strong>Mehrfachvergabe:</strong> im gesamten Plan (über ALLE Gruppen hinweg) wird kein Wert doppelt vergeben - außer der Referenzeintrag hat "Mehrfachvergabe erlaubt" angehakt, oder es gibt schlicht keine Alternative (dann lieber ein Duplikat als eine leere Zeile).</li>
+    </ul>
+  </div>`;
+}
+function gpCollectOptimizerRegeln(){
+  const regeln = JSON.parse(JSON.stringify(DEFAULT_GP_OPTIMIZER_REGELN));
+  document.querySelectorAll('input[data-gpregel]').forEach(cb=>{
+    const kat = cb.dataset.gpregel, rolle = cb.dataset.gpregelrolle;
+    if(!regeln[kat]) regeln[kat] = {};
+    regeln[kat][rolle] = cb.checked;
+  });
+  return regeln;
+}
 function renderGpReferenz(){
   const el = document.getElementById('gpPageReferenz');
   const sections = GP_REF_SPECS.map(spec => `<div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>${spec.title}</h2>
     ${gpRefListEditorHtml('gpref-'+spec.key, spec.get(), spec.fields)}
   </div>`).join('');
-  el.innerHTML = sections + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">Referenzlisten speichern (für alle)</button></div>`;
+  el.innerHTML = sections + gpOptimizerRegelnHtml() + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">Referenzlisten speichern (für alle)</button></div>`;
 }
 async function gpSaveReferenzlisten(){
   const patch = { rev: sharedRev };
   GP_REF_SPECS.forEach(spec => { patch[spec.key] = gpCollectRefList('gpref-'+spec.key, spec.fields); });
+  patch.gpOptimizerRegeln = gpCollectOptimizerRegeln();
   try{
     const r = await apiSetPresets(patch);
     if(r && r.rev !== undefined) sharedRev = r.rev;
     gpArtefakte = patch.gpArtefakte; gpMounts = patch.gpMounts; gpMountBonus = patch.gpMountBonus;
     gpGefaehrten = patch.gpGefaehrten; gpGefaehrtenVerstaerkung = patch.gpGefaehrtenVerstaerkung;
+    gpOptimizerRegeln = patch.gpOptimizerRegeln;
     document.getElementById('saveStatus').textContent = 'Referenzlisten gespeichert (für alle).';
   }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
 }
@@ -5988,8 +6072,22 @@ function renderGpPlanBoard(){
     ${gpPlanAnsichtModus ? gpPlanAnsichtHtml() : groupsHtml}
     ${gpPlanAnsichtModus ? '' : `<div class="btnrow" style="margin:14px 0;">
       <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>
+      ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="Wendet für jede besetzte Zeile in ALLEN Gruppen dieses Plans das beste eigene Setup an">🏆 Alle Gruppen optimieren</button>` : ''}
       <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">Plan speichern</button>
     </div>`}`;
+}
+// Seit v0.28.0 (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein"):
+// optimiert alle Gruppen des Plans in einem Rutsch, statt Gruppe für Gruppe
+// einzeln klicken zu müssen - nur sichtbar/sinnvoll ab 2 Gruppen (Trial).
+function gpOptimizePlan(){
+  let count = 0;
+  currentGpPlanData.groups.forEach((g, gi) => {
+    g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(gi, ri))) count++; });
+  });
+  renderGpPlanBoard();
+  document.getElementById('saveStatus').textContent = count
+    ? `Bestes eigenes Setup für ${count} Zeile(n) in allen Gruppen übernommen - bitte Plan speichern, falls es passt.`
+    : 'Keine besetzte Zeile (Charakter oder freier Name) in diesem Plan gefunden.';
 }
 function gpToggleAnsicht(){ gpPlanAnsichtModus = !gpPlanAnsichtModus; renderGpPlanBoard(); }
 // Schlichte Nur-Lese-Darstellung ohne Dropdowns/Buttons - zum Screenshotten und

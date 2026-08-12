@@ -332,6 +332,49 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.28.0: Duplikat-Vermeidung planweit (statt nur pro Gruppe) +
+  "Mehrfachvergabe erlaubt"-Ausnahme + editierbare Optimierungsregeln
+  (Nutzervorgabe: "im gesamten [Plan] soll nichts doppelt sein außer es ist
+  extra angehakt", "schreibe alle Optimierungsregeln in die Referenzliste,
+  damit ich sie nachträglich bearbeiten kann").**
+  - **Planweit statt gruppenweit**: `gpBelegteWerte(ausserGi, ausserRi)`
+    durchsucht jetzt ALLE Gruppen von `currentGpPlanData` (vorher nur eine
+    einzelne, übergebene Gruppe). `gpOptimizeRow`/`gpOptimizeGroup` bauen
+    "belegt" weiterhin PRO ZEILE frisch (damit spätere Zeilen im selben Lauf
+    die schon optimierten Vorgänger sehen, ohne sich selbst zu blockieren),
+    jetzt aber über den ganzen Plan.
+  - **"Mehrfachvergabe erlaubt"**: neues Checkbox-Feld `mehrfachErlaubt` in
+    der Referenzliste bei Artefakten, Mounts und Gefährten/Gefährten-
+    Verstärkung (den vier Kategorien mit `dmgKey`, für die die Duplikat-
+    Vermeidung überhaupt gilt). `gpMehrfachErlaubt(kat, name)` prüft das
+    Flag; markierte Werte fließen in `gpBelegteWerte` gar nicht erst in die
+    Belegungs-Sets ein, dürfen also beliebig oft im Plan vorkommen.
+  - **Editierbare Optimierungsregeln**: `optimizeRollen:[...]` (fest codiert)
+    wurde durch `rollenKonfigurierbar:true` + ein neues geteiltes Objekt
+    `gpOptimizerRegeln` ersetzt (Kategorie -> `{dps,heal,tank}`, Default
+    identisch zum bisherigen `['Tank','Heiler']`-Verhalten). Neue Sektion
+    "Optimierungsregeln (🏆-Knopf)" am Ende der Referenzlisten-Seite
+    (`gpOptimizerRegelnHtml`) mit editierbaren Checkboxen je Kategorie/Rolle
+    für Mounts, Mount-Ausrüstungsbonus und Gefährten-Verstärkung, PLUS einer
+    Klartext-Zusammenfassung aller (auch der nicht editierbaren) Regeln zur
+    Dokumentation. `gpBestOwned`/`gpApplyBestSetup` fragen die Rollen-
+    Erlaubnis jetzt über `gpOptimizeRolleErlaubt(kat, rolle)` ab statt über
+    das früher statische `kat.optimizeRollen`-Array.
+  - Server: `gpOptimizerRegeln` zur Presets-Whitelist (`PUT /api/shared/
+    presets`) hinzugefügt, sonst hätte die Route das Feld beim Speichern
+    verworfen.
+  - **"Alle Gruppen optimieren"**: neuer Knopf im Plan-Board (nur sichtbar ab
+    2 Gruppen, z. B. Trial mit Party A/B), wendet `gpApplyBestSetup` über
+    ALLE Gruppen des Plans in einem Rutsch an - bei nur einer Gruppe reicht
+    der bestehende Gruppen-Knopf, deshalb ausgeblendet.
+  - Referenz-Editor: `gpRefFieldHtml`/`gpCollectRefList` unterstützen jetzt
+    auch Checkbox-Felder (`f.checkbox`), nicht nur Text/Select.
+  - Smoke-Test angepasst (mehrere Erwartungswerte änderten sich durch den
+    Wechsel von gruppen- auf planweite Duplikat-Vermeidung - "Icon-Test-
+    Artefakt" war bereits in einer anderen Gruppe vergeben) und um
+    "Mehrfachvergabe erlaubt", das Editieren+Respektieren einer
+    Optimierungsregel sowie den "Alle Gruppen optimieren"-Knopf erweitert -
+    alle 238 Checks grün.
 - **Seit v0.27.0: Optimierer vergibt Werte innerhalb einer Gruppe nicht mehr
   doppelt (Nutzerwunsch "auch Sachen nicht doppelt zuweisen").**
   - Betrifft alle Kategorien mit `dmgKey` (Artefakte, Mounts, Gefährten,
