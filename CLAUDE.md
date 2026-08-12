@@ -332,6 +332,32 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.30.0: Lieblingsartefakte/Rollen-Vorschlag mit Toleranz statt nur
+  bei exaktem Gleichstand (Nutzervorgabe: "max dmg, aber wenn's geht
+  trotzdem die Lieblingsartefakte und die DPS/Heiler/Tank-Präferierung höher
+  setzen").**
+  - Bisher (v0.29.0) waren Favoriten/Rollen-Vorschlag NUR ein Tiebreaker bei
+    exakt gleichem Rangwert - das griff in der Praxis kaum, da zwei Einträge
+    selten exakt denselben Wert haben. Jetzt gewinnt ein Favorit bzw. ein
+    zur Zeilen-Rolle passender Referenzlisten-Vorschlag auch gegen einen
+    OBJEKTIV HÖHEREN, nicht bevorzugten Kandidaten, solange der Abstand zum
+    Bestwert innerhalb einer Toleranz (Prozentpunkte) bleibt. Max Dmg bleibt
+    das Grundziel: außerhalb der Toleranz gewinnt weiterhin der höhere Wert,
+    und selbst innerhalb der Toleranz wird unter mehreren Favoriten/Rollen-
+    Treffern weiterhin der mit dem höchsten Wert gewählt.
+  - Neue editierbare Regel `gpOptimizerRegeln.toleranz` (Default 1
+    Prozentpunkt, 0 = altes exaktes-Gleichstand-Verhalten) - eigenes
+    Eingabefeld in der "Optimierungsregeln"-Sektion der Referenzlisten-
+    Seite (`gpOptimizerToleranz()`), die Prioritätsliste dort entsprechend
+    aktualisiert (Punkte 4+5 erwähnen jetzt die Toleranz).
+  - `gpBestOwned` umgebaut: ermittelt zuerst den Bestwert, bildet daraus die
+    Teilmenge "innerhalb der Toleranz" (`rankOf(n) >= bestVal - toleranz`),
+    sucht darin zuerst nach Favoriten (höchstwertiger gewinnt), dann nach
+    Rollen-Treffern (höchstwertiger gewinnt), sonst schlicht der Bestwert
+    außerhalb jeder Präferenz.
+  - Smoke-Test um zwei neue Test-Artefakte (0,5 bzw. 2 Prozentpunkte über
+    einem Favoriten) erweitert: Favorit gewinnt innerhalb der Toleranz,
+    verliert aber wieder außerhalb - alle 251 Checks grün.
 - **Seit v0.29.0: "Ausrüstung zurücksetzen"-Knopf + neu geordnete Optimierer-
   Priorität + "Pflicht: 1x pro 5er-Gruppe" (Nutzervorgabe).**
   - **"Ausrüstung zurücksetzen"** (`gpResetAusruestung(gi)`): neuer Knopf im

@@ -5192,12 +5192,21 @@ const DEFAULT_GP_OPTIMIZER_REGELN = {
   mounts: { dps:false, heal:true, tank:true },
   mountBonus: { dps:false, heal:true, tank:true },
   gefaehrtenVerstaerkung: { dps:false, heal:true, tank:true },
+  // Seit v0.30.0 (Nutzervorgabe "max dmg, aber wenn's geht trotzdem die
+  // Lieblingsartefakte und die Rollen-Präferierung höher setzen"): wie viele
+  // Prozentpunkte Rangwert-Abstand zum Bestwert ein Favorit/Rollen-Vorschlag
+  // noch "gewinnen" darf, statt nur bei EXAKTEM Gleichstand zu zählen.
+  toleranz: 1,
 };
 let gpOptimizerRegeln = JSON.parse(JSON.stringify(DEFAULT_GP_OPTIMIZER_REGELN));
 function gpOptimizeRolleErlaubt(kat, rolle){
   if(!kat.rollenKonfigurierbar) return true;
   const regel = (gpOptimizerRegeln && gpOptimizerRegeln[kat.key]) || DEFAULT_GP_OPTIMIZER_REGELN[kat.key];
   return !!(regel && regel[gpRolleFlagKey(rolle)]);
+}
+function gpOptimizerToleranz(){
+  const t = gpOptimizerRegeln && gpOptimizerRegeln.toleranz;
+  return (t !== undefined && t !== null && !isNaN(t)) ? Number(t) : DEFAULT_GP_OPTIMIZER_REGELN.toleranz;
 }
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
 // Seit v0.28.0 (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein
@@ -5292,6 +5301,24 @@ function gpGroupDmgBuffSum(g){
 //   einfach der (erste) eigene Eintrag "fix" übernommen.
 // - dpsDmgKey: bei Rolle DPS wird statt dmgKey dieses Feld zum Sortieren
 //   verwendet (Gefährten: DPS nach höchstem eigenen Schaden).
+// Seit v0.29.0 gilt eine KLARE, vom Nutzer vorgegebene Prioritäts-Kette
+// (vorher war die Rollen-Präferenz fälschlich VOR dem Rangwert gewichtet):
+//   1. Höchster Dmg-Buff-Wert ("zuerst den besten dmg Buff reinbekommen")
+//   2. Keine Doppelvergabe im Plan (s. taken/gpBelegteWerte), außer erlaubt
+//      ("doppelte Sachen bringen nicht mehr dmg außer angekreuzt") - wird
+//      VOR Schritt 1 als Kandidatenpool gefiltert (mit Fallback, s. u.)
+//   3. Lieblingswert des Charakters (favoriten)
+//   4. Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse (roleKey)
+// Seit v0.30.0 (Nutzervorgabe "max dmg, aber wenn's geht trotzdem die
+// Lieblingsartefakte und die Rollen-Präferierung höher setzen"): Favoriten
+// und Rollen-Vorschlag sind NICHT mehr nur ein Tiebreaker bei EXAKTEM
+// Gleichstand, sondern gewinnen auch gegen einen leicht höherwertigen,
+// nicht-präferierten Kandidaten - solange der Wertunterschied innerhalb der
+// editierbaren Toleranz (gpOptimizerRegeln.toleranz, Prozentpunkte, s.
+// Referenzlisten-Seite) liegt. Max Dmg bleibt aber das Grundziel: außerhalb
+// der Toleranz gewinnt weiterhin der objektiv höhere Wert, und selbst
+// INNERHALB der Toleranz wird unter mehreren Favoriten/Rollen-Treffern der
+// mit dem höchsten Wert gewählt (nicht einfach irgendeiner).
 function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
   if(kat.rollenKonfigurierbar && rolle && !gpOptimizeRolleErlaubt(kat, rolle)) return null;
   if(!ownedNames || !ownedNames.length) return '';
@@ -5313,15 +5340,20 @@ function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
   const bewertet = [];
   quelle.forEach(n => { const val = rankOf(n); if(val !== null){ bewertet.push(n); if(val > bestVal) bestVal = val; } });
   if(!bewertet.length) return '';
-  let kandidaten = bewertet.filter(n => rankOf(n) === bestVal);
-  // Schritt 3: unter den wertgleichen Kandidaten Favoriten bevorzugen.
-  const favoritenTreffer = kandidaten.filter(istFavorit);
-  if(favoritenTreffer.length) kandidaten = favoritenTreffer;
-  // Schritt 4: unter den verbliebenen Kandidaten den Referenzlisten-
-  // Rollen-Vorschlag bevorzugen (LETZTER Tiebreaker, nicht mehr Filter #1).
-  const rollenTreffer = kandidaten.filter(istRollenTreffer);
-  if(rollenTreffer.length) kandidaten = rollenTreffer;
-  return kandidaten[0];
+  // Höchstwertigen Kandidaten aus einer Teilmenge picken (bei mehreren mit
+  // demselben Höchstwert wird der erste gefundene genommen).
+  const hoechster = liste => { let best = liste[0], bestV = rankOf(best); liste.forEach(n => { const v = rankOf(n); if(v > bestV){ bestV = v; best = n; } }); return best; };
+  const toleranz = gpOptimizerToleranz();
+  // Schritt 3+4: Favoriten bzw. Rollen-Vorschlag gewinnen auch gegen einen
+  // objektiv (leicht) besseren, nicht-präferierten Kandidaten, solange der
+  // Abstand zum Bestwert innerhalb der Toleranz bleibt - unter mehreren
+  // Treffern zählt weiterhin deren höchster Wert.
+  const inToleranz = bewertet.filter(n => rankOf(n) >= bestVal - toleranz);
+  const favoritenTreffer = inToleranz.filter(istFavorit);
+  if(favoritenTreffer.length) return hoechster(favoritenTreffer);
+  const rollenTreffer = inToleranz.filter(istRollenTreffer);
+  if(rollenTreffer.length) return hoechster(rollenTreffer);
+  return hoechster(bewertet.filter(n => rankOf(n) === bestVal));
 }
 // Wendet das beste eigene Setup auf eine Zeile an (mutiert row, rendert NICHT
 // neu - das übernimmt der Aufrufer, damit gpOptimizeGroup nicht pro Zeile neu
@@ -5770,13 +5802,18 @@ function gpOptimizerRegelnHtml(){
     <h2><span class="dot" style="background:var(--gold)"></span>Optimierungsregeln (🏆-Knopf)</h2>
     <p class="helptext">Für welche Rollen der Optimierer folgende Kategorien überhaupt anfasst - editierbar:</p>
     ${checkboxZeilen}
+    <div style="margin:14px 0;">
+      <label style="display:block;margin-bottom:4px;">Toleranz für Lieblingsartefakte/Rollen-Vorschlag (Prozentpunkte)</label>
+      <input type="text" id="gpRegelToleranz" value="${fmt(gpOptimizerToleranz())}" style="max-width:100px;">
+      <p class="helptext" style="margin-top:4px;">Ein Lieblingsartefakt bzw. ein zur Rolle passender Referenzlisten-Vorschlag gewinnt auch dann, wenn er bis zu dieser Anzahl Prozentpunkte UNTER dem objektiv besten Wert liegt - darüber hinaus zählt weiterhin schlicht der höchste Dmg-Buff. 0 = nur bei exaktem Gleichstand (altes Verhalten).</p>
+    </div>
     <p class="helptext" style="margin-top:14px;">Priorität, in der der 🏆-Optimierer entscheidet (nicht änderbar, hier nur zur Übersicht):</p>
     <ol class="helptext" style="margin:4px 0 0 18px; padding:0;">
-      <li><strong>Höchster Dmg-Buff-Wert</strong> gewinnt immer zuerst.</li>
+      <li><strong>Höchster Dmg-Buff-Wert</strong> gewinnt grundsätzlich.</li>
       <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen) - doppelte Werte bringen keinen zusätzlichen Dmg-Buff, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zum höchsten Wert keine freie Alternative, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
       <li><strong>Pflicht: 1x pro 5er-Gruppe</strong> - markierte Einträge (z. B. der Gefährte "Skorpion") werden VOR allem anderen mindestens einmal je 5er-Segment (Dungeon-Gruppe bzw. Party A/B bei Trial) vergeben, sofern jemand im Segment sie besitzt.</li>
-      <li><strong>Lieblingswert des Charakters</strong> (s. Charakter-Editor) - nur Tiebreaker bei GLEICHEM Rang.</li>
-      <li><strong>Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse</strong> ("Bevorzugt für" bei Artefakten) - letzter Tiebreaker, wenn immer noch mehrere Kandidaten gleich gut sind.</li>
+      <li><strong>Lieblingswert des Charakters</strong> (s. Charakter-Editor) - gewinnt auch innerhalb der obigen Toleranz gegen einen leicht höherwertigen, nicht bevorzugten Kandidaten; unter mehreren Favoriten zählt weiterhin deren höchster Wert.</li>
+      <li><strong>Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse</strong> ("Bevorzugt für" bei Artefakten) - gleiche Toleranz-Regel, aber nachrangig zu Favoriten.</li>
     </ol>
     <p class="helptext" style="margin-top:10px;">Weitere feste Regeln:</p>
     <ul class="helptext" style="margin:4px 0 0 18px; padding:0;">
@@ -5792,6 +5829,8 @@ function gpCollectOptimizerRegeln(){
     if(!regeln[kat]) regeln[kat] = {};
     regeln[kat][rolle] = cb.checked;
   });
+  const toleranzInput = document.getElementById('gpRegelToleranz');
+  if(toleranzInput) regeln.toleranz = parsePct(toleranzInput.value);
   return regeln;
 }
 function renderGpReferenz(){

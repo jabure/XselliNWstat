@@ -1119,6 +1119,61 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     const favArtefaktSelect = Array.from(favZeile.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === "Marco's Mystic Marker"));
     check('Lieblingsartefakt gewinnt den Tiebreaker bei gleichem Buff-Wert', favArtefaktSelect && favArtefaktSelect.value === "Marco's Mystic Marker", favArtefaktSelect && favArtefaktSelect.value);
 
+    // Seit v0.30.0 (Nutzervorgabe "max dmg, aber wenn's geht trotzdem die
+    // Lieblingsartefakte höher setzen"): ein Favorit gewinnt jetzt auch gegen
+    // einen leicht HÖHERWERTIGEN, nicht bevorzugten Kandidaten - solange der
+    // Abstand innerhalb der (editierbaren, Default 1 Prozentpunkt) Toleranz
+    // liegt. Zwei neue Test-Artefakte: "HighButNotFav" (4,5 %, 0,5 Punkte über
+    // dem Favoriten -> innerhalb der Toleranz, Favorit gewinnt trotzdem) und
+    // "TooHighNotFav" (6 %, 2 Punkte über dem Favoriten -> außerhalb der
+    // Toleranz, der objektiv höhere Wert gewinnt wieder).
+    win.showGpPage('referenz'); await wait(200);
+    const refArtefakteTableTol = doc.getElementById('gpref-gpArtefakte');
+    const artFieldsTol = [{key:'name',label:'Name'},{key:'buff',label:'Buff %',numeric:true},{key:'rolle',label:'Bevorzugt für',select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',checkbox:true}];
+    win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
+    win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
+    const neueArtZeilen = Array.from(refArtefakteTableTol.querySelectorAll('tbody tr')).slice(-2);
+    input(win, neueArtZeilen[0].querySelector('input[data-field="name"]'), 'HighButNotFav');
+    input(win, neueArtZeilen[0].querySelector('input[data-field="buff"]'), '4,5');
+    input(win, neueArtZeilen[1].querySelector('input[data-field="name"]'), 'TooHighNotFav');
+    input(win, neueArtZeilen[1].querySelector('input[data-field="buff"]'), '6');
+    await win.gpSaveReferenzlisten(); await wait(300);
+    const sharedNachTol = (await api('/api/shared')).data;
+    check('Test-Artefakte für die Toleranz-Prüfung angelegt', (sharedNachTol.gpArtefakte||[]).some(e=>e.name==='HighButNotFav'&&e.buff===4.5) && (sharedNachTol.gpArtefakte||[]).some(e=>e.name==='TooHighNotFav'&&e.buff===6), (sharedNachTol.gpArtefakte||[]).map(e=>[e.name,e.buff]));
+    check('Toleranz-Feld in den Optimierungsregeln vorhanden (Default 1)', doc.getElementById('gpRegelToleranz') && doc.getElementById('gpRegelToleranz').value === '1', doc.getElementById('gpRegelToleranz') && doc.getElementById('gpRegelToleranz').value);
+
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    r = await api('/api/gp/characters/OptiChar', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
+      besitz: { artefakte: ["Marco's Mystic Marker", 'HighButNotFav'], mounts: [], gefaehrten: [] },
+      lieblingsartefakte: ["Marco's Mystic Marker"],
+    }) }, token);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); await wait(100);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
+    let tolBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(tolBtn) tolBtn.click();
+    await wait(150);
+    let tolZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    let tolSelect = Array.from(tolZeile.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'HighButNotFav'));
+    check('Favorit gewinnt INNERHALB der Toleranz gegen einen leicht höherwertigen Nicht-Favoriten (0,5 Punkte Abstand)', tolSelect && tolSelect.value === "Marco's Mystic Marker", tolSelect && tolSelect.value);
+
+    r = await api('/api/gp/characters/OptiChar', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
+      besitz: { artefakte: ["Marco's Mystic Marker", 'TooHighNotFav'], mounts: [], gefaehrten: [] },
+      lieblingsartefakte: ["Marco's Mystic Marker"],
+    }) }, token);
+    await win.ensureGpCharactersLoaded(true); await wait(200);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, ''); await wait(100);
+    win.gpResolveRowSpieler(neueGruppeIdx, 0, `OptiChar (${user})`); await wait(100);
+    tolBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0].querySelectorAll('button')).find(b => (b.title||'').startsWith('Bestes eigenes Setup'));
+    if(tolBtn) tolBtn.click();
+    await wait(150);
+    tolZeile = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    tolSelect = Array.from(tolZeile.querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'TooHighNotFav'));
+    check('Max Dmg gewinnt wieder AUSSERHALB der Toleranz (2 Punkte Abstand, über der Toleranz von 1)', tolSelect && tolSelect.value === 'TooHighNotFav', tolSelect && tolSelect.value);
+
     // Seit v0.27.0 (Nutzerwunsch "auch Sachen nicht doppelt zuweisen"): zwei
     // NEUE freie DPS-Zeilen ohne jede Vorbelegung, direkt hintereinander per
     // "Alle Zeilen optimieren" optimiert - sollen die zwei UNTERSCHIEDLICHEN
