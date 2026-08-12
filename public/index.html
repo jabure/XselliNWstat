@@ -5237,6 +5237,19 @@ function gpFremdFavoriten(kat, eigenerCharKey){
   }));
   return menge;
 }
+// Seit v0.32.0 (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist
+// als Heiler-bevorzugt markiert, landete aber auf einer DPS-Zeile): Einträge,
+// deren "Bevorzugt für"-Rolle gesetzt UND UNGLEICH der Zeilen-Rolle ist,
+// werden für diese Zeile ebenfalls wie "bereits vergeben" behandelt
+// (bevorzugt gemieden, mit Fallback) - so bleiben rollen-markierte Einträge
+// eher für die Zeilen frei, zu denen sie tatsächlich passen, statt einfach
+// wegen des höchsten Rohwerts an eine unpassende Rolle zu gehen.
+function gpRollenFremdMarkiert(kat, rolle){
+  const menge = new Set();
+  if(!kat.roleKey || !rolle) return menge;
+  kat.liste().forEach(e => { if(e[kat.roleKey] && e[kat.roleKey] !== rolle) menge.add(e.name); });
+  return menge;
+}
 // Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
 // Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
 // der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
@@ -5430,8 +5443,10 @@ function gpApplyBestSetup(row, belegt, gesperrteKategorien){
     const belegtSet = ((kat.dmgKey || kat.rollenKonfigurierbar) && belegt) ? belegt[kat.key] : null;
     let effektivTaken = belegtSet;
     const fremdFav = gpFremdFavoriten(kat, row.charKey);
-    if(fremdFav.size){
-      effektivTaken = belegtSet ? new Set([...belegtSet, ...fremdFav]) : fremdFav;
+    const rollenFremd = gpRollenFremdMarkiert(kat, row.rolle);
+    if(fremdFav.size || rollenFremd.size){
+      const zusatz = new Set([...fremdFav, ...rollenFremd]);
+      effektivTaken = belegtSet ? new Set([...belegtSet, ...zusatz]) : zusatz;
     }
     const best = gpBestOwned(kat, owned, row.rolle, favoriten, effektivTaken);
     if(best){
@@ -5860,6 +5875,7 @@ function gpOptimizerRegelnHtml(){
       <li><strong>Höchster Dmg-Buff-Wert</strong> gewinnt grundsätzlich.</li>
       <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen, auch Mount-Ausrüstungsbonus) - doppelte Werte bringen keinen zusätzlichen Dmg-Buff, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zum höchsten Wert keine freie Alternative, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
       <li><strong>Lieblingsartefakte anderer Charaktere werden geschont</strong> - ein Lieblingswert eines ANDEREN im Plan zugewiesenen Charakters wird für alle übrigen Zeilen (v. a. freie Namen ohne eigenes Profil) ebenfalls wie "bereits vergeben" behandelt, damit er nicht weggeschnappt wird, bevor der eigentliche Besitzer selbst optimiert wurde.</li>
+      <li><strong>Rollen-markierte Einträge bleiben für die passende Rolle reserviert</strong> - ein Artefakt mit gesetzter "Bevorzugt für"-Rolle wird für Zeilen einer ANDEREN Rolle ebenfalls bevorzugt gemieden, statt einfach wegen des höchsten Rohwerts dorthin zu gehen.</li>
       <li><strong>Pflicht: 1x pro 5er-Gruppe</strong> - markierte Einträge (z. B. der Gefährte "Skorpion") werden VOR allem anderen mindestens einmal je 5er-Segment (Dungeon-Gruppe bzw. Party A/B bei Trial) vergeben, sofern jemand im Segment sie besitzt.</li>
       <li><strong>Lieblingswert des Charakters</strong> (s. Charakter-Editor) - gewinnt auch innerhalb der obigen Toleranz gegen einen leicht höherwertigen, nicht bevorzugten Kandidaten; unter mehreren Favoriten zählt weiterhin deren höchster Wert.</li>
       <li><strong>Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse</strong> ("Bevorzugt für" bei Artefakten) - gleiche Toleranz-Regel, aber nachrangig zu Favoriten.</li>

@@ -1369,6 +1369,46 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     win.gpRemoveRow(neueGruppeIdx, protIdxFree); await wait(50);
     win.gpRemoveRow(neueGruppeIdx, protIdxA); await wait(50);
 
+    // Seit v0.32.0 (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist
+    // als Heiler-bevorzugt markiert, landete aber auf einer DPS-Zeile): ein
+    // rollen-markierter Eintrag soll bevorzugt bei der PASSENDEN Rolle
+    // landen, nicht einfach wegen des höchsten Rohwerts bei einer anderen.
+    // "RoleTagHeal" (Heiler, 50 %) ist absichtlich der mit Abstand höchste
+    // Wert im Test - ohne die Korrektur würde eine DPS-Zeile ihn trotzdem
+    // grabschen, obwohl eine Heiler-Zeile im selben Segment existiert.
+    win.showGpPage('referenz'); await wait(200);
+    const refArtefakteTableRolle = doc.getElementById('gpref-gpArtefakte');
+    win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
+    const neueArtZeileRolle = Array.from(refArtefakteTableRolle.querySelectorAll('tbody tr')).slice(-1)[0];
+    input(win, neueArtZeileRolle.querySelector('input[data-field="name"]'), 'RoleTagHeal');
+    input(win, neueArtZeileRolle.querySelector('input[data-field="buff"]'), '50');
+    const roleTagHealSelect = neueArtZeileRolle.querySelector('select[data-field="rolle"]');
+    if(roleTagHealSelect){ roleTagHealSelect.value = 'Heiler'; roleTagHealSelect.dispatchEvent(new win.Event('change', { bubbles: true })); }
+    await win.gpSaveReferenzlisten(); await wait(300);
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(50);
+    win.gpAddRow(neueGruppeIdx, 'Heiler'); await wait(100);
+    let rolleZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const rolleIdxDps = rolleZeilen.length - 2, rolleIdxHeal = rolleZeilen.length - 1;
+    const rolleDpsFeld = rolleZeilen[rolleIdxDps].querySelector('input[list="gpCharDatalist"]');
+    rolleDpsFeld.value = 'Gastspieler RolleDps';
+    rolleDpsFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    const rolleHealFeld = rolleZeilen[rolleIdxHeal].querySelector('input[list="gpCharDatalist"]');
+    rolleHealFeld.value = 'Gastspieler RolleHeal';
+    rolleHealFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await wait(100);
+    const rolleOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    if(rolleOptiBtn) rolleOptiBtn.click();
+    await wait(200);
+    rolleZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const rolleArtDps = Array.from(rolleZeilen[rolleIdxDps].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'RoleTagHeal'));
+    const rolleArtHeal = Array.from(rolleZeilen[rolleIdxHeal].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'RoleTagHeal'));
+    check('Rollen-markierter Top-Wert landet bei der PASSENDEN Rolle (Heiler bekommt RoleTagHeal)', rolleArtHeal && rolleArtHeal.value === 'RoleTagHeal', rolleArtHeal && rolleArtHeal.value);
+    check('Rollen-markierter Top-Wert wird NICHT einfach an eine unpassende Rolle vergeben (DPS bekommt ihn nicht)', rolleArtDps && rolleArtDps.value !== 'RoleTagHeal', rolleArtDps && rolleArtDps.value);
+    win.gpRemoveRow(neueGruppeIdx, rolleIdxHeal); await wait(50);
+    win.gpRemoveRow(neueGruppeIdx, rolleIdxDps); await wait(50);
+
     // Seit v0.28.0: "Alle Gruppen optimieren"-Knopf nur ab 2 Gruppen im Plan
     // sichtbar (Trial mit 2 Untergruppen oder mehrere Dungeon-Gruppen) - der
     // aktuell offene Plan hat an dieser Stelle bereits 2 Gruppen ("Gruppe 1"

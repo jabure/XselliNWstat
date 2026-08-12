@@ -332,6 +332,26 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.32.0: rollen-markierte Artefakte bleiben für die passende Rolle
+  reserviert (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist als
+  Heiler-bevorzugt markiert, landete aber auf einer DPS-Zeile).**
+  - Ursache: die "Bevorzugt für"-Rolle (`roleKey`) war bisher nur eine
+    POSITIVE Präferenz (gewinnt bei passender Rolle innerhalb der Toleranz,
+    s. v0.30.0) - für eine Zeile mit ANDERER Rolle gab es aber keinerlei
+    Ausschluss, ein hoher Rohwert setzte sich also einfach durch, egal ob
+    die Rollen-Markierung eigentlich zu einer anderen Zeile gehört hätte.
+  - Neue Funktion `gpRollenFremdMarkiert(kat, rolle)`: sammelt alle
+    Referenzeinträge, deren "Bevorzugt für"-Rolle gesetzt UND UNGLEICH der
+    Zeilen-Rolle ist. `gpApplyBestSetup` mischt diese Menge - wie schon die
+    fremden Favoriten (v0.31.0) - zusätzlich als "taken" in die Kandidaten-
+    suche der Zeile ein: bevorzugt gemieden, mit Fallback, falls keine
+    Alternative existiert. Ein Heiler-markiertes Artefakt bleibt so eher für
+    eine Heiler-Zeile reserviert, statt an eine DPS-Zeile zu gehen, nur weil
+    dort niemand anders zugreift.
+  - Optimierungsregeln-Sektion um diesen Punkt ergänzt.
+  - Smoke-Test um einen Fall mit einem absichtlich sehr hochwertigen,
+    Heiler-markierten Test-Artefakt erweitert (ohne Korrektur hätte eine
+    parallele DPS-Zeile es trotzdem bekommen) - alle 256 Checks grün.
 - **Seit v0.31.0: Charakter-Favoriten werden vor anderen Zeilen geschützt +
   Mount-Ausrüstungsbonus respektiert jetzt auch die Duplikat-Vermeidung
   (Nutzerbeispiel: "Xselli hat Nightflame als Favorit, wird aber Serafin -
