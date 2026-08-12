@@ -332,6 +332,42 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.31.0: Charakter-Favoriten werden vor anderen Zeilen geschützt +
+  Mount-Ausrüstungsbonus respektiert jetzt auch die Duplikat-Vermeidung
+  (Nutzerbeispiel: "Xselli hat Nightflame als Favorit, wird aber Serafin -
+  der gar keinen Favoriten eingestellt hat, weil kein erstellter Charakter -
+  zugeteilt"; "Mount-Bonus soll auch nicht zweimal das Gleiche sein").**
+  - **Favoriten-Schutz**: der Fehler entstand, weil ein Charakter-Favorit
+    außerhalb der Toleranz (s. v0.30.0) selbst nicht zum Zug kam (der
+    Charakter bekam etwas objektiv Besseres), das ungenutzte Favorit-Item
+    aber danach frei für JEDE ANDERE Zeile verfügbar blieb - insbesondere
+    freie Namen (die "alles besitzen", s. v0.26.0) griffen dann zu. Neue
+    Funktion `gpFremdFavoriten(kat, eigenerCharKey)` sammelt planweit die
+    Lieblingswerte ALLER ANDEREN zugewiesenen Charaktere (der eigene wird
+    ausgenommen); `gpApplyBestSetup` mischt diese Menge zusätzlich zum
+    normalen `belegt`-Set als "taken" in die Kandidatensuche der aktuellen
+    Zeile ein (nur für den Lookup, das ECHTE `belegt`-Set wird separat und
+    unverändert weitergeführt) - ein fremder Favorit wird also bevorzugt
+    gemieden, mit Fallback, falls keine Alternative existiert.
+  - **Mount-Ausrüstungsbonus jetzt auch dedupliziert**: die Kategorie hat
+    kein `dmgKey` (kein Rangwert, bisher "fix" = IMMER der erste eigene
+    Eintrag, unabhängig von anderen Zeilen). `gpBestOwned`s "fix"-Zweig
+    respektiert jetzt `taken` (erster NICHT bereits vergebener eigener
+    Eintrag, Fallback auf den allerersten). `gpBelegteWerte` und
+    `gpApplyBestSetup` behandeln Kategorien mit `rollenKonfigurierbar` jetzt
+    genauso wie welche mit `dmgKey` (vorher war Mount-Ausrüstungsbonus dort
+    komplett ausgenommen). Referenzliste bekommt dafür ebenfalls die
+    "Mehrfachvergabe erlaubt"-Checkbox (vorher nur bei den vier dmgKey-
+    Kategorien).
+  - Optimierungsregeln-Sektion um den neuen Favoriten-Schutz-Punkt ergänzt.
+  - Smoke-Test: ein bestehender Test (freier Name bekommt "fix" Mystische
+    Aura) musste angepasst werden, da Mount-Ausrüstungsbonus jetzt
+    dedupliziert; neuer Test für den Favoriten-Schutz (Charakter wählt wegen
+    Toleranz selbst NICHT den eigenen Favoriten, ein freier Name darf ihn
+    trotzdem nicht bekommen) - dabei die neuen Test-Referenzeinträge ans
+    Ende des Optimierer-Testblocks verschoben, damit sie nicht versehentlich
+    frühere, auf feste Referenzlisten-Inhalte angewiesene Tests verfälschen.
+    Alle 254 Checks grün.
 - **Seit v0.30.0: Lieblingsartefakte/Rollen-Vorschlag mit Toleranz statt nur
   bei exaktem Gleichstand (Nutzervorgabe: "max dmg, aber wenn's geht
   trotzdem die Lieblingsartefakte und die DPS/Heiler/Tank-Präferierung höher

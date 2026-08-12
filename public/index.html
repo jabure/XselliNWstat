@@ -5218,6 +5218,25 @@ function gpMehrfachErlaubt(kat, name){
   const e = gpKatItemByName(kat, name);
   return !!(e && e.mehrfachErlaubt);
 }
+// Seit v0.31.0 (Nutzerbeispiel "Xselli hat Nightflame als Favorit, wird aber
+// Serafin - der gar keinen Favoriten eingestellt hat, weil kein erstellter
+// Charakter - zugeteilt"): sammelt die Lieblingswerte ALLER ANDEREN im Plan
+// zugewiesenen Charaktere für diese Kategorie (planweit, wie die normale
+// Duplikat-Vermeidung). "eigenerCharKey" (row.charKey, bei freien Namen '')
+// wird ausgenommen - der eigene Favorit soll für den eigenen Charakter
+// natürlich ganz normal zur Verfügung stehen. Ohne favKey (Kategorie ohne
+// Favoriten-Konzept) immer eine leere Menge.
+function gpFremdFavoriten(kat, eigenerCharKey){
+  const menge = new Set();
+  if(!kat.favKey) return menge;
+  currentGpPlanData.groups.forEach(g => g.rows.forEach(row => {
+    if(!row.charKey || row.charKey === eigenerCharKey) return;
+    const rec = gpFindChar(row.charKey);
+    const fav = rec && rec.data && rec.data[kat.favKey];
+    if(fav) fav.forEach(n => menge.add(n));
+  }));
+  return menge;
+}
 // Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
 // Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
 // der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
@@ -5323,7 +5342,16 @@ function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
   if(kat.rollenKonfigurierbar && rolle && !gpOptimizeRolleErlaubt(kat, rolle)) return null;
   if(!ownedNames || !ownedNames.length) return '';
   const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
-  if(!rankKey) return kat.rollenKonfigurierbar ? ownedNames[0] : '';
+  if(!rankKey){
+    // Mount-Ausrüstungsbonus (kein Rangwert, "fix" übernommen): seit v0.31.0
+    // (Nutzerwunsch "Mount-Bonus soll auch nicht zweimal das Gleiche sein")
+    // wird auch hier "taken" respektiert - bevorzugt der erste NICHT bereits
+    // vergebene eigene Eintrag, mit Fallback auf den allerersten, falls alle
+    // eigenen Einträge schon vergeben sind (lieber ein Duplikat als leer).
+    if(!kat.rollenKonfigurierbar) return '';
+    const poolFix = taken ? ownedNames.filter(n => !taken.has(n)) : ownedNames;
+    return (poolFix.length ? poolFix : ownedNames)[0];
+  }
   const rankOf = n => {
     const e = gpKatItemByName(kat, n);
     return e && e[rankKey] !== undefined && e[rankKey] !== '' && !isNaN(e[rankKey]) ? Number(e[rankKey]) : null;
@@ -5370,14 +5398,25 @@ function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
 // Set bereits vergebener Werte in der Gruppe, s. gpBelegteWerte) - wird an
 // gpBestOwned als "taken" durchgereicht UND direkt danach um den frisch
 // vergebenen Wert ergänzt, damit nachfolgende Zeilen im selben Optimier-
-// Durchlauf ihn ebenfalls meiden. Gilt nur für Kategorien mit dmgKey (nicht
-// Mount-Ausrüstungsbonus - der wird ohnehin "fix" für alle gleich vergeben,
-// eine Diversifizierung ergäbe dort keinen Sinn).
+// Durchlauf ihn ebenfalls meiden.
+// Seit v0.31.0: gilt jetzt auch für Mount-Ausrüstungsbonus (Nutzerwunsch
+// "Mount-Bonus soll auch nicht zweimal das Gleiche sein") - vorher wurde
+// die Kategorie komplett übersprungen, jetzt zählt sie als "rollenKonfigu-
+// rierbar"-Kategorie mit dazu (s. gpBelegteWerte).
 // Seit v0.29.0: optionaler dritter Parameter "gesperrteKategorien" (Set von
 // kat.key) - Kategorien, die für DIESE Zeile von der "Pflicht: mind. 1x pro
 // 5er-Gruppe"-Zuteilung (gpErzwingePflichtItems) bereits gesetzt wurden und
 // deshalb NICHT von der normalen Bestwert-Suche überschrieben werden dürfen
 // (Pflicht hat Vorrang vor der sonstigen Optimierung).
+// Seit v0.31.0 (Nutzerbeispiel "Xselli hat Nightflame als Favorit, wird aber
+// Serafin - der gar keinen Favoriten eingestellt hat, weil kein erstellter
+// Charakter - zugeteilt"): Lieblingswerte ANDERER im Plan zugewiesener
+// Charaktere werden für diese Zeile zusätzlich wie "bereits vergeben"
+// behandelt (bevorzugt gemieden, mit Fallback) - ein Charakter-Favorit soll
+// nicht von einer weniger "berechtigten" Zeile (v. a. freien Namen ohne
+// eigenes Profil) weggeschnappt werden können, bevor der eigentliche
+// Besitzer selbst die Chance hatte, ihn zu bekommen. Der eigene Charakter
+// ist davon ausgenommen (s. gpFremdFavoriten).
 function gpApplyBestSetup(row, belegt, gesperrteKategorien){
   if(!row.charKey && !row.freierName) return false;
   const rec = row.charKey ? gpFindChar(row.charKey) : null;
@@ -5388,11 +5427,16 @@ function gpApplyBestSetup(row, belegt, gesperrteKategorien){
     if(gesperrteKategorien && gesperrteKategorien.has(kat.key)) return;
     const owned = rec ? besitz[kat.key] : kat.liste().map(e => e.name);
     const favoriten = kat.favKey && rec && rec.data ? rec.data[kat.favKey] : null;
-    const taken = (kat.dmgKey && belegt) ? belegt[kat.key] : null;
-    const best = gpBestOwned(kat, owned, row.rolle, favoriten, taken);
+    const belegtSet = ((kat.dmgKey || kat.rollenKonfigurierbar) && belegt) ? belegt[kat.key] : null;
+    let effektivTaken = belegtSet;
+    const fremdFav = gpFremdFavoriten(kat, row.charKey);
+    if(fremdFav.size){
+      effektivTaken = belegtSet ? new Set([...belegtSet, ...fremdFav]) : fremdFav;
+    }
+    const best = gpBestOwned(kat, owned, row.rolle, favoriten, effektivTaken);
     if(best){
       row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
-      if(taken) taken.add(best);
+      if(belegtSet) belegtSet.add(best); // das ECHTE (geteilte) belegt-Set aktualisieren, nicht die lokale Kopie
     }
   });
   return true;
@@ -5478,14 +5522,18 @@ function gpErzwingePflichtItems(nurGi){
 // Werte von Referenzeinträgen mit angehaktem "Mehrfachvergabe erlaubt"
 // (gpMehrfachErlaubt) fließen NICHT in die Belegungsliste ein - sie dürfen
 // also beliebig oft im Plan vergeben werden.
+// Seit v0.31.0: gilt jetzt auch für Mount-Ausrüstungsbonus (rollenKonfigu-
+// rierbar, aber ohne dmgKey) - Nutzerwunsch "Mount-Bonus soll auch nicht
+// zweimal das Gleiche sein". Vorher war die Kategorie hier komplett
+// ausgenommen, jeder Tank/Heiler bekam denselben "fixen" ersten Eintrag.
 function gpBelegteWerte(ausserGi, ausserRi){
   const belegt = {};
-  GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey) belegt[kat.key] = new Set(); });
+  GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey || kat.rollenKonfigurierbar) belegt[kat.key] = new Set(); });
   currentGpPlanData.groups.forEach((g, gi) => {
     g.rows.forEach((row, ri) => {
       if(gi === ausserGi && ri === ausserRi) return;
       GP_BESITZ_KATEGORIEN.forEach(kat => {
-        if(!kat.dmgKey) return;
+        if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
         const val = row[kat.rowField];
         if(val && !gpMehrfachErlaubt(kat, val)) belegt[kat.key].add(val);
       });
@@ -5773,7 +5821,7 @@ const GP_REF_SPECS = [
   // irgendjemand im Segment ihn besitzt (s. gpPflicht/gpErzwingePflichtItems).
   { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
   { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3}] },
+  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
   // dafür, dass der Gruppen-Optimierer (gpBestOwned) sie mitberücksichtigen
@@ -5810,7 +5858,8 @@ function gpOptimizerRegelnHtml(){
     <p class="helptext" style="margin-top:14px;">Priorität, in der der 🏆-Optimierer entscheidet (nicht änderbar, hier nur zur Übersicht):</p>
     <ol class="helptext" style="margin:4px 0 0 18px; padding:0;">
       <li><strong>Höchster Dmg-Buff-Wert</strong> gewinnt grundsätzlich.</li>
-      <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen) - doppelte Werte bringen keinen zusätzlichen Dmg-Buff, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zum höchsten Wert keine freie Alternative, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
+      <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen, auch Mount-Ausrüstungsbonus) - doppelte Werte bringen keinen zusätzlichen Dmg-Buff, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zum höchsten Wert keine freie Alternative, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
+      <li><strong>Lieblingsartefakte anderer Charaktere werden geschont</strong> - ein Lieblingswert eines ANDEREN im Plan zugewiesenen Charakters wird für alle übrigen Zeilen (v. a. freie Namen ohne eigenes Profil) ebenfalls wie "bereits vergeben" behandelt, damit er nicht weggeschnappt wird, bevor der eigentliche Besitzer selbst optimiert wurde.</li>
       <li><strong>Pflicht: 1x pro 5er-Gruppe</strong> - markierte Einträge (z. B. der Gefährte "Skorpion") werden VOR allem anderen mindestens einmal je 5er-Segment (Dungeon-Gruppe bzw. Party A/B bei Trial) vergeben, sofern jemand im Segment sie besitzt.</li>
       <li><strong>Lieblingswert des Charakters</strong> (s. Charakter-Editor) - gewinnt auch innerhalb der obigen Toleranz gegen einen leicht höherwertigen, nicht bevorzugten Kandidaten; unter mehreren Favoriten zählt weiterhin deren höchster Wert.</li>
       <li><strong>Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse</strong> ("Bevorzugt für" bei Artefakten) - gleiche Toleranz-Regel, aber nachrangig zu Favoriten.</li>
