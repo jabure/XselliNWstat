@@ -1073,7 +1073,15 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     await wait(150);
     const freieTankZeileNach = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[freieTankIdx];
     const freieTankSelects = freieTankZeileNach.querySelectorAll('select');
-    check('Freier Name (Tank): Rollen-Präferenz gilt auch ohne Profil (Tentacle Rod statt höherem Rohwert)', freieTankSelects[1] && freieTankSelects[1].value === 'Tentacle Rod', freieTankSelects[1] && freieTankSelects[1].value);
+    // Seit v0.29.0 hat der reine Dmg-Buff-Wert Vorrang vor dem Rollen-
+    // Vorschlag (Nutzervorgabe "zuerst den besten dmg Buff, dann den
+    // Vorschlag in der Referenzliste zur präferierten Klasse" - Rollen-
+    // Präferenz ist jetzt nur noch der LETZTE Tiebreaker bei Gleichstand,
+    // kein Filter mehr davor). "Icon-Test-Artefakt" (10,56 %) ist planweit
+    // bereits in Gruppe 0 vergeben, der nächsthöhere freie Wert ist "Xeleth's
+    // Blast Scepter / Halaster's" (6 %) - Tentacle Rod (4,23 %, Tank-Tag)
+    // gewinnt hier NICHT mehr trotz Rollen-Treffer, da sein Rohwert niedriger ist.
+    check('Freier Name (Tank): höchster Dmg-Buff-Wert gewinnt vor dem Rollen-Vorschlag', freieTankSelects[1] && freieTankSelects[1].value === "Xeleth's Blast Scepter / Halaster's", freieTankSelects[1] && freieTankSelects[1].value);
     // Seit v0.27.0: Zeile 0 trägt bereits "Zauberkessel der Vettel" als Mount
     // (aus dem "Tank"-Test weiter oben, dort unverändert seit dem DPS-
     // Zwischenschritt) - wird gemieden, nächstbester Mount ist Pegasus (7,89 %).
@@ -1258,6 +1266,86 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // aktuell offene Plan hat an dieser Stelle bereits 2 Gruppen ("Gruppe 1"
     // + die weiter oben angelegte "Neue Gruppe"), der Knopf muss also da sein.
     check('"Alle Gruppen optimieren"-Knopf ab 2 Gruppen im Plan vorhanden', gpCards().length > 1 && Array.from(doc.querySelectorAll('#gpPlanBoard .btnrow button')).some(b => b.textContent.includes('Alle Gruppen optimieren')), gpCards().length);
+
+    // Seit v0.29.0 (Nutzerwunsch "in der geöffneten Gruppe einen Button um
+    // Ausrüstung zurückzusetzen"): setzt Artefakt/Mount/Mount-Bonus/Gefährte/
+    // Gefährten-Bonus aller Zeilen der Gruppe auf "-" zurück, Rolle und
+    // Spieler-Zuweisung bleiben unangetastet.
+    win.gpUpdateRowField(neueGruppeIdx, 0, 'artefakt', 'Tentacle Rod'); win.renderGpPlanBoard(); await wait(100);
+    const spielerVorReset = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0].querySelector('input[list="gpCharDatalist"]').value;
+    const resetBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.entry-head button')).find(b => b.textContent.includes('Ausrüstung zurücksetzen'));
+    check('"Ausrüstung zurücksetzen"-Knopf im Gruppen-Header vorhanden', !!resetBtn);
+    win.confirm = () => true;
+    if(resetBtn) resetBtn.click();
+    await wait(150);
+    const zeileNachReset = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr')[0];
+    const spielerNachReset = zeileNachReset.querySelector('input[list="gpCharDatalist"]').value;
+    const artefaktNachReset = Array.from(zeileNachReset.querySelectorAll('select')).find(sel => (sel.getAttribute('onchange')||'').includes("'artefakt'"));
+    check('"Ausrüstung zurücksetzen" leert Artefakt/Mount/etc. aller Zeilen', artefaktNachReset && artefaktNachReset.value === '', artefaktNachReset && artefaktNachReset.value);
+    check('"Ausrüstung zurücksetzen" lässt die Spieler-Zuweisung unangetastet', spielerNachReset === spielerVorReset, [spielerVorReset, spielerNachReset]);
+
+    // Seit v0.29.0 (Nutzerbeispiel "der Skorpion soll immer einmal
+    // ausgerüstet sein pro Gruppe (5er)"): "Pflicht: 1x pro 5er-Gruppe" hat
+    // Vorrang vor der sonstigen Bestwert-Optimierung. Isolierter Test: zwei
+    // frische Charaktere, die JEWEILS einen eigenen, klar höherwertigen
+    // Gefährten besitzen (TestGefA/TestGefB, Buff weit über allem sonst) -
+    // OHNE Pflicht-Regel würde Skorpion nie natürlich gewählt (jeder hat
+    // seinen eigenen klar besseren Favoriten, kein Anti-Duplikat-Konflikt
+    // zwingt zum Ausweichen). Mit Pflicht muss trotzdem GENAU eine der
+    // beiden Zeilen Skorpion bekommen.
+    let sharedVorPflicht = (await api('/api/shared')).data;
+    win.showGpPage('referenz'); await wait(300);
+    const refGefTablePflicht = doc.getElementById('gpref-gpGefaehrten');
+    const gefFieldsPflicht = [{key:'name',label:'Name'},{key:'beschreibung',label:'Beschreibung'},{key:'buff',label:'Dmg Buff % (Support)',numeric:true},{key:'schaden',label:'Schaden (DPS)',numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',checkbox:true}];
+    win.gpAddRefRow('gpref-gpGefaehrten', gefFieldsPflicht);
+    win.gpAddRefRow('gpref-gpGefaehrten', gefFieldsPflicht);
+    const neueGefZeilen = Array.from(refGefTablePflicht.querySelectorAll('tbody tr')).slice(-2);
+    input(win, neueGefZeilen[0].querySelector('input[data-field="name"]'), 'TestGefA');
+    input(win, neueGefZeilen[0].querySelector('input[data-field="buff"]'), '99');
+    input(win, neueGefZeilen[1].querySelector('input[data-field="name"]'), 'TestGefB');
+    input(win, neueGefZeilen[1].querySelector('input[data-field="buff"]'), '98');
+    const skorpionPflichtCb = Array.from(refGefTablePflicht.querySelectorAll('tbody tr')).find(tr => tr.querySelector('input[data-field="name"]').value === 'Skorpion')?.querySelector('input[data-field="pflichtProGruppe"]');
+    check('Referenzlisten: Gefährten haben eine "Pflicht: 1x pro 5er-Gruppe"-Checkbox', !!skorpionPflichtCb);
+    if(skorpionPflichtCb){ skorpionPflichtCb.checked = true; skorpionPflichtCb.dispatchEvent(new win.Event('change', { bubbles: true })); }
+    await win.gpSaveReferenzlisten(); await wait(300);
+    const sharedNachPflicht = (await api('/api/shared')).data;
+    const skorpionGespeichertPflicht = (sharedNachPflicht.gpGefaehrten || []).find(e => e.name === 'Skorpion');
+    check('"Pflicht: 1x pro 5er-Gruppe" wird gespeichert', skorpionGespeichertPflicht && skorpionGespeichertPflicht.pflichtProGruppe === true, skorpionGespeichertPflicht);
+    check('TestGefA/TestGefB wurden über die Referenzliste angelegt', (sharedNachPflicht.gpGefaehrten||[]).some(e=>e.name==='TestGefA'&&e.buff===99) && (sharedNachPflicht.gpGefaehrten||[]).some(e=>e.name==='TestGefB'&&e.buff===98), (sharedNachPflicht.gpGefaehrten||[]).map(e=>[e.name,e.buff]));
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'PflichtCharA' }) }, token);
+    r = await api('/api/gp/characters/PflichtCharA', { method: 'PUT', body: JSON.stringify({ klasse:'Kleriker', rollen:{dps:false,heal:true,tank:false}, besitz:{ gefaehrten:['Skorpion','TestGefA'] } }) }, token);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'PflichtCharB' }) }, token);
+    r = await api('/api/gp/characters/PflichtCharB', { method: 'PUT', body: JSON.stringify({ klasse:'Kleriker', rollen:{dps:false,heal:true,tank:false}, besitz:{ gefaehrten:['Skorpion','TestGefB'] } }) }, token);
+    check('Pflicht-Test: PflichtCharA/PflichtCharB angelegt', r.status === 200, r.status);
+    await win.ensureGpCharactersLoaded(true); await wait(300);
+    win.showGpPage('planung'); await wait(200);
+    win.renderGpPlanBoard(); await wait(200);
+    // Zeile 0 (OptiChar) ist ebenfalls Teil desselben 5er-Segments (Dungeon-
+    // Gruppe) und besitzt zufällig auch Skorpion mit leerem Gefährten-Feld
+    // (vom "Ausrüstung zurücksetzen"-Test kurz zuvor) - würde die Pflicht-
+    // Zuteilung sonst an sich ziehen, bevor die eigentlichen Test-Zeilen
+    // überhaupt geprüft werden. Hier bewusst mit einem eigenen Wert befüllt,
+    // damit der Test sauber auf PflichtCharA/PflichtCharB fokussiert bleibt.
+    win.gpUpdateRowField(neueGruppeIdx, 0, 'gefaehrte', 'Flapjack');
+    win.gpAddRow(neueGruppeIdx, 'Heiler'); await wait(50);
+    win.gpAddRow(neueGruppeIdx, 'Heiler'); await wait(100);
+    let pflichtZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const pflichtIdxA = pflichtZeilen.length - 2, pflichtIdxB = pflichtZeilen.length - 1;
+    win.gpResolveRowSpieler(neueGruppeIdx, pflichtIdxA, `PflichtCharA (${user})`); await wait(50);
+    win.gpResolveRowSpieler(neueGruppeIdx, pflichtIdxB, `PflichtCharB (${user})`); await wait(100);
+    const pflichtOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
+    if(pflichtOptiBtn) pflichtOptiBtn.click();
+    await wait(200);
+    pflichtZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
+    const pflichtGefA = Array.from(pflichtZeilen[pflichtIdxA].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Skorpion'));
+    const pflichtGefB = Array.from(pflichtZeilen[pflichtIdxB].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'Skorpion'));
+    const pflichtWerte = [pflichtGefA && pflichtGefA.value, pflichtGefB && pflichtGefB.value];
+    check('Pflicht-Regel: genau eine der beiden Zeilen bekommt Skorpion, obwohl beide eigentlich ihren eigenen höherwertigen Gefährten bevorzugen würden', pflichtWerte.includes('Skorpion') && pflichtWerte.filter(v=>v==='Skorpion').length === 1, pflichtWerte);
+    check('Pflicht-Regel: die ANDERE Zeile behält trotzdem ihren eigenen (höherwertigen) Gefährten', (pflichtWerte[0]==='Skorpion'?pflichtWerte[1]==='TestGefB':pflichtWerte[0]==='TestGefA'), pflichtWerte);
+    win.gpRemoveRow(neueGruppeIdx, pflichtIdxB); await wait(50);
+    win.gpRemoveRow(neueGruppeIdx, pflichtIdxA); await wait(50);
     // Mit nur einer verbleibenden Gruppe muss der Knopf wieder verschwinden.
     while(gpCards().length > 1){ win.gpRemoveGroup(gpCards().length - 1); await wait(50); }
     check('"Alle Gruppen optimieren"-Knopf verschwindet wieder bei nur einer Gruppe', !Array.from(doc.querySelectorAll('#gpPlanBoard .btnrow button')).some(b => b.textContent.includes('Alle Gruppen optimieren')), gpCards().length);

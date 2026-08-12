@@ -332,6 +332,53 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.29.0: "Ausrüstung zurücksetzen"-Knopf + neu geordnete Optimierer-
+  Priorität + "Pflicht: 1x pro 5er-Gruppe" (Nutzervorgabe).**
+  - **"Ausrüstung zurücksetzen"** (`gpResetAusruestung(gi)`): neuer Knopf im
+    Gruppen-Header, setzt Artefakt/Mount/Mount-Bonus/Gefährte/Gefährten-Bonus
+    ALLER Zeilen dieser Gruppe auf "–" zurück (mit Bestätigungsdialog).
+    Rolle und Spieler-Zuweisung bleiben unangetastet.
+  - **Optimierer-Priorität neu geordnet** (Nutzervorgabe: "zuerst den besten
+    dmg Buff", "doppelte bringen nicht mehr dmg außer angekreuzt", "dann
+    persönliche Präferierung", "dann den Vorschlag in der Referenzliste zur
+    präferierten Klasse"): `gpBestOwned` wählt jetzt strikt in dieser
+    Reihenfolge - (1) höchster Rangwert unter den NICHT-bereits-vergebenen
+    Kandidaten (Fallback auf die volle Liste, falls das keinen Kandidaten
+    übrig lässt), (2) bei GLEICHSTAND Lieblingswert des Charakters, (3) bei
+    weiterem Gleichstand der Referenzlisten-Rollen-Vorschlag (`roleKey`).
+    **Verhaltensänderung ggü. v0.23-v0.28**: die Rollen-Präferenz war bisher
+    ein PRIMÄRER FILTER (vor dem Rangwert) - jetzt ist sie nur noch der
+    LETZTE Tiebreaker, ein objektiv höherer Dmg-Buff gewinnt jetzt immer,
+    auch gegen einen rollen-passenden, aber schwächeren Eintrag.
+  - **"Pflicht: 1x pro 5er-Gruppe"** (Nutzerbeispiel: der Gefährte "Skorpion"
+    soll immer einmal pro 5er-Gruppe ausgerüstet sein): neues Checkbox-Feld
+    `pflichtProGruppe` bei Artefakten, Mounts, Gefährten und Gefährten-
+    Verstärkung. `gpFuenferSegmente()` zerlegt den Plan in seine 5er-
+    Einheiten (Dungeon-Gruppe = 1 Segment, Trial = Party A/B je 1 Segment,
+    Zeilen ohne Party zählen zu keinem Segment). `gpErzwingePflichtItems
+    (nurGi)` läuft VOR der normalen Bestwert-Optimierung: fehlt einem
+    Segment noch jedes Pflicht-Item einer Kategorie, wird es einer
+    passenden besetzten Zeile (bevorzugt mit noch leerem Feld) zugeteilt,
+    sofern die Zeile (bzw. ihr Charakter) es überhaupt besitzt - sonst
+    bleibt das Segment ohne (niemand besitzt es). Das gesetzte Feld wird
+    gesperrt (`gesperrteKategorien`, neuer 3. Parameter von
+    `gpApplyBestSetup`), damit die nachfolgende normale Optimierung es nicht
+    wieder überschreibt.
+  - `gpOptimizeGroup`/`gpOptimizePlan` rufen `gpErzwingePflichtItems` zuerst
+    auf (Gruppen-Knopf nur für die eigene Gruppe, Plan-Knopf für den ganzen
+    Plan); `gpOptimizeRow` (einzelne Zeile) bewusst NICHT, da die Pflicht-
+    Zuteilung potenziell ANDERE Zeilen verändern kann - überraschend für
+    einen "nur diese eine Zeile"-Knopf.
+  - Neue Sektion "Optimierungsregeln" auf der Referenzlisten-Seite komplett
+    überarbeitet: nummerierte Prioritätsliste (Rangwert > Duplikat-Vermeidung
+    > Pflicht-Items > Favoriten > Rollen-Vorschlag) statt der alten
+    unsortierten Aufzählung.
+  - Smoke-Test: ein bestehender Test (Rollen-Präferenz ohne Profil) musste an
+    die neue Priorität angepasst werden (Rohwert gewinnt jetzt vor dem
+    Rollen-Tag); neue Tests für "Ausrüstung zurücksetzen" und "Pflicht: 1x
+    pro 5er-Gruppe" (inkl. eines Falls, in dem beide Zeilen ohne die
+    Pflicht-Regel NIE natürlich zu dem Item gegriffen hätten) ergänzt - alle
+    247 Checks grün.
 - **Seit v0.28.0: Duplikat-Vermeidung planweit (statt nur pro Gruppe) +
   "Mehrfachvergabe erlaubt"-Ausnahme + editierbare Optimierungsregeln
   (Nutzervorgabe: "im gesamten [Plan] soll nichts doppelt sein außer es ist
