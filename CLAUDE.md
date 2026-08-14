@@ -332,6 +332,64 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.33.0: Optimierer komplett auf "Gesamtbild"-Betrachtung
+  umgestellt statt Zeile-für-Zeile (ausführlich mit Xselli abgesprochene
+  Umstellung, siehe Chat-Verlauf - kein einzelnes Bugfix-Beispiel, sondern
+  ein grundlegend neuer Ablauf).**
+  - **Bisher (bis v0.32.0)**: jede Zeile wurde einzeln, nacheinander
+    optimiert (`gpApplyBestSetup` pro Zeile, `gpBestOwned` als Rangwert-
+    Picker) - Favoriten-/Rollen-Schutz vor anderen Zeilen (v0.31/v0.32)
+    waren nachträgliche Sonderregeln obendrauf (`gpFremdFavoriten`,
+    `gpRollenFremdMarkiert`), die eine Zeile vor fremden Ansprüchen
+    schützten, aber selbst keine Gesamtbetrachtung anstellten.
+  - **Jetzt**: neue Funktion `gpOptimiereKategorieGesamtbild(kat, zeilen,
+    belegtSet)` bekommt ALLE zu optimierenden Zeilen einer Kategorie auf
+    einmal und entscheidet in zwei Schritten:
+    1. **Favoriten reservieren**: jede Zeile mit einem besessenen
+       Lieblingswert innerhalb der Toleranz zu ihrem eigenen Bestwert
+       bekommt ihn reserviert. Wollen mehrere Zeilen DENSELBEN Favoriten,
+       wird für jede Zeile durchgerechnet, was die GESAMTSUMME (nur diese
+       Kategorie) wäre, wenn sie ihn bekommt und die anderen mit ihrem
+       zweitbesten Wert auskommen müssen - die Variante mit der höheren
+       Summe gewinnt, bei Gleichstand die zuerst in der Zeilenliste
+       stehende ("wer zuerst mahlt" gilt NUR bei exakt gleicher Summe).
+    2. **Rest von oben (bestem Wert) nach unten verteilen**: für jeden noch
+       offenen Wert zuerst an eine passende Rollen-Markierung, sonst
+       bevorzugt an eine Zeile OHNE eigene Favoriten (die verliert dadurch
+       nichts), sonst an die zuerst-in-der-Liste stehende offene Zeile.
+    Ersetzt damit `gpFremdFavoriten`/`gpRollenFremdMarkiert` komplett (jetzt
+    unnötig, da die Gesamtbild-Betrachtung das organisch mit abdeckt) -
+    beide Funktionen wurden entfernt. `gpBestOwned`/`gpApplyBestSetup`
+    ebenfalls entfernt (nicht mehr aufgerufen); `gpErzwingePflichtItems`
+    (Pflicht-Zuteilung) hat jetzt eine eigene, einfache inline Rangwert-
+    Ermittlung statt sich auf `gpBestOwned` zu stützen.
+  - **Duplikat-Fallback-Bug beim Umbau entdeckt und korrigiert**: die neue
+    Gesamtbild-Schleife markierte einen vergebenen Wert sofort als "lokal
+    vergeben" OHNE Rückfallmöglichkeit für eine Zeile, die am Ende gar
+    keine Alternative mehr hatte - eigener Fallback-Durchlauf danach
+    ergänzt (jede noch unversorgte Zeile bekommt trotzdem ihren besten
+    eigenen Wert, auch wenn er dadurch dupliziert wird).
+  - `gpBelegteWerte(ausserGi, ausserRi)`: `ausserRi` ist jetzt optional -
+    ohne Angabe wird die GANZE Gruppe `ausserGi` ausgeschlossen (für die
+    Gesamtbild-Optimierung einer Gruppe/eines Plans), mit Angabe weiterhin
+    nur eine einzelne Zeile (für `gpOptimizeRow`, wo die "Gesamtbild"-
+    Betrachtung mangels mehrerer Zeilen ohnehin auf eine einzelne
+    zusammenschrumpft). Neue Helper-Funktion `gpPflichtWerteNachtragen`
+    trägt die von `gpErzwingePflichtItems` innerhalb EINER Gruppe direkt
+    gesetzten Werte nachträglich ins `belegt`-Set ein.
+  - `gpOptimizeRow`/`gpOptimizeGroup`/`gpOptimizePlan` bauen jetzt jeweils
+    EINMAL die Zeilen-/Belegungs-Listen pro Kategorie und rufen
+    `gpOptimiereKategorieGesamtbild` einmal pro Kategorie auf (statt vorher
+    pro Zeile ein Funktionsaufruf).
+  - Optimierungsregeln-Sektion auf der Referenzlisten-Seite komplett
+    umformuliert (Ablauf statt Prioritätsliste, erwähnt jetzt explizit die
+    Gesamtsumme-Konfliktlösung).
+  - Smoke-Test: der bestehende Duplikat-Fallback-Test deckte den oben
+    beschriebenen Bug auf; ein Test wurde umgebaut, um die neue "zwei
+    Charaktere wollen denselben Favoriten, höhere Gesamtsumme gewinnt"-
+    Logik direkt zu prüfen (vorheriger Test zur "Fremde-Favoriten-Schutz"-
+    Spezialregel entfiel, da die Spezialregel selbst entfiel). Alle 256
+    Checks grün.
 - **Seit v0.32.0: rollen-markierte Artefakte bleiben für die passende Rolle
   reserviert (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist als
   Heiler-bevorzugt markiert, landete aber auf einer DPS-Zeile).**

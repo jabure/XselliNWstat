@@ -5147,7 +5147,7 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 // vorhanden) - wird seit v0.20.0 im Board neben der Auswahl als Badge mit
 // Icon angezeigt (Nutzerwunsch "auch der dmg buff angezeigt wird, mit den
 // Icons"). Seit v0.21.0 haben auch Gefährten/Gefährten-Verstärkung ein
-// dmgKey ("buff") - Voraussetzung für den Gruppen-Optimierer (gpBestOwned).
+// dmgKey ("buff") - Voraussetzung für den Gruppen-Optimierer (gpOptimiereKategorieGesamtbild).
 // Mount-Ausrüstungsbonus bleibt ohne dmgKey (rein beschreibend, kein
 // eigener Zahlenwert in der Referenzliste).
 // rowField: wie das jeweilige Board-Zeilenfeld heißt (gpNewSlot()) - macht
@@ -5218,38 +5218,6 @@ function gpMehrfachErlaubt(kat, name){
   const e = gpKatItemByName(kat, name);
   return !!(e && e.mehrfachErlaubt);
 }
-// Seit v0.31.0 (Nutzerbeispiel "Xselli hat Nightflame als Favorit, wird aber
-// Serafin - der gar keinen Favoriten eingestellt hat, weil kein erstellter
-// Charakter - zugeteilt"): sammelt die Lieblingswerte ALLER ANDEREN im Plan
-// zugewiesenen Charaktere für diese Kategorie (planweit, wie die normale
-// Duplikat-Vermeidung). "eigenerCharKey" (row.charKey, bei freien Namen '')
-// wird ausgenommen - der eigene Favorit soll für den eigenen Charakter
-// natürlich ganz normal zur Verfügung stehen. Ohne favKey (Kategorie ohne
-// Favoriten-Konzept) immer eine leere Menge.
-function gpFremdFavoriten(kat, eigenerCharKey){
-  const menge = new Set();
-  if(!kat.favKey) return menge;
-  currentGpPlanData.groups.forEach(g => g.rows.forEach(row => {
-    if(!row.charKey || row.charKey === eigenerCharKey) return;
-    const rec = gpFindChar(row.charKey);
-    const fav = rec && rec.data && rec.data[kat.favKey];
-    if(fav) fav.forEach(n => menge.add(n));
-  }));
-  return menge;
-}
-// Seit v0.32.0 (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist
-// als Heiler-bevorzugt markiert, landete aber auf einer DPS-Zeile): Einträge,
-// deren "Bevorzugt für"-Rolle gesetzt UND UNGLEICH der Zeilen-Rolle ist,
-// werden für diese Zeile ebenfalls wie "bereits vergeben" behandelt
-// (bevorzugt gemieden, mit Fallback) - so bleiben rollen-markierte Einträge
-// eher für die Zeilen frei, zu denen sie tatsächlich passen, statt einfach
-// wegen des höchsten Rohwerts an eine unpassende Rolle zu gehen.
-function gpRollenFremdMarkiert(kat, rolle){
-  const menge = new Set();
-  if(!kat.roleKey || !rolle) return menge;
-  kat.liste().forEach(e => { if(e[kat.roleKey] && e[kat.roleKey] !== rolle) menge.add(e.name); });
-  return menge;
-}
 // Anzeigetext für eine Dropdown-Option: bei Kategorien mit dmgKey (Artefakte,
 // Mounts, Gefährten, Gefährten-Verstärkung) wird der Dmg-Buff-Wert direkt in
 // der Option angehängt (Nutzerwunsch: Prozentwert schon bei der Auswahl
@@ -5303,158 +5271,166 @@ function gpGroupDmgBuffSum(g){
   });
   return sum;
 }
-// Seit v0.21.0 (Nutzerwunsch "Gruppen-Optimierung mit Artefakte/Gefährten"):
-// wählt für einen Charakter, über alle Kategorien mit dmgKey (Artefakte,
-// Mounts, Gefährten, Gefährten-Verstärkung), aus dessen ANGEKREUZTEN
-// Besitz-Einträgen jeweils den mit dem höchsten Dmg-Buff-Wert. Kategorien
-// ohne Besitz-Eintrag oder ohne dmgKey (Mount-Ausrüstungsbonus) bleiben
-// unangetastet. Bewusst PRO CHARAKTER statt eines fremden Gruppen-weiten
-// Zuteilungs-Algorithmus: in Neverwinter rüstet jeder Spieler sich selbst
-// aus, es gibt nichts, was zwischen Zeilen "aufgeteilt" werden müsste - eine
-// ganze Gruppe optimieren heißt hier also: diese Auswahl für jede Zeile mit
-// zugewiesenem Charakter einmal anwenden (gpOptimizeGroup).
-//
-// Seit v0.29.0 gilt eine KLARE, vom Nutzer vorgegebene Prioritäts-Kette
-// (vorher war die Rollen-Präferenz fälschlich VOR dem Rangwert gewichtet):
-//   1. Höchster Dmg-Buff-Wert ("zuerst den besten dmg Buff reinbekommen")
-//   2. Keine Doppelvergabe im Plan (s. taken/gpBelegteWerte), außer erlaubt
-//      ("doppelte Sachen bringen nicht mehr dmg außer angekreuzt") - wird
-//      VOR Schritt 1 als Kandidatenpool gefiltert (mit Fallback, s. u.)
-//   3. Lieblingswert des Charakters (favoriten) als Tiebreaker
-//   4. Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse (roleKey) als
-//      LETZTER Tiebreaker ("dann den Vorschlag in der Referenzliste zur
-//      präferierten Klasse")
-// - rollenKonfigurierbar: Kategorie wird für die Zeilen-Rolle NICHT
-//   angefasst, wenn die editierbare Regel (gpOptimizerRegeln) das nicht
-//   erlaubt -> gibt null zurück ("nicht anfassen", ausdrücklich verschieden
-//   von "" = "auf leer zurücksetzen").
-// - Ohne dmgKey (Mount-Ausrüstungsbonus) aber MIT rollenKonfigurierbar für
-//   die passende Rolle: es gibt keine Rangzahl zum Sortieren, daher wird
-//   einfach der (erste) eigene Eintrag "fix" übernommen.
-// - dpsDmgKey: bei Rolle DPS wird statt dmgKey dieses Feld zum Sortieren
-//   verwendet (Gefährten: DPS nach höchstem eigenen Schaden).
-// Seit v0.29.0 gilt eine KLARE, vom Nutzer vorgegebene Prioritäts-Kette
-// (vorher war die Rollen-Präferenz fälschlich VOR dem Rangwert gewichtet):
-//   1. Höchster Dmg-Buff-Wert ("zuerst den besten dmg Buff reinbekommen")
-//   2. Keine Doppelvergabe im Plan (s. taken/gpBelegteWerte), außer erlaubt
-//      ("doppelte Sachen bringen nicht mehr dmg außer angekreuzt") - wird
-//      VOR Schritt 1 als Kandidatenpool gefiltert (mit Fallback, s. u.)
-//   3. Lieblingswert des Charakters (favoriten)
-//   4. Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse (roleKey)
-// Seit v0.30.0 (Nutzervorgabe "max dmg, aber wenn's geht trotzdem die
-// Lieblingsartefakte und die Rollen-Präferierung höher setzen"): Favoriten
-// und Rollen-Vorschlag sind NICHT mehr nur ein Tiebreaker bei EXAKTEM
-// Gleichstand, sondern gewinnen auch gegen einen leicht höherwertigen,
-// nicht-präferierten Kandidaten - solange der Wertunterschied innerhalb der
-// editierbaren Toleranz (gpOptimizerRegeln.toleranz, Prozentpunkte, s.
-// Referenzlisten-Seite) liegt. Max Dmg bleibt aber das Grundziel: außerhalb
-// der Toleranz gewinnt weiterhin der objektiv höhere Wert, und selbst
-// INNERHALB der Toleranz wird unter mehreren Favoriten/Rollen-Treffern der
-// mit dem höchsten Wert gewählt (nicht einfach irgendeiner).
-function gpBestOwned(kat, ownedNames, rolle, favoriten, taken){
-  if(kat.rollenKonfigurierbar && rolle && !gpOptimizeRolleErlaubt(kat, rolle)) return null;
-  if(!ownedNames || !ownedNames.length) return '';
-  const rankKey = (kat.dpsDmgKey && rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
-  if(!rankKey){
-    // Mount-Ausrüstungsbonus (kein Rangwert, "fix" übernommen): seit v0.31.0
-    // (Nutzerwunsch "Mount-Bonus soll auch nicht zweimal das Gleiche sein")
-    // wird auch hier "taken" respektiert - bevorzugt der erste NICHT bereits
-    // vergebene eigene Eintrag, mit Fallback auf den allerersten, falls alle
-    // eigenen Einträge schon vergeben sind (lieber ein Duplikat als leer).
-    if(!kat.rollenKonfigurierbar) return '';
-    const poolFix = taken ? ownedNames.filter(n => !taken.has(n)) : ownedNames;
-    return (poolFix.length ? poolFix : ownedNames)[0];
-  }
-  const rankOf = n => {
-    const e = gpKatItemByName(kat, n);
-    return e && e[rankKey] !== undefined && e[rankKey] !== '' && !isNaN(e[rankKey]) ? Number(e[rankKey]) : null;
-  };
-  const istFavorit = n => !!favoriten && favoriten.includes(n);
-  const istRollenTreffer = n => { const e = gpKatItemByName(kat, n); return !!(kat.roleKey && rolle && e && e[kat.roleKey] === rolle); };
-  // Schritt 2: Doppelvergabe-Kandidaten bevorzugt ausschließen, außer es
-  // gäbe dadurch GAR keinen Kandidaten mehr (Fallback auf die volle Liste -
-  // lieber ein Duplikat als gar keine Auswahl).
-  const pool = taken ? ownedNames.filter(n => !taken.has(n)) : ownedNames;
-  const quelle = pool.length ? pool : ownedNames;
-  // Schritt 1: höchsten Rangwert ermitteln.
-  let bestVal = -Infinity;
-  const bewertet = [];
-  quelle.forEach(n => { const val = rankOf(n); if(val !== null){ bewertet.push(n); if(val > bestVal) bestVal = val; } });
-  if(!bewertet.length) return '';
-  // Höchstwertigen Kandidaten aus einer Teilmenge picken (bei mehreren mit
-  // demselben Höchstwert wird der erste gefundene genommen).
-  const hoechster = liste => { let best = liste[0], bestV = rankOf(best); liste.forEach(n => { const v = rankOf(n); if(v > bestV){ bestV = v; best = n; } }); return best; };
-  const toleranz = gpOptimizerToleranz();
-  // Schritt 3+4: Favoriten bzw. Rollen-Vorschlag gewinnen auch gegen einen
-  // objektiv (leicht) besseren, nicht-präferierten Kandidaten, solange der
-  // Abstand zum Bestwert innerhalb der Toleranz bleibt - unter mehreren
-  // Treffern zählt weiterhin deren höchster Wert.
-  const inToleranz = bewertet.filter(n => rankOf(n) >= bestVal - toleranz);
-  const favoritenTreffer = inToleranz.filter(istFavorit);
-  if(favoritenTreffer.length) return hoechster(favoritenTreffer);
-  const rollenTreffer = inToleranz.filter(istRollenTreffer);
-  if(rollenTreffer.length) return hoechster(rollenTreffer);
-  return hoechster(bewertet.filter(n => rankOf(n) === bestVal));
-}
-// Wendet das beste eigene Setup auf eine Zeile an (mutiert row, rendert NICHT
-// neu - das übernimmt der Aufrufer, damit gpOptimizeGroup nicht pro Zeile neu
-// rendern muss). Gibt zurück, ob überhaupt etwas angewendet werden konnte.
-// Seit v0.26.0 (Nutzerwunsch "auch Zeilen ohne zuweisbaren Charakter, also
-// mit freiem Namen, sollen optimiert werden - dort wird angenommen, dass die
-// Leute alles haben"): auch für freie Namen (kein charKey, nur freierName)
-// wird jetzt optimiert - ohne Charakter-Profil gibt es keine Besitz-
-// Checkliste, also wird für JEDE Kategorie die komplette Referenzliste als
-// "Besitz" angenommen (bestmöglicher Wert über alle Einträge). Bei
-// zugewiesenem Charakter bleibt es wie bisher bei dessen ANGEKREUZTER
-// Besitz-Checkliste (kein Eintrag = Kategorie bleibt unangetastet).
-// Seit v0.27.0: optionaler zweiter Parameter "belegt" (Kategorie-Schlüssel ->
-// Set bereits vergebener Werte in der Gruppe, s. gpBelegteWerte) - wird an
-// gpBestOwned als "taken" durchgereicht UND direkt danach um den frisch
-// vergebenen Wert ergänzt, damit nachfolgende Zeilen im selben Optimier-
-// Durchlauf ihn ebenfalls meiden.
-// Seit v0.31.0: gilt jetzt auch für Mount-Ausrüstungsbonus (Nutzerwunsch
-// "Mount-Bonus soll auch nicht zweimal das Gleiche sein") - vorher wurde
-// die Kategorie komplett übersprungen, jetzt zählt sie als "rollenKonfigu-
-// rierbar"-Kategorie mit dazu (s. gpBelegteWerte).
-// Seit v0.29.0: optionaler dritter Parameter "gesperrteKategorien" (Set von
-// kat.key) - Kategorien, die für DIESE Zeile von der "Pflicht: mind. 1x pro
-// 5er-Gruppe"-Zuteilung (gpErzwingePflichtItems) bereits gesetzt wurden und
-// deshalb NICHT von der normalen Bestwert-Suche überschrieben werden dürfen
-// (Pflicht hat Vorrang vor der sonstigen Optimierung).
-// Seit v0.31.0 (Nutzerbeispiel "Xselli hat Nightflame als Favorit, wird aber
-// Serafin - der gar keinen Favoriten eingestellt hat, weil kein erstellter
-// Charakter - zugeteilt"): Lieblingswerte ANDERER im Plan zugewiesener
-// Charaktere werden für diese Zeile zusätzlich wie "bereits vergeben"
-// behandelt (bevorzugt gemieden, mit Fallback) - ein Charakter-Favorit soll
-// nicht von einer weniger "berechtigten" Zeile (v. a. freien Namen ohne
-// eigenes Profil) weggeschnappt werden können, bevor der eigentliche
-// Besitzer selbst die Chance hatte, ihn zu bekommen. Der eigene Charakter
-// ist davon ausgenommen (s. gpFremdFavoriten).
-function gpApplyBestSetup(row, belegt, gesperrteKategorien){
-  if(!row.charKey && !row.freierName) return false;
-  const rec = row.charKey ? gpFindChar(row.charKey) : null;
-  if(row.charKey && !rec) return false;
-  const besitz = (rec && rec.data && rec.data.besitz) || {};
-  GP_BESITZ_KATEGORIEN.forEach(kat => {
-    if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
-    if(gesperrteKategorien && gesperrteKategorien.has(kat.key)) return;
-    const owned = rec ? besitz[kat.key] : kat.liste().map(e => e.name);
-    const favoriten = kat.favKey && rec && rec.data ? rec.data[kat.favKey] : null;
-    const belegtSet = ((kat.dmgKey || kat.rollenKonfigurierbar) && belegt) ? belegt[kat.key] : null;
-    let effektivTaken = belegtSet;
-    const fremdFav = gpFremdFavoriten(kat, row.charKey);
-    const rollenFremd = gpRollenFremdMarkiert(kat, row.rolle);
-    if(fremdFav.size || rollenFremd.size){
-      const zusatz = new Set([...fremdFav, ...rollenFremd]);
-      effektivTaken = belegtSet ? new Set([...belegtSet, ...zusatz]) : zusatz;
-    }
-    const best = gpBestOwned(kat, owned, row.rolle, favoriten, effektivTaken);
-    if(best){
-      row[kat.rowField] = best; // null (nicht anfassen) und '' (nichts gefunden) bleiben unverändert
-      if(belegtSet) belegtSet.add(best); // das ECHTE (geteilte) belegt-Set aktualisieren, nicht die lokale Kopie
-    }
+// Seit v0.33.0 (ausführlich mit Xselli abgesprochene Umstellung): der
+// Optimierer betrachtet pro Kategorie jetzt das GESAMTBILD aller zu
+// optimierenden Zeilen auf einmal, statt sie einzeln von oben nach unten
+// abzuarbeiten (ersetzt das frühere gpBestOwned/gpApplyBestSetup-Paar
+// komplett - Rangwert-Vergleiche stecken jetzt direkt in dieser Funktion,
+// gpErzwingePflichtItems hat unverändert seine eigene, einfachere
+// Rangwert-Ermittlung für die Pflicht-Zuteilung).
+// Ablauf, wie besprochen:
+//   Schritt 1 - Favoriten reservieren: für jede Zeile mit einem besessenen
+//     Lieblingswert innerhalb der Toleranz zu ihrem eigenen Bestwert wird
+//     der Favorit reserviert. Wollen mehrere Zeilen DENSELBEN Favoriten,
+//     wird für jede Zeile durchgerechnet, was die GESAMTSUMME (nur diese
+//     Kategorie) wäre, wenn sie ihn bekommt und die anderen mit ihrem
+//     zweitbesten Wert auskommen müssen - die Variante mit der höheren
+//     Summe gewinnt, bei Gleichstand die zuerst in der Zeilenliste stehende.
+//   Schritt 2 - restliche Werte von oben (bestem Wert) nach unten verteilen:
+//     zuerst an eine passende Rollen-Markierung (falls vorhanden), sonst
+//     bevorzugt an eine Zeile OHNE eigene Favoriten (die verliert dadurch
+//     nichts), sonst zuerst-in-der-Liste.
+// Kategorien ohne Rangwert (Mount-Ausrüstungsbonus) haben kein Favoriten-/
+// Rollen-Konzept und bleiben beim einfachen "erster verfügbarer eigener
+// Eintrag"-Verfahren (Reihenfolge = Zeilenreihenfolge).
+function gpOptimiereKategorieGesamtbild(kat, zeilen, belegtSet){
+  if(!zeilen.length) return;
+  const info = zeilen.map(row => {
+    const rec = row.charKey ? gpFindChar(row.charKey) : null;
+    const owned = rec ? ((rec.data && rec.data.besitz && rec.data.besitz[kat.key]) || []) : kat.liste().map(e => e.name);
+    const favoriten = (kat.favKey && rec && rec.data && rec.data[kat.favKey]) || [];
+    const rankKey = (kat.dpsDmgKey && row.rolle === 'DPS') ? kat.dpsDmgKey : kat.dmgKey;
+    return { row, owned, favoriten, rankKey };
   });
-  return true;
+  const vergebenLokal = new Set();
+  const verfuegbar = name => {
+    if(gpMehrfachErlaubt(kat, name)) return true;
+    if(belegtSet && belegtSet.has(name)) return false;
+    if(vergebenLokal.has(name)) return false;
+    return true;
+  };
+  const rankOf = (inf, name) => {
+    if(!inf.rankKey) return null;
+    const e = gpKatItemByName(kat, name);
+    return e && e[inf.rankKey] !== undefined && e[inf.rankKey] !== '' && !isNaN(e[inf.rankKey]) ? Number(e[inf.rankKey]) : null;
+  };
+
+  // Mount-Ausrüstungsbonus & Co. ohne Rangwert: schlicht der erste noch
+  // verfügbare eigene Eintrag, in Zeilenreihenfolge.
+  if(!kat.dmgKey){
+    info.forEach(inf => {
+      const treffer = inf.owned.find(n => verfuegbar(n));
+      if(treffer){
+        inf.row[kat.rowField] = treffer;
+        if(!gpMehrfachErlaubt(kat, treffer)) vergebenLokal.add(treffer);
+        if(belegtSet) belegtSet.add(treffer);
+      }
+    });
+    return;
+  }
+
+  const zugewiesen = new Map(); // info -> Name
+  const toleranz = gpOptimizerToleranz();
+  const eigenerBestwert = inf => {
+    let best = -Infinity;
+    inf.owned.forEach(n => { if(verfuegbar(n)){ const v = rankOf(inf, n); if(v !== null && v > best) best = v; } });
+    return best;
+  };
+
+  // Schritt 1: Favoriten-Wünsche ermitteln (bester eigener Favorit innerhalb
+  // der Toleranz zum eigenen Bestwert).
+  const wunsch = new Map();
+  info.forEach(inf => {
+    if(!inf.favoriten.length) return;
+    const eigenerBest = eigenerBestwert(inf);
+    let bestFav = null, bestFavVal = -Infinity;
+    inf.favoriten.forEach(n => {
+      if(!inf.owned.includes(n) || !verfuegbar(n)) return;
+      const v = rankOf(inf, n);
+      if(v !== null && v > bestFavVal){ bestFavVal = v; bestFav = n; }
+    });
+    if(bestFav !== null && bestFavVal >= eigenerBest - toleranz) wunsch.set(inf, bestFav);
+  });
+
+  // Konflikte (mehrere Zeilen wollen denselben Favoriten) per Gesamtsumme
+  // auflösen - bei Gleichstand gewinnt die zuerst in "info" stehende Zeile
+  // (Reihenfolge = Zeilenreihenfolge, "wer zuerst mahlt").
+  const wunschGruppen = new Map();
+  wunsch.forEach((name, inf) => { if(!wunschGruppen.has(name)) wunschGruppen.set(name, []); wunschGruppen.get(name).push(inf); });
+  wunschGruppen.forEach((konkurrenten, name) => {
+    let gewinner = konkurrenten[0];
+    if(konkurrenten.length > 1){
+      let besteSumme = -Infinity;
+      konkurrenten.forEach(kandidat => {
+        let summe = rankOf(kandidat, name) || 0;
+        konkurrenten.forEach(andere => {
+          if(andere === kandidat) return;
+          let zweitbester = -Infinity;
+          andere.owned.forEach(n => {
+            if(n === name || !verfuegbar(n)) return;
+            const v = rankOf(andere, n);
+            if(v !== null && v > zweitbester) zweitbester = v;
+          });
+          if(zweitbester > -Infinity) summe += zweitbester;
+        });
+        if(summe > besteSumme){ besteSumme = summe; gewinner = kandidat; }
+      });
+    }
+    zugewiesen.set(gewinner, name);
+    if(!gpMehrfachErlaubt(kat, name)) vergebenLokal.add(name);
+  });
+
+  // Schritt 2: übrige Werte von oben (bestem Wert) nach unten verteilen.
+  let weiter = true;
+  while(weiter){
+    weiter = false;
+    const offene = info.filter(inf => !zugewiesen.has(inf));
+    if(!offene.length) break;
+    let bestVal = -Infinity, bestName = null;
+    offene.forEach(inf => {
+      inf.owned.forEach(n => {
+        if(!verfuegbar(n)) return;
+        const v = rankOf(inf, n);
+        if(v !== null && v > bestVal){ bestVal = v; bestName = n; }
+      });
+    });
+    if(bestName === null) break;
+    let kandidaten = offene.filter(inf => inf.owned.includes(bestName) && verfuegbar(bestName) && rankOf(inf, bestName) === bestVal);
+    // a) passende Rollen-Markierung zuerst
+    if(kat.roleKey){
+      const e = gpKatItemByName(kat, bestName);
+      if(e && e[kat.roleKey]){
+        const rollenTreffer = kandidaten.filter(inf => inf.row.rolle === e[kat.roleKey]);
+        if(rollenTreffer.length) kandidaten = rollenTreffer;
+      }
+    }
+    // b) sonst bevorzugt Zeilen OHNE eigene Favoriten (verlieren nichts)
+    if(kandidaten.length > 1){
+      const ohneFav = kandidaten.filter(inf => !inf.favoriten.length);
+      if(ohneFav.length) kandidaten = ohneFav;
+    }
+    // c) sonst zuerst-in-der-Liste
+    const gewinner = kandidaten[0];
+    zugewiesen.set(gewinner, bestName);
+    if(!gpMehrfachErlaubt(kat, bestName)) vergebenLokal.add(bestName);
+    weiter = true;
+  }
+
+  // Fallback: bleiben Zeilen übrig, weil ALLE ihre eigenen Werte inzwischen
+  // (durch andere Zeilen) vergeben sind, bekommen sie trotzdem ihren
+  // eigenen besten Wert - lieber ein Duplikat als eine leere Zeile (gilt
+  // unverändert seit v0.27.0, hier nur an die Gesamtbild-Schleife angepasst).
+  info.forEach(inf => {
+    if(zugewiesen.has(inf)) return;
+    let best = null, bestValFallback = -Infinity;
+    inf.owned.forEach(n => { const v = rankOf(inf, n); if(v !== null && v > bestValFallback){ bestValFallback = v; best = n; } });
+    if(best !== null) zugewiesen.set(inf, best);
+  });
+
+  zugewiesen.forEach((name, inf) => {
+    inf.row[kat.rowField] = name;
+    if(belegtSet) belegtSet.add(name);
+  });
 }
 // Seit v0.29.0 (Nutzerbeispiel "Skorpion soll immer einmal ausgerüstet sein
 // pro Gruppe (5er)"): zerlegt den Plan in seine 5er-Einheiten für die
@@ -5478,20 +5454,21 @@ function gpPflicht(kat, name){
   const e = gpKatItemByName(kat, name);
   return !!(e && e.pflichtProGruppe);
 }
-// Stellt VOR der normalen Bestwert-Optimierung sicher, dass jedes "Pflicht:
-// mind. 1x pro 5er-Gruppe"-markierte Item (Nutzerbeispiel: Skorpion als
-// Gefährte) in jedem betroffenen 5er-Segment mindestens einmal vergeben ist
-// - hat also höchste Priorität, noch vor dem reinen Bestwert. Sucht dafür in
-// jedem Segment, das noch KEIN Pflicht-Item dieser Kategorie trägt, eine
-// besetzte Zeile (Charakter oder freier Name), die laut Besitzliste (bzw.
-// bei freiem Namen der vollen Referenzliste) mindestens ein Pflicht-Item
-// hat - bevorzugt eine mit noch leerem Feld, um bewusste Auswahl nicht zu
-// überschreiben - und setzt dort den besten verfügbaren Pflicht-Kandidaten.
-// "nurGi" (optional) beschränkt die Suche auf Segmente einer einzelnen
-// Gruppe (für den Gruppen-Knopf); ohne Angabe gilt der ganze Plan.
-// Rückgabe: Map "gi:ri" -> Set(kat.key) - welche Felder welcher Zeile durch
-// diese Zuteilung gesperrt sind, damit die nachfolgende normale Optimierung
-// sie nicht wieder überschreibt (s. gpApplyBestSetup, gesperrteKategorien).
+// Stellt VOR der Gesamtbild-Optimierung sicher, dass jedes "Pflicht: mind.
+// 1x pro 5er-Gruppe"-markierte Item (Nutzerbeispiel: Skorpion als Gefährte)
+// in jedem betroffenen 5er-Segment mindestens einmal vergeben ist - hat also
+// höchste Priorität, noch vor Favoriten/Gesamtbild. Sucht dafür in jedem
+// Segment, das noch KEIN Pflicht-Item dieser Kategorie trägt, eine besetzte
+// Zeile (Charakter oder freier Name), die laut Besitzliste (bzw. bei freiem
+// Namen der vollen Referenzliste) mindestens ein Pflicht-Item hat - bevorzugt
+// eine mit noch leerem Feld, um bewusste Auswahl nicht zu überschreiben -
+// und setzt dort den besten verfügbaren Pflicht-Kandidaten (per eigener,
+// einfacher Rangwert-Ermittlung inline - Pflicht braucht keine
+// Gesamtbild-Betrachtung). "nurGi" (optional) beschränkt die Suche auf
+// Segmente einer einzelnen Gruppe (für den Gruppen-Knopf); ohne Angabe gilt
+// der ganze Plan. Rückgabe: Map "gi:ri" -> Set(kat.key) - welche Felder
+// welcher Zeile durch diese Zuteilung gesperrt sind, damit die nachfolgende
+// Gesamtbild-Optimierung sie nicht überschreibt.
 function gpErzwingePflichtItems(nurGi){
   const gesperrt = new Map();
   GP_BESITZ_KATEGORIEN.forEach(kat => {
@@ -5529,24 +5506,23 @@ function gpErzwingePflichtItems(nurGi){
   return gesperrt;
 }
 // Baut für den Optimierer eine Belegungs-Übersicht (Kategorie-Schlüssel -> Set
-// bereits vergebener Werte) - seit v0.28.0 PLANWEIT über ALLE Gruppen des
-// aktuell offenen Plans (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt
-// sein"), vorher nur innerhalb der jeweiligen Gruppe. "ausserGi"/"ausserRi"
-// identifizieren die Zelle, die selbst ausgenommen wird (damit eine Zeile
-// beim eigenen Optimieren nicht an ihrem EIGENEN aktuellen Wert scheitert).
-// Werte von Referenzeinträgen mit angehaktem "Mehrfachvergabe erlaubt"
-// (gpMehrfachErlaubt) fließen NICHT in die Belegungsliste ein - sie dürfen
-// also beliebig oft im Plan vergeben werden.
-// Seit v0.31.0: gilt jetzt auch für Mount-Ausrüstungsbonus (rollenKonfigu-
-// rierbar, aber ohne dmgKey) - Nutzerwunsch "Mount-Bonus soll auch nicht
-// zweimal das Gleiche sein". Vorher war die Kategorie hier komplett
-// ausgenommen, jeder Tank/Heiler bekam denselben "fixen" ersten Eintrag.
+// bereits vergebener Werte) - PLANWEIT über ALLE Gruppen des aktuell offenen
+// Plans (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein").
+// "ausserGi" identifiziert die Gruppe, die selbst ausgenommen wird - deren
+// Zeilen werden ja gerade selbst neu vergeben, sollen also nicht als "schon
+// belegt" gegen sich selbst zählen. "ausserRi" (optional): ist es gesetzt,
+// wird NUR diese eine Zeile ausgenommen statt der ganzen Gruppe (für die
+// Einzelzeilen-Optimierung, gpOptimizeRow). Werte von Referenzeinträgen mit
+// angehaktem "Mehrfachvergabe erlaubt" (gpMehrfachErlaubt) fließen NICHT in
+// die Belegungsliste ein - sie dürfen also beliebig oft im Plan vergeben
+// werden. Gilt auch für Mount-Ausrüstungsbonus (rollenKonfigurierbar, aber
+// ohne dmgKey).
 function gpBelegteWerte(ausserGi, ausserRi){
   const belegt = {};
   GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey || kat.rollenKonfigurierbar) belegt[kat.key] = new Set(); });
   currentGpPlanData.groups.forEach((g, gi) => {
     g.rows.forEach((row, ri) => {
-      if(gi === ausserGi && ri === ausserRi) return;
+      if(gi === ausserGi && (ausserRi === undefined || ri === ausserRi)) return;
       GP_BESITZ_KATEGORIEN.forEach(kat => {
         if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
         const val = row[kat.rowField];
@@ -5556,29 +5532,55 @@ function gpBelegteWerte(ausserGi, ausserRi){
   });
   return belegt;
 }
+// Trägt die von gpErzwingePflichtItems in EINER Gruppe direkt gesetzten Werte
+// nachträglich ins übergebene belegt-Set ein, damit die nachfolgende
+// Gesamtbild-Optimierung dieser Gruppe sie als "schon vergeben" sieht (sie
+// wurden ja gerade erst reingeschrieben, bevor "belegt" gebaut wurde).
+function gpPflichtWerteNachtragen(gi, gesperrt, belegt){
+  gesperrt.forEach((katKeys, mapKey) => {
+    const [gestGi, gestRi] = mapKey.split(':').map(Number);
+    if(gestGi !== gi) return;
+    katKeys.forEach(katKey => {
+      const kat = GP_BESITZ_KATEGORIEN.find(k => k.key === katKey);
+      const val = currentGpPlanData.groups[gestGi].rows[gestRi][kat.rowField];
+      if(val && belegt[katKey]) belegt[katKey].add(val);
+    });
+  });
+}
 function gpOptimizeRow(gi, ri){
   const g = currentGpPlanData.groups[gi];
   const row = g.rows[ri];
-  if(!gpApplyBestSetup(row, gpBelegteWerte(gi, ri))){
+  if(!row.charKey && !row.freierName){
     alert('Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.');
     return;
   }
+  const belegt = gpBelegteWerte(gi, ri);
+  GP_BESITZ_KATEGORIEN.forEach(kat => {
+    if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
+    if(!gpOptimizeRolleErlaubt(kat, row.rolle)) return;
+    gpOptimiereKategorieGesamtbild(kat, [row], belegt[kat.key]);
+  });
   renderGpPlanBoard();
 }
 function gpOptimizeGroup(gi){
   const g = currentGpPlanData.groups[gi];
-  // Pflicht-Items zuerst (höchste Priorität), erst danach die normale
-  // Bestwert-Optimierung - die dabei gesetzten Felder bleiben gesperrt.
+  // Pflicht-Items zuerst (höchste Priorität), erst danach die Gesamtbild-
+  // Optimierung - die dabei gesetzten Felder bleiben gesperrt.
   const gesperrt = gpErzwingePflichtItems(gi);
-  let count = 0;
-  // "belegt" wird PRO ZEILE neu aus dem aktuellen Stand des GESAMTEN Plans
-  // gebaut (nicht nur dieser Gruppe) - so sieht jede Zeile auch die bereits
-  // in diesem Durchlauf optimierten Vorgänger-Zeilen UND alle anderen Gruppen
-  // desselben Plans, ohne sich selbst zu blockieren.
-  g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(gi, ri), gesperrt.get(gi+':'+ri))) count++; });
+  const belegt = gpBelegteWerte(gi); // alle ANDEREN Gruppen des Plans
+  gpPflichtWerteNachtragen(gi, gesperrt, belegt);
+  const besetzteRis = g.rows.map((r,ri)=>ri).filter(ri => g.rows[ri].charKey || g.rows[ri].freierName);
+  GP_BESITZ_KATEGORIEN.forEach(kat => {
+    if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
+    const zeilen = besetzteRis
+      .filter(ri => !(gesperrt.get(gi+':'+ri) && gesperrt.get(gi+':'+ri).has(kat.key)))
+      .filter(ri => gpOptimizeRolleErlaubt(kat, g.rows[ri].rolle))
+      .map(ri => g.rows[ri]);
+    gpOptimiereKategorieGesamtbild(kat, zeilen, belegt[kat.key]);
+  });
   renderGpPlanBoard();
-  document.getElementById('saveStatus').textContent = count
-    ? `Bestes eigenes Setup für ${count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
+  document.getElementById('saveStatus').textContent = besetzteRis.length
+    ? `Bestes Gesamt-Setup für ${besetzteRis.length} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
     : 'Keine besetzte Zeile (Charakter oder freier Name) in dieser Gruppe gefunden.';
 }
 // Seit v0.29.0 (Nutzerwunsch "in der geöffneten Gruppe einen Button um
@@ -5824,7 +5826,7 @@ const GP_REF_SPECS = [
   // Seit v0.23.0: "rolle" markiert, für welche Rolle dieses Artefakt
   // bevorzugt geeignet ist (Nutzerwunsch "Zusatzinfo präferiert DPS/Tank/
   // Heal") - fester Auswahlwert (select) statt Freitext, damit der
-  // Optimierer (gpBestOwned) exakt gegen die Zeilen-Rolle matchen kann.
+  // Optimierer (gpOptimiereKategorieGesamtbild) exakt gegen die Zeilen-Rolle matchen kann.
   // Seit v0.28.0: "mehrfachErlaubt" (Checkbox) - Nutzerwunsch "im gesamten
   // [Plan] soll nichts doppelt sein außer es ist extra angehakt" - markierte
   // Einträge werden von der planweiten Duplikat-Vermeidung des Optimierers
@@ -5839,7 +5841,7 @@ const GP_REF_SPECS = [
   { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
-  // dafür, dass der Gruppen-Optimierer (gpBestOwned) sie mitberücksichtigen
+  // dafür, dass der Gruppen-Optimierer (gpOptimiereKategorieGesamtbild) sie mitberücksichtigen
   // kann. Alte Einträge ohne diesen Wert werden beim Speichern automatisch
   // auf 0 normalisiert (parsePct('') -> 0, wie bei allen numerischen Feldern
   // in diesem Projekt) - kein Migrationsschritt nötig.
@@ -5870,15 +5872,12 @@ function gpOptimizerRegelnHtml(){
       <input type="text" id="gpRegelToleranz" value="${fmt(gpOptimizerToleranz())}" style="max-width:100px;">
       <p class="helptext" style="margin-top:4px;">Ein Lieblingsartefakt bzw. ein zur Rolle passender Referenzlisten-Vorschlag gewinnt auch dann, wenn er bis zu dieser Anzahl Prozentpunkte UNTER dem objektiv besten Wert liegt - darüber hinaus zählt weiterhin schlicht der höchste Dmg-Buff. 0 = nur bei exaktem Gleichstand (altes Verhalten).</p>
     </div>
-    <p class="helptext" style="margin-top:14px;">Priorität, in der der 🏆-Optimierer entscheidet (nicht änderbar, hier nur zur Übersicht):</p>
+    <p class="helptext" style="margin-top:14px;">Ablauf, in dem der 🏆-Optimierer entscheidet (nicht änderbar, hier nur zur Übersicht) - er betrachtet dabei immer das GESAMTBILD aller zu optimierenden Zeilen einer Kategorie auf einmal, statt sie von oben nach unten einzeln abzuarbeiten:</p>
     <ol class="helptext" style="margin:4px 0 0 18px; padding:0;">
-      <li><strong>Höchster Dmg-Buff-Wert</strong> gewinnt grundsätzlich.</li>
-      <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen, auch Mount-Ausrüstungsbonus) - doppelte Werte bringen keinen zusätzlichen Dmg-Buff, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zum höchsten Wert keine freie Alternative, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
-      <li><strong>Lieblingsartefakte anderer Charaktere werden geschont</strong> - ein Lieblingswert eines ANDEREN im Plan zugewiesenen Charakters wird für alle übrigen Zeilen (v. a. freie Namen ohne eigenes Profil) ebenfalls wie "bereits vergeben" behandelt, damit er nicht weggeschnappt wird, bevor der eigentliche Besitzer selbst optimiert wurde.</li>
-      <li><strong>Rollen-markierte Einträge bleiben für die passende Rolle reserviert</strong> - ein Artefakt mit gesetzter "Bevorzugt für"-Rolle wird für Zeilen einer ANDEREN Rolle ebenfalls bevorzugt gemieden, statt einfach wegen des höchsten Rohwerts dorthin zu gehen.</li>
       <li><strong>Pflicht: 1x pro 5er-Gruppe</strong> - markierte Einträge (z. B. der Gefährte "Skorpion") werden VOR allem anderen mindestens einmal je 5er-Segment (Dungeon-Gruppe bzw. Party A/B bei Trial) vergeben, sofern jemand im Segment sie besitzt.</li>
-      <li><strong>Lieblingswert des Charakters</strong> (s. Charakter-Editor) - gewinnt auch innerhalb der obigen Toleranz gegen einen leicht höherwertigen, nicht bevorzugten Kandidaten; unter mehreren Favoriten zählt weiterhin deren höchster Wert.</li>
-      <li><strong>Referenzlisten-Vorschlag zur bevorzugten Rolle/Klasse</strong> ("Bevorzugt für" bei Artefakten) - gleiche Toleranz-Regel, aber nachrangig zu Favoriten.</li>
+      <li><strong>Favoriten reservieren</strong> - jede Zeile mit einem besessenen Lieblingswert innerhalb der obigen Toleranz zu ihrem eigenen Bestwert bekommt ihn reserviert. Wollen mehrere Zeilen DENSELBEN Favoriten, wird für jede Zeile die GESAMTSUMME dieser Kategorie durchgerechnet ("sie bekommt ihn, die anderen nehmen ihren zweitbesten Wert") - die Variante mit der höheren Summe gewinnt, bei Gleichstand die zuerst in der Zeilenliste stehende Zeile.</li>
+      <li><strong>Restliche Werte von oben (bestem Wert) nach unten verteilen</strong> - für jeden noch offenen Wert: zuerst an eine passende Rollen-Markierung (z. B. "Bevorzugt für Heiler"), sonst bevorzugt an eine Zeile OHNE eigene Favoriten (die verliert dadurch nichts), sonst an die zuerst in der Liste stehende offene Zeile.</li>
+      <li><strong>Keine Doppelvergabe im gesamten Plan</strong> (alle Gruppen, auch Mount-Ausrüstungsbonus) - ein Wert wird bei alldem nur einmal vergeben, außer der Eintrag hat "Mehrfachvergabe erlaubt" angehakt. Gibt es zu einem Wert keine freie Alternative mehr, wird trotzdem dupliziert statt eine Zeile leer zu lassen.</li>
     </ol>
     <p class="helptext" style="margin-top:10px;">Weitere feste Regeln:</p>
     <ul class="helptext" style="margin:4px 0 0 18px; padding:0;">
@@ -6283,13 +6282,27 @@ function renderGpPlanBoard(){
 // einzeln klicken zu müssen - nur sichtbar/sinnvoll ab 2 Gruppen (Trial).
 function gpOptimizePlan(){
   const gesperrt = gpErzwingePflichtItems(); // ganzer Plan, keine Gruppen-Einschränkung
+  const belegt = {};
+  GP_BESITZ_KATEGORIEN.forEach(kat => { if(kat.dmgKey || kat.rollenKonfigurierbar) belegt[kat.key] = new Set(); });
+  currentGpPlanData.groups.forEach((g, gi) => gpPflichtWerteNachtragen(gi, gesperrt, belegt));
   let count = 0;
-  currentGpPlanData.groups.forEach((g, gi) => {
-    g.rows.forEach((row, ri) => { if(gpApplyBestSetup(row, gpBelegteWerte(gi, ri), gesperrt.get(gi+':'+ri))) count++; });
+  GP_BESITZ_KATEGORIEN.forEach(kat => {
+    if(!kat.dmgKey && !kat.rollenKonfigurierbar) return;
+    const zeilen = [];
+    currentGpPlanData.groups.forEach((g, gi) => {
+      g.rows.forEach((row, ri) => {
+        if(!(row.charKey || row.freierName)) return;
+        if(gesperrt.get(gi+':'+ri) && gesperrt.get(gi+':'+ri).has(kat.key)) return;
+        if(!gpOptimizeRolleErlaubt(kat, row.rolle)) return;
+        zeilen.push(row);
+      });
+    });
+    gpOptimiereKategorieGesamtbild(kat, zeilen, belegt[kat.key]);
   });
+  currentGpPlanData.groups.forEach(g => g.rows.forEach(row => { if(row.charKey || row.freierName) count++; }));
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = count
-    ? `Bestes eigenes Setup für ${count} Zeile(n) in allen Gruppen übernommen - bitte Plan speichern, falls es passt.`
+    ? `Bestes Gesamt-Setup für ${count} Zeile(n) in allen Gruppen übernommen - bitte Plan speichern, falls es passt.`
     : 'Keine besetzte Zeile (Charakter oder freier Name) in diesem Plan gefunden.';
 }
 function gpToggleAnsicht(){ gpPlanAnsichtModus = !gpPlanAnsichtModus; renderGpPlanBoard(); }

@@ -1330,43 +1330,58 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // Punkte unter "ProtArt2" (6,5 %) - außerhalb der Default-Toleranz (1) -
     // FavProtA wählt also selbst ProtArt2, NICHT den eigenen Favoriten. Ein
     // freier Name im selben Plan darf ProtArt1 trotzdem nicht bekommen.
+    // Seit v0.33.0 (ausführlich abgesprochene Umstellung auf "Gesamtbild"):
+    // wollen ZWEI Charaktere denselben Favoriten, entscheidet die höhere
+    // GESAMTSUMME dieser Kategorie - nicht mehr einfach die Zeilenreihenfolge
+    // oder nur der eigene Bestwert. "SharedFav" (10 %) ist der gemeinsame
+    // Favorit; FavA hat als Alternative "AltA" (9 %, fast gleichwertig),
+    // FavB nur "AltB" (3 %, deutlich schlechter). Bekäme FavA den
+    // gemeinsamen Favoriten, wäre die Summe 10+3=13; bekommt stattdessen
+    // FavB ihn, ist die Summe 10+9=19 - FavB muss also gewinnen, obwohl FavA
+    // zuerst in der Zeilenliste steht ("wer zuerst mahlt" gilt nur bei
+    // GLEICHER Summe, nicht davor).
     win.showGpPage('referenz'); await wait(200);
     const refArtefakteTableProt = doc.getElementById('gpref-gpArtefakte');
     win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
     win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
-    const neueArtZeilenProt = Array.from(refArtefakteTableProt.querySelectorAll('tbody tr')).slice(-2);
-    input(win, neueArtZeilenProt[0].querySelector('input[data-field="name"]'), 'ProtArt1');
-    input(win, neueArtZeilenProt[0].querySelector('input[data-field="buff"]'), '5');
-    input(win, neueArtZeilenProt[1].querySelector('input[data-field="name"]'), 'ProtArt2');
-    input(win, neueArtZeilenProt[1].querySelector('input[data-field="buff"]'), '6,5');
+    win.gpAddRefRow('gpref-gpArtefakte', artFieldsTol);
+    const neueArtZeilenProt = Array.from(refArtefakteTableProt.querySelectorAll('tbody tr')).slice(-3);
+    input(win, neueArtZeilenProt[0].querySelector('input[data-field="name"]'), 'SharedFav');
+    input(win, neueArtZeilenProt[0].querySelector('input[data-field="buff"]'), '10');
+    input(win, neueArtZeilenProt[1].querySelector('input[data-field="name"]'), 'AltA');
+    input(win, neueArtZeilenProt[1].querySelector('input[data-field="buff"]'), '9');
+    input(win, neueArtZeilenProt[2].querySelector('input[data-field="name"]'), 'AltB');
+    input(win, neueArtZeilenProt[2].querySelector('input[data-field="buff"]'), '3');
     await win.gpSaveReferenzlisten(); await wait(300);
     win.showGpPage('planung'); await wait(200);
     win.renderGpPlanBoard(); await wait(200);
-    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'FavProtA' }) }, token);
-    r = await api('/api/gp/characters/FavProtA', { method: 'PUT', body: JSON.stringify({
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'FavA' }) }, token);
+    r = await api('/api/gp/characters/FavA', { method: 'PUT', body: JSON.stringify({
       klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
-      besitz: { artefakte: ['ProtArt1', 'ProtArt2'] }, lieblingsartefakte: ['ProtArt1'],
+      besitz: { artefakte: ['SharedFav', 'AltA'] }, lieblingsartefakte: ['SharedFav'],
     }) }, token);
-    check('Favoriten-Schutz-Test: FavProtA angelegt (Favorit ProtArt1, eigener Bestwert wäre aber ProtArt2)', r.status === 200, r.status);
+    r = await api('/api/gp/characters', { method: 'POST', body: JSON.stringify({ name: 'FavB' }) }, token);
+    r = await api('/api/gp/characters/FavB', { method: 'PUT', body: JSON.stringify({
+      klasse: 'Waldläufer', rollen: { dps: true, heal: false, tank: false },
+      besitz: { artefakte: ['SharedFav', 'AltB'] }, lieblingsartefakte: ['SharedFav'],
+    }) }, token);
+    check('Gesamtsumme-Test: FavA und FavB (beide Favorit "SharedFav") angelegt', r.status === 200, r.status);
     await win.ensureGpCharactersLoaded(true); await wait(200);
     win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(50);
     win.gpAddRow(neueGruppeIdx, 'DPS'); await wait(100);
     let protZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
-    const protIdxA = protZeilen.length - 2, protIdxFree = protZeilen.length - 1;
-    win.gpResolveRowSpieler(neueGruppeIdx, protIdxA, `FavProtA (${user})`); await wait(50);
-    const protFreeFeld = protZeilen[protIdxFree].querySelector('input[list="gpCharDatalist"]');
-    protFreeFeld.value = 'Gastspieler Protschutz';
-    protFreeFeld.dispatchEvent(new win.Event('change', { bubbles: true }));
-    await wait(100);
+    const protIdxA = protZeilen.length - 2, protIdxB = protZeilen.length - 1;
+    win.gpResolveRowSpieler(neueGruppeIdx, protIdxA, `FavA (${user})`); await wait(50);
+    win.gpResolveRowSpieler(neueGruppeIdx, protIdxB, `FavB (${user})`); await wait(100);
     const protOptiBtn = Array.from(gpCards()[neueGruppeIdx].querySelectorAll('.btnrow button')).find(b => b.textContent.includes('Alle Zeilen optimieren'));
     if(protOptiBtn) protOptiBtn.click();
     await wait(200);
     protZeilen = gpCards()[neueGruppeIdx].querySelectorAll('tbody tr');
-    const protArtefaktA = Array.from(protZeilen[protIdxA].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'ProtArt1'));
-    const protArtefaktFree = Array.from(protZeilen[protIdxFree].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'ProtArt1'));
-    check('FavProtA wählt wegen der Toleranz-Grenze selbst den objektiv besseren ProtArt2 (nicht den eigenen Favoriten)', protArtefaktA && protArtefaktA.value === 'ProtArt2', protArtefaktA && protArtefaktA.value);
-    check('Freier Name bekommt NICHT den Favoriten eines anderen Charakters, obwohl der ihn selbst gar nicht gewählt hat', protArtefaktFree && protArtefaktFree.value !== 'ProtArt1', protArtefaktFree && protArtefaktFree.value);
-    win.gpRemoveRow(neueGruppeIdx, protIdxFree); await wait(50);
+    const protArtefaktA = Array.from(protZeilen[protIdxA].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'SharedFav'));
+    const protArtefaktB = Array.from(protZeilen[protIdxB].querySelectorAll('select')).find(sel => Array.from(sel.options).some(o => o.value === 'SharedFav'));
+    check('Gesamtsumme-Test: FavB (höhere Gesamtsumme, 19 statt 13) bekommt den gemeinsamen Favoriten', protArtefaktB && protArtefaktB.value === 'SharedFav', protArtefaktB && protArtefaktB.value);
+    check('Gesamtsumme-Test: FavA weicht auf die eigene Alternative aus (AltA), obwohl sie zuerst in der Liste steht', protArtefaktA && protArtefaktA.value === 'AltA', protArtefaktA && protArtefaktA.value);
+    win.gpRemoveRow(neueGruppeIdx, protIdxB); await wait(50);
     win.gpRemoveRow(neueGruppeIdx, protIdxA); await wait(50);
 
     // Seit v0.32.0 (Nutzerbeispiel: "Xeleth's Blast Scepter / Halaster's" ist
