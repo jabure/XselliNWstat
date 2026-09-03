@@ -332,6 +332,46 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.44.0: Fast alle restlichen Hilfetexte auf Englisch übersetzt -
+  vierter und letzter großer Baustein der "allgemeinen Beschreibungen".**
+  - Statische Presets/Users/Backups-Einleitungstexte über neue `data-i18n`-
+    Attribute (deutscher Text bleibt als Fallback im HTML stehen, wird von
+    `applyLangUI()` beim Start/Sprachwechsel überschrieben - Muster wie bei
+    den Seiten-Tabs aus v0.38.0).
+  - Gruppenplaner-Presets/Manuell-Tabellen (Gefährten/Reittiere/Buff Food),
+    das komplette Charakter-Vergleich-Feature (Charakter-Übersicht +
+    A/B-Vergleich, inkl. aller Lade-/Fehler-/Leer-Zustände), Account-Modal-
+    Reste (Login-Sicherheitshinweis, "Angemeldet als", Senden-Hinweis,
+    Passwort-Reset-Hinweis), generische Lade-/Fehler-Zustände (Admin-
+    Benutzer/-Sicherungen, Buff-Food, Gruppenplaner-Charaktere/-Pläne,
+    Referenzlisten-Leerzustände) - insgesamt ~45 weitere Übersetzungsschlüssel.
+  - **Bewusst weiterhin auf Deutsch belassen** (zu technisch/nischig, quasi
+    nur für Xselli selbst relevant): die Formeln-Seite (Variablen-Labels
+    der einzelnen Formel-Felder, Wehrhaftigkeit-Umverteilungs-Hinweis,
+    Live-Testrechnung-Erklärung) und die Optimierungsregeln-Detailseite bei
+    den Gruppenplaner-Referenzlisten (die 6-Punkte-Ablauf-Liste, wie der
+    🏆-Optimierer intern entscheidet). Beides sind Admin-/Coadmin-Werkzeuge
+    zur Formel-/Regel-Pflege, keine Inhalte, die normale Nutzer zu Gesicht
+    bekommen.
+  - Manuell mit jsdom verifiziert (statisches `data-i18n`-Beispiel,
+    Charakter-Übersicht-Hinweis, Login-Sicherheitshinweis - alle korrekt auf
+    Englisch), 0 JS-Fehler. Alle 256 Smoke-Tests grün (zweimal gegengeprüft).
+  - **Damit ist die DE/EN-Übersetzung für alle regulär von Mitgliedern
+    genutzten Bereiche im Wesentlichen abgeschlossen.** Was übrig bleibt,
+    sind ausschließlich die zwei oben genannten Admin-Werkzeug-Seiten - bei
+    Bedarf jederzeit nachrüstbar, aber bewusst zurückgestellt.
+- **Seit v0.43.0: Gruppenplaner- und Insignienrechner-Seiteneinleitungen auf
+  Englisch übersetzt - dritter Baustein der "allgemeinen Beschreibungen".**
+  - Neue Keys: `gp.charheading`/`gp.charintro`/`gp.namehint` (Karte "Meine
+    Gruppenplaner-Charaktere"), `gp.planheading`/`gp.planintro` (Karte
+    "Aufstellungs-Pläne"), `gp.nocharsyet`/`gp.noplansyet` (Leer-Zustände),
+    `ins.qualityerror`/`ins.intro` (Insignienrechner-Karte, nutzt für die
+    Überschrift den bereits vorhandenen `app.insignien`-Key wieder).
+  - Alle 256 Smoke-Tests grün (zweimal gegengeprüft).
+  - **Noch offen**: Presets-/Formeln-Admin-Hilfetexte, Referenzlisten-
+    Optimierer-Regeltexte, Charakter-Vergleich-Feinheiten, diverse
+    Lade-/Fehler-Zustände - deutlich kleinere/nischigere Texte, kommen bei
+    Bedarf in einer weiteren Runde.
 - **Seit v0.42.0: Formel-Erklärungen und Button-Tooltips auf Englisch
   übersetzt - "allgemeine Beschreibungen", zweiter Baustein.**
   - ~35 neue Übersetzungsschlüssel im `TRANSLATIONS`-Wörterbuch: die

@@ -466,7 +466,7 @@
     <div class="rechner-col-right">
       <div class="card">
         <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
-        <p class="helptext">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
+        <p class="helptext" data-i18n="static.ausruestung.intro">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
         <div class="btnrow" style="margin:0 0 10px 0;">
           <button type="button" class="action small" onclick="setAllStatSubgroups('sources', true)">Alles aufklappen</button>
           <button type="button" class="action small" onclick="setAllStatSubgroups('sources', false)">Alles zuklappen</button>
@@ -500,12 +500,12 @@
       <span><span class="dot" style="background:var(--sup)"></span>Gefährten</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt. Im Feld "Sonstige Info" kannst du eine Notiz hinterlegen (z. B. Proc-Bedingung) - sie beeinflusst keine Stats und wird im Rechner unter dem Gefährten-Slot angezeigt.</p>
+      <p class="helptext" data-i18n="static.gefaehrte.intro">Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt. Im Feld "Sonstige Info" kannst du eine Notiz hinterlegen (z. B. Proc-Bedingung) - sie beeinflusst keine Stats und wird im Rechner unter dem Gefährten-Slot angezeigt.</p>
       <div id="companionEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
 
       <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
-      <p class="helptext">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
+      <p class="helptext" data-i18n="static.gefaehrtepreset.intro">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
       <div id="gefaehrtenPresetEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
     </div>
@@ -516,7 +516,7 @@
       <span><span class="dot" style="background:var(--sup)"></span>Reittiere</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.</p>
+      <p class="helptext" data-i18n="static.reittier.intro">Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.</p>
       <div id="mountEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
 
@@ -531,7 +531,7 @@
       <span><span class="dot" style="background:var(--sup)"></span>Buff Food</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Essen werden direkt in ihrer Kategorie unten angelegt und gelöscht.</p>
+      <p class="helptext" data-i18n="static.food.intro">Essen werden direkt in ihrer Kategorie unten angelegt und gelöscht.</p>
       <div id="foodEditor"></div>
     </div>
   </div>
@@ -541,7 +541,7 @@
       <span><span class="dot" style="background:var(--def)"></span>Gegner-Profile</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
-      <p class="helptext">Pro Profil: Name (z. B. Boss-Name) und die 10 Gegner-Werte in %. Die Profile erscheinen auf der Schadensberechnung-Seite unter "Gegnerische Werte" als Dropdown.</p>
+      <p class="helptext" data-i18n="static.gegnerprofil.intro">Pro Profil: Name (z. B. Boss-Name) und die 10 Gegner-Werte in %. Die Profile erscheinen auf der Schadensberechnung-Seite unter "Gegnerische Werte" als Dropdown.</p>
       <div id="gegnerProfilEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addGegnerProfilCard()">+ Neues Profil</button></div>
     </div>
@@ -633,16 +633,16 @@
 <div id="pageUsers" style="display:none;">
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Statistik</h2>
-    <div id="adminStats"><p class="helptext">Lade …</p></div>
+    <div id="adminStats"><p class="helptext" data-i18n="generic.loading">Lade …</p></div>
   </div>
   <div class="card">
     <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
-    <p class="helptext">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
+    <p class="helptext" data-i18n="static.roles.intro">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
     <div id="userOverview" class="char-list"></div>
   </div>
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Sicherungen</h2>
-    <p class="helptext">Automatische Backups, direkt hier nutzbar - ohne Serverzugriff. Die Wiederherstellung betrifft nur die geteilten Presets/Formeln; Konten und Charaktere stecken in den Tages-Backups (Wiederherstellung davon weiterhin über den Server-Admin).</p>
+    <p class="helptext" data-i18n="static.backups.intro">Automatische Backups, direkt hier nutzbar - ohne Serverzugriff. Die Wiederherstellung betrifft nur die geteilten Presets/Formeln; Konten und Charaktere stecken in den Tages-Backups (Wiederherstellung davon weiterhin über den Server-Admin).</p>
     <div id="backupOverview"></div>
   </div>
 </div>
@@ -658,23 +658,23 @@
 
   <div id="gpPageCharaktere">
     <div class="card">
-      <h2><span class="dot" style="background:var(--gold)"></span>Meine Gruppenplaner-Charaktere</h2>
-      <p class="helptext">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
+      <h2><span class="dot" style="background:var(--gold)"></span>${t('gp.charheading')}</h2>
+      <p class="helptext">${t('gp.charintro')}</p>
       <div id="gpCharList"></div>
       <div class="btnrow" style="margin-top:12px;">
         <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben…" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <input type="text" id="gpNewCharHandle" placeholder="@Ingame-Handle (optional)" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
-        <button type="button" class="action gold" onclick="gpCreateCharacter()">Charakter anlegen</button>
+        <button type="button" class="action gold" onclick="gpCreateCharacter()">${t('btn.createchar')}</button>
       </div>
-      <p class="helptext" style="margin-top:6px;">Der Name wird automatisch um deinen Accountnamen ergänzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben. Der Ingame-Handle ist unabhängig davon frei editierbar (auch später im Charakter-Editor) und wird bei der Gruppenplanung angezeigt und für die Mehrfachbelegungs-Prüfung verwendet.</p>
+      <p class="helptext" style="margin-top:6px;">${t('gp.namehint')}</p>
     </div>
     <div id="gpCharEditor"></div>
   </div>
 
   <div id="gpPagePlanung" style="display:none;">
     <div class="card">
-      <h2><span class="dot" style="background:var(--gold)"></span>Aufstellungs-Pläne</h2>
-      <p class="helptext">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar für alle mit Moderator-Rolle oder höher.</p>
+      <h2><span class="dot" style="background:var(--gold)"></span>${t('gp.planheading')}</h2>
+      <p class="helptext">${t('gp.planintro')}</p>
       <div id="gpPlanList"></div>
       <div class="btnrow" style="margin-top:12px;">
         <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans…" style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
@@ -954,6 +954,66 @@ const TRANSLATIONS = {
     'help.gegneroffensive': 'Offensive Gegner-Werte (der Gegner greift dich an - flie\u00dft in die Tank-Berechnung ein):',
     'help.waffenschadenbonus': 'Bonus Waffenschaden: f\u00fcr Waffen, die zus\u00e4tzlichen Waffenschaden geben. Der feste Bonus (Werte) wird auf den berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Wird pro Charakter gespeichert und flie\u00dft in Schaden, Heilung und den Charakter-Vergleich ein.',
     'help.vergleich': 'Beide Charaktere werden mit denselben F\u00e4higkeits- und Gegner-Werten (siehe "F\u00e4higkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter \u00c4nderungen.',
+
+    'gp.charheading': 'Meine Gruppenplaner-Charaktere',
+    'gp.charintro': 'Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gef\u00e4hrten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.',
+    'gp.namehint': 'Der Name wird automatisch um deinen Accountnamen erg\u00e4nzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben. Der Ingame-Handle ist unabh\u00e4ngig davon frei editierbar (auch sp\u00e4ter im Charakter-Editor) und wird bei der Gruppenplanung angezeigt und f\u00fcr die Mehrfachbelegungs-Pr\u00fcfung verwendet.',
+    'gp.planheading': 'Aufstellungs-Pl\u00e4ne',
+    'gp.planintro': 'Mehrere Pl\u00e4ne m\u00f6glich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar f\u00fcr alle mit Moderator-Rolle oder h\u00f6her.',
+    'gp.nocharsyet': 'Noch keine eigenen Gruppenplaner-Charaktere angelegt.',
+    'gp.noplansyet': 'Noch keine Pl\u00e4ne angelegt.',
+    'ins.qualityerror': 'Die Ziel-Qualit\u00e4t muss h\u00f6her sein als die Start-Qualit\u00e4t.',
+    'ins.intro': 'Zeigt, wie viel Insignien-Pulver du zum Hochstufen brauchst, mit welcher Qualit\u00e4t du dieses Pulver am g\u00fcnstigsten verwertest, und ob Hochstufen oder Direktkauf der Ziel-Qualit\u00e4t g\u00fcnstiger ist.',
+
+    'static.ausruestung.intro': 'Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.',
+    'static.gefaehrte.intro': 'Pro Gefährte: Name eintragen, dann per "+ Stat" die Stats hinzufügen, die er/sie gibt. Im Feld "Sonstige Info" kannst du eine Notiz hinterlegen (z. B. Proc-Bedingung) - sie beeinflusst keine Stats und wird im Rechner unter dem Gefährten-Slot angezeigt.',
+    'static.gefaehrtepreset.intro': 'Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.',
+    'static.reittier.intro': 'Pro Reittier-Buff: Name eintragen, dann Stats hinzufügen.',
+    'static.food.intro': 'Essen werden direkt in ihrer Kategorie unten angelegt und gelöscht.',
+    'static.gegnerprofil.intro': 'Pro Profil: Name (z. B. Boss-Name) und die 10 Gegner-Werte in %. Die Profile erscheinen auf der Schadensberechnung-Seite unter "Gegnerische Werte" als Dropdown.',
+    'static.roles.intro': 'Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.',
+    'static.backups.intro': 'Automatische Backups, direkt hier nutzbar - ohne Serverzugriff. Die Wiederherstellung betrifft nur die geteilten Presets/Formeln; Konten und Charaktere stecken in den Tages-Backups (Wiederherstellung davon weiterhin über den Server-Admin).',
+
+    'gp.gefaehrtepreset.intro2': 'Pro Gefährte per Dropdown einen vorhandenen Preset laden, oder direkt Werte/% eintragen (z. B. für noch nicht hinterlegte Gefährten).',
+    'gp.reittiergroup.intro': 'Gruppen-Buffs (Reittiere der Gruppenmitglieder):',
+    'gp.reittierpreset.intro': 'Pro Slot per Dropdown ein Reittier laden, oder direkt Werte/% eintragen.',
+    'gp.food.intro': 'Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.',
+    'gp.food.optimizehint': 'optimiert je nach Klassentyp auf Schaden (DPS), Heilung (Heiler) oder eHP (Tank) - Utility bleibt unverändert',
+
+    'ovw.loginhint': 'Melde dich oben rechts an, um alle deine gespeicherten Charaktere nebeneinander zu sehen.',
+    'ovw.loading': 'Lade Charaktere …',
+    'ovw.intro': 'Zeigt alle deine Charaktere nebeneinander - sortiert nach Klassentyp (DPS, Heiler, Tank) und gerechnet mit denselben Fähigkeits-/Gegner-Werten wie oben. Die für den jeweiligen Klassentyp relevanten Werte sind farblich hervorgehoben.',
+    'ovw.nochars': 'Noch keine gespeicherten Charaktere vorhanden.',
+    'ovw.tablehint': 'Sortiert nach Klassentyp (DPS &middot; Heiler &middot; Tank). Farbige Zellen = für den Klassentyp des Charakters relevante Werte; gold umrandet = bester Wert der Zeile. Offensive/Defensive/Unterstützung per Klick auf die Zeilenköpfe auf- und zuklappen. Klick auf einen Namen übernimmt den Charakter als "B" in den Vergleich oben. Der aktuell geladene Charakter wird live inklusive ungespeicherter Änderungen gerechnet; "Neu laden" holt frische Stände der anderen.',
+    'ovw.heading': 'Charakter-Übersicht',
+    'ovw.headingsub': '(alle eigenen Charaktere)',
+    'vgl.selecttwo': 'Wähle oben zwei Charaktere aus, um sie nebeneinander zu vergleichen.',
+    'vgl.biggestdiff': 'Größter Einzelunterschied:',
+    'vgl.lastcolhint': 'Die letzte Spalte zeigt, wie viel',
+    'vgl.lastcolhint2': 'allein durch diesen Faktor gewonnen bzw. verloren wird - alle Zeilen zusammen (multipliziert) ergeben die Gesamtdifferenz.',
+    'vgl.checkwhat': 'Kreuze oben an, was verglichen werden soll (Schaden, Heilung und/oder Tank).',
+    'vgl.intro': 'Vergleiche zwei deiner Charaktere direkt nebeneinander - oder friere den aktuellen Stand ein, ändere dann Werte/Ausrüstung und sieh live, was die Änderung bringt (Vorher/Nachher).',
+    'vgl.guesthint': 'Hinweis: Gespeicherte Charaktere erscheinen in den Dropdowns erst nach der Anmeldung (oben rechts) - als Gast stehen "Aktuell geladen" und der eingefrorene Stand zur Verfügung.',
+    'vgl.snapshothint': 'Der eingefrorene Stand lebt nur in diesem Browser-Tab und geht beim Neuladen verloren.',
+    'help.gilthschadenheilung': 'Gilt für Schaden <strong>und</strong> Heilung.',
+
+    'acc.loginsecurity': 'Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).',
+    'acc.loggedinas': 'Angemeldet als',
+    'acc.nochars': 'Noch keine Charaktere angelegt.',
+    'acc.sendhint': 'Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.',
+    'acc.pwresethint': 'Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).',
+    'generic.loading': 'Lade …',
+    'generic.loaderror': 'Fehler beim Laden:',
+    'admin.userstats.loaderror': 'Statistik konnte nicht geladen werden:',
+    'admin.loadingusers': 'Lade Benutzer …',
+    'admin.nousersfound': 'Keine Benutzer gefunden.',
+    'admin.loadingbackups': 'Lade Sicherungen …',
+    'admin.nohistoryyet': 'Noch keine Stände vorhanden (entstehen automatisch bei jedem Presets-/Formeln-Speichern).',
+    'admin.nodailybackupyet': 'Noch kein Tages-Backup vorhanden (wird beim Serverstart und danach täglich angelegt).',
+    'food.noneyet': 'Noch kein Essen in dieser Kategorie.',
+    'gp.emptyref': 'Referenzliste ist noch leer.',
+    'gp.favoritehint': 'Zuerst oben bei Artefakte Besitz ankreuzen und speichern - danach lassen sich hier Favoriten daraus markieren.',
+    'btn.reload': 'Neu laden',
     'tt.githubchanges': 'Alle \u00c4nderungen mit Beschreibung auf GitHub',
     'tt.exportjson': 'Als JSON-Datei herunterladen (Backup)',
     'tt.bestsetup': 'Bestes eigenes Setup (h\u00f6chster Dmg-Buff aus Artefakt/Mount/Gef\u00e4hrte/Gef\u00e4hrten-Verst\u00e4rkung) ausw\u00e4hlen',
@@ -1037,6 +1097,66 @@ const TRANSLATIONS = {
     'help.gegneroffensive': 'Offensive enemy stats (the enemy attacks you - factors into the tank calculation):',
     'help.waffenschadenbonus': 'Bonus weapon damage: for weapons that grant additional weapon damage. The flat bonus (value) is added to the calculated weapon damage, the % bonus is then multiplied in. Saved per character and factors into damage, healing, and the character comparison.',
     'help.vergleich': 'Both characters are calculated with the same ability and enemy values (see "Ability &amp; Comparison" and "Enemy Stats"). "Currently loaded" uses the calculator\'s current state, including unsaved changes.',
+
+    'gp.charheading': 'My Group Planner Characters',
+    'gp.charintro': 'Completely separate from your stat-calculator characters: this is only about which class/role you can play and which artifacts, mounts, and companions you <strong>own</strong> - the officers need that to put groups together.',
+    'gp.namehint': 'The name automatically gets your account name appended (e.g. "Grim@Xselli"), so characters with the same name on different accounts stay unique. The in-game handle is freely editable independently of that (also later in the character editor) and is shown during group planning and used for the duplicate-assignment check.',
+    'gp.planheading': 'Lineup Plans',
+    'gp.planintro': 'Multiple plans are possible (e.g. one plan per trial run). Visible/editable for everyone with moderator role or higher.',
+    'gp.nocharsyet': 'No group planner characters yet.',
+    'gp.noplansyet': 'No plans yet.',
+    'ins.qualityerror': 'The target quality must be higher than the starting quality.',
+    'ins.intro': 'Shows how much insignia powder you need to upgrade, which quality is cheapest to farm that powder from, and whether upgrading or buying the target quality directly is cheaper.',
+
+    'static.ausruestung.intro': 'Equipment: enter values and % per piece yourself. Companions, Buff Food, and Mount Buffs: select and/or adjust the values directly.',
+    'static.gefaehrte.intro': 'Per companion: enter a name, then use "+ Stat" to add the stats it grants. In the "Other Info" field you can add a note (e.g. proc condition) - it doesn\'t affect any stats and is shown in the calculator under the companion slot.',
+    'static.gefaehrtepreset.intro': 'For each slot, choose via dropdown which companion is set for this preset.',
+    'static.reittier.intro': 'Per mount buff: enter a name, then add stats.',
+    'static.food.intro': 'Food items are created and deleted directly within their category below.',
+    'static.gegnerprofil.intro': 'Per profile: a name (e.g. boss name) and the 10 enemy values in %. The profiles appear on the Damage Calculation page under "Enemy Stats" as a dropdown.',
+    'static.roles.intro': 'Roles (higher = more rights, every role also has the rights of the lower ones): <strong>Moderator</strong> (companions/mounts/buff food) &lt; <strong>Coadmin</strong> (also formulas) &lt; <strong>Admin</strong> (also user overview). Takes effect only after the affected person\'s next login/logout.',
+    'static.backups.intro': 'Automatic backups, usable right here - no server access needed. Restoring only affects the shared presets/formulas; accounts and characters live in the daily backups (restoring those still goes through the server admin).',
+
+    'gp.gefaehrtepreset.intro2': 'Load an existing preset per companion via dropdown, or enter values/% directly (e.g. for companions not yet on file).',
+    'gp.reittiergroup.intro': 'Group buffs (mounts of group members):',
+    'gp.reittierpreset.intro': 'Load a mount per slot via dropdown, or enter values/% directly.',
+    'gp.food.intro': 'Load food (fills in the values automatically). Expand "Manual" below to adjust by hand.',
+    'gp.food.optimizehint': 'optimizes for damage (DPS), healing (Healer), or eHP (Tank) depending on class type - utility stays unchanged',
+
+    'ovw.loginhint': 'Log in at the top right to see all your saved characters side by side.',
+    'ovw.loading': 'Loading characters …',
+    'ovw.intro': 'Shows all your characters side by side - sorted by class type (DPS, Healer, Tank) and calculated with the same ability/enemy values as above. The values relevant to each class type are highlighted.',
+    'ovw.nochars': 'No saved characters yet.',
+    'ovw.tablehint': 'Sorted by class type (DPS &middot; Healer &middot; Tank). Colored cells = values relevant to the character\'s class type; gold outline = best value in the row. Click the row headers to expand/collapse Offensive/Defensive/Support. Clicking a name loads that character as "B" in the comparison above. The currently loaded character is calculated live, including unsaved changes; "Reload" fetches fresh data for the others.',
+    'ovw.heading': 'Character Overview',
+    'ovw.headingsub': '(all your characters)',
+    'vgl.selecttwo': 'Select two characters above to compare them side by side.',
+    'vgl.biggestdiff': 'Biggest single difference:',
+    'vgl.lastcolhint': 'The last column shows how much',
+    'vgl.lastcolhint2': 'is gained or lost from this factor alone - all rows together (multiplied) give the total difference.',
+    'vgl.checkwhat': 'Check above what should be compared (damage, healing, and/or tank).',
+    'vgl.intro': 'Compare two of your characters directly side by side - or freeze the current state, then change values/equipment and see live what the change brings (before/after).',
+    'vgl.guesthint': 'Note: saved characters only appear in the dropdowns after logging in (top right) - as a guest, "Currently loaded" and the frozen snapshot are available.',
+    'vgl.snapshothint': 'The frozen snapshot only lives in this browser tab and is lost on reload.',
+    'help.gilthschadenheilung': 'Applies to damage <strong>and</strong> healing.',
+
+    'acc.loginsecurity': 'Username + password. Stored securely on the server (password hashed, not in plain text).',
+    'acc.loggedinas': 'Logged in as',
+    'acc.nochars': 'No characters created yet.',
+    'acc.sendhint': 'Via "Send" you can send a copy of one of your own characters to another (already registered) user - your original stays unchanged. The recipient has to accept the copy first before it appears as their own character. Until then you can also cancel the send.',
+    'acc.pwresethint': 'Your password was reset to the default password by an admin - please set your own now (current password = the default password).',
+    'generic.loading': 'Loading …',
+    'generic.loaderror': 'Failed to load:',
+    'admin.userstats.loaderror': 'Statistics could not be loaded:',
+    'admin.loadingusers': 'Loading users …',
+    'admin.nousersfound': 'No users found.',
+    'admin.loadingbackups': 'Loading backups …',
+    'admin.nohistoryyet': 'No history yet (created automatically with every presets/formulas save).',
+    'admin.nodailybackupyet': 'No daily backup yet (created at server start and then daily).',
+    'food.noneyet': 'No food in this category yet.',
+    'gp.emptyref': 'Reference list is still empty.',
+    'gp.favoritehint': 'First check ownership above under Artifacts and save - then you can mark favorites from those here.',
+    'btn.reload': 'Reload',
     'tt.githubchanges': 'All changes with description on GitHub',
     'tt.exportjson': 'Download as JSON file (backup)',
     'tt.bestsetup': 'Select best own setup (highest dmg buff from artifact/mount/companion/companion reinforcement)',
@@ -1370,7 +1490,7 @@ async function renderAccountPanel(){
   if(!isLoggedIn){
     body.innerHTML = `
       <h3>${t('acc.loginheading')}</h3>
-      <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
+      <p class="helptext">${t('acc.loginsecurity')}</p>
       <div class="login-grid">
         <div><label for="acc_username">${t('acc.username')}</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
         <div><label for="acc_password">${t('acc.password')}</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
@@ -1425,17 +1545,17 @@ async function renderAccountPanel(){
       <div id="rename-panel-${i}" style="display:none;"></div>
       <div id="send-panel-${i}" style="display:none;"></div>
     </div>`;
-  }).join('') : '<p class="helptext">Noch keine Charaktere angelegt.</p>';
+  }).join('') : `<p class="helptext">${t('acc.nochars')}</p>`;
 
   const vorlageOptions = ['<option value="">– leer starten –</option>',
     ...(loadGuestBundle() ? ['<option value="__guest__">Aktuelle Gast-Eingaben übernehmen</option>'] : []),
     ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${c.name}</option>`)].join('');
 
   body.innerHTML = `
-    <h3>Angemeldet als ${currentUser}</h3>
+    <h3>${t('acc.loggedinas')} ${currentUser}</h3>
     ${incomingHtml}
     <div class="char-list">${list}</div>
-    <p class="helptext" style="margin-top:4px;">Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.</p>
+    <p class="helptext" style="margin-top:4px;">${t('acc.sendhint')}</p>
     <div class="login-grid" style="margin-top:12px;">
       <div>
         <label for="acc_newchar">${t('acc.newcharlabel')}</label>
@@ -1456,7 +1576,7 @@ async function renderAccountPanel(){
       <button class="action" type="button" onclick="closeAccountModal()">${t('btn.close')}</button>
     </div>
     <div id="pwChangeArea" style="display:${pwChangeRequired ? 'block' : 'none'};margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-      ${pwChangeRequired ? '<p class="helptext" style="color:var(--gold);margin-top:0;">Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).</p>' : ''}
+      ${pwChangeRequired ? `<p class="helptext" style="color:var(--gold);margin-top:0;">${t('acc.pwresethint')}</p>` : ''}
       <div class="login-grid">
         <div><label for="acc_oldpw">${t('acc.oldpw')}</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
         <div><label for="acc_newpw">${t('acc.newpw')}</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
@@ -2493,7 +2613,7 @@ function renderGefaehrtenWerteTable(){
       <button type="button" class="action gold" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>
     </div>
     ${renderRaptorControl()}
-    <p class="helptext" style="margin-top:0;">Pro Gefährte per Dropdown einen vorhandenen Preset laden, oder direkt Werte/% eintragen (z. B. für noch nicht hinterlegte Gefährten).</p>
+    <p class="helptext" style="margin-top:0;">${t('gp.gefaehrtepreset.intro2')}</p>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
 }
@@ -2526,7 +2646,7 @@ function renderReittierSlots(cat){
     </div>`;
   }).join('');
 
-  return `<p class="helptext" style="margin-top:0;">Gruppen-Buffs (Reittiere der Gruppenmitglieder):</p>
+  return `<p class="helptext" style="margin-top:0;">${t('gp.reittiergroup.intro')}</p>
     <div class="btnrow" style="margin-top:0;margin-bottom:14px;">${presetBtns}${werteBtn}</div>
     <div class="slot-grid">${gruppeCards}</div>`;
 }
@@ -2578,7 +2698,7 @@ function renderReittierWerteTable(){
       ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`).join('')}
       <button type="button" class="action gold" onclick="setReittierMode('werte')">Manuell Werte</button>
     </div>
-    <p class="helptext" style="margin-top:0;">Pro Slot per Dropdown ein Reittier laden, oder direkt Werte/% eintragen.</p>
+    <p class="helptext" style="margin-top:0;">${t('gp.reittierpreset.intro')}</p>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="wide-table-scroll"><table class="wide-table">${theadHtml}${bodyHtml}</table></div>`;
 }
@@ -2627,10 +2747,10 @@ function renderFoodWerteTable(cat){
       <div id="death-badge-${slugSrc(fs.key)}">${foodDeathBadge(sel, db)}</div>
     </div>`;
   }).join('');
-  return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
+  return `<p class="helptext" style="margin-top:0;">${t('gp.food.intro')}</p>
     <div class="btnrow" style="margin:0 0 12px 0;">
       <button type="button" class="action gold" title="${t('tt.optimizeall')}" onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
-      <span class="helptext" style="margin:0;align-self:center;">optimiert je nach Klassentyp auf Schaden (DPS), Heilung (Heiler) oder eHP (Tank) - Utility bleibt unverändert</span>
+      <span class="helptext" style="margin:0;align-self:center;">${t('gp.food.optimizehint')}</span>
     </div>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="accordion" id="acc-admin-food-manuell">
@@ -3244,14 +3364,14 @@ function uebersichtCharZumVergleich(i){
 function renderAlleCharsSection(){
   let inner;
   if(!isLoggedIn){
-    inner = '<p class="helptext">Melde dich oben rechts an, um alle deine gespeicherten Charaktere nebeneinander zu sehen.</p>';
+    inner = `<p class="helptext">${t('ovw.loginhint')}</p>`;
   } else if(uebersichtCharsLoading){
-    inner = '<p class="helptext">Lade Charaktere …</p>';
+    inner = `<p class="helptext">${t('ovw.loading')}</p>`;
   } else if(uebersichtCharsData === null){
-    inner = `<p class="helptext" style="margin-top:0;">Zeigt alle deine Charaktere nebeneinander - sortiert nach Klassentyp (DPS, Heiler, Tank) und gerechnet mit denselben Fähigkeits-/Gegner-Werten wie oben. Die für den jeweiligen Klassentyp relevanten Werte sind farblich hervorgehoben.</p>
+    inner = `<p class="helptext" style="margin-top:0;">${t('ovw.intro')}</p>
       <div class="btnrow" style="margin-top:0;"><button type="button" class="action" onclick="loadAlleChars()">Alle Charaktere laden</button></div>`;
   } else if(!uebersichtCharsData.length){
-    inner = '<p class="helptext">Noch keine gespeicherten Charaktere vorhanden.</p>';
+    inner = `<p class="helptext">${t('ovw.nochars')}</p>`;
   } else {
     // Kennzahlen berechnen (aktuell geladener Charakter immer live) und nach
     // Klassentyp gruppieren: erst alle DPS, dann Heiler, dann Tank, dann Rest.
@@ -3325,18 +3445,18 @@ function renderAlleCharsSection(){
     }).join('');
 
     inner = `<div class="btnrow" style="margin:0 0 10px 0;">
-        <button type="button" class="action small" onclick="loadAlleChars()">Neu laden</button>
+        <button type="button" class="action small" onclick="loadAlleChars()">${t('btn.reload')}</button>
       </div>
       <div class="ovw-scroll"><table class="ovw">
         <thead><tr><th>Wert</th>${head}</tr></thead>
         <tbody>${kennRows}</tbody>
         ${gruppen}
       </table></div>
-      <p class="helptext" style="margin-top:10px;">Sortiert nach Klassentyp (DPS &middot; Heiler &middot; Tank). Farbige Zellen = für den Klassentyp des Charakters relevante Werte; gold umrandet = bester Wert der Zeile. Offensive/Defensive/Unterstützung per Klick auf die Zeilenköpfe auf- und zuklappen. Klick auf einen Namen übernimmt den Charakter als "B" in den Vergleich oben. Der aktuell geladene Charakter wird live inklusive ungespeicherter Änderungen gerechnet; "Neu laden" holt frische Stände der anderen.</p>`;
+      <p class="helptext" style="margin-top:10px;">${t('ovw.tablehint')}</p>`;
   }
   return `<div class="accordion" id="acc-dmg-allechars" style="margin-top:14px;">
     <button type="button" onclick="toggleDmgAccordion('allechars')">
-      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Übersicht <span class="muted" style="font-weight:400;font-size:0.8rem;">(alle eigenen Charaktere)</span></span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--gold)"></span>${t('ovw.heading')} <span class="muted" style="font-weight:400;font-size:0.8rem;">${t('ovw.headingsub')}</span></span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">${inner}</div>
   </div>`;
@@ -3363,13 +3483,13 @@ function renderVergleichSection(){
       return `<select data-vgl="${which}">${opts}</select>`;
     };
     const A = vergleichSlot(vergleichAuswahl.a), B = vergleichSlot(vergleichAuswahl.b);
-    const statusMsg = s => s.status==='loading' ? `<p class="helptext">Lade "${escapeHtml(s.label)}" …</p>`
-      : (s.status==='error' ? `<p class="helptext" style="color:var(--off);">Fehler beim Laden von "${escapeHtml(s.label)}": ${escapeHtml(s.error)}</p>` : '');
+    const statusMsg = s => s.status==='loading' ? `<p class="helptext">${t('generic.loading').replace('…','')} "${escapeHtml(s.label)}" …</p>`
+      : (s.status==='error' ? `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} "${escapeHtml(s.label)}": ${escapeHtml(s.error)}</p>` : '');
 
     let bodyHtml = '';
     if(A.status !== 'ok' || B.status !== 'ok'){
       bodyHtml = statusMsg(A) + statusMsg(B) +
-        ((A.status==='none' || B.status==='none') ? '<p class="helptext">Wähle oben zwei Charaktere aus, um sie nebeneinander zu vergleichen.</p>' : '');
+        ((A.status==='none' || B.status==='none') ? `<p class="helptext">${t('vgl.selecttwo')}</p>` : '');
     } else {
       const kA = computeKennzahlenForData(A.bundle), kB = computeKennzahlenForData(B.bundle);
       const nameA = escapeHtml(A.label), nameB = escapeHtml(B.label);
@@ -3429,12 +3549,12 @@ function renderVergleichSection(){
         let biggest = null;
         entries.forEach(e=>{ if(e.impact!==null && e.impact!==undefined && isFinite(e.impact) && (biggest===null || Math.abs(e.impact) > Math.abs(biggest.impact))) biggest = e; });
         const biggestTxt = (biggest && Math.abs(biggest.impact) > 0.0005)
-          ? `<p class="helptext" style="margin:6px 0 0 0;">Größter Einzelunterschied: <strong>${biggest.label}</strong> (${biggest.impact>0?'+':''}${fmt(biggest.impact*100)} % ${metricLabel})</p>` : '';
+          ? `<p class="helptext" style="margin:6px 0 0 0;">${t('vgl.biggestdiff')} <strong>${biggest.label}</strong> (${biggest.impact>0?'+':''}${fmt(biggest.impact*100)} % ${metricLabel})</p>` : '';
         return `<div class="wide-table-scroll"><table>
           <thead><tr><th>Faktor</th><th style="text-align:right;">${nameA} genutzt</th><th style="text-align:right;">${nameB} genutzt</th><th style="text-align:right;">Faktor ${nameA}</th><th style="text-align:right;">Faktor ${nameB}</th><th style="text-align:right;">${metricLabel} ${nameB} vs. ${nameA}</th></tr></thead>
           <tbody>${rowsHtml}${totalRow}</tbody>
         </table></div>${biggestTxt}
-        <p class="helptext" style="margin:6px 0 0 0;">Die letzte Spalte zeigt, wie viel ${metricLabel} allein durch diesen Faktor gewonnen bzw. verloren wird - alle Zeilen zusammen (multipliziert) ergeben die Gesamtdifferenz.</p>`;
+        <p class="helptext" style="margin:6px 0 0 0;">${t('vgl.lastcolhint')} ${metricLabel} ${t('vgl.lastcolhint2')}</p>`;
       };
       const sectionBlock = (color, title, inner) => `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
         <h3 style="font-size:0.95rem;margin:0 0 4px 0;"><span class="dot" style="background:${color}"></span> ${title}</h3>
@@ -3529,10 +3649,10 @@ function renderVergleichSection(){
 
       const noneChecked = !vergleichSections.schaden && !vergleichSections.heilung && !vergleichSections.tank;
       bodyHtml = kopf + chkRow +
-        (noneChecked ? '<p class="helptext" style="margin-top:10px;">Kreuze oben an, was verglichen werden soll (Schaden, Heilung und/oder Tank).</p>' : sections.join('')) +
+        (noneChecked ? `<p class="helptext" style="margin-top:10px;">${t('vgl.checkwhat')}</p>` : sections.join('')) +
         `<p class="helptext" style="margin-top:12px;">${t('help.vergleich')}</p>`;
     }
-    inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander - oder friere den aktuellen Stand ein, ändere dann Werte/Ausrüstung und sieh live, was die Änderung bringt (Vorher/Nachher).</p>
+    inner = `<p class="helptext" style="margin-top:0;">${t('vgl.intro')}</p>
       <div class="btnrow" style="margin:0 0 12px 0;">
         <button type="button" class="action" onclick="freezeVergleichSnapshot()">Aktuellen Stand einfrieren (Vorher/Nachher)</button>
       </div>
@@ -3541,8 +3661,8 @@ function renderVergleichSection(){
         <div><label>Charakter B</label>${selHtml('b')}</div>
       </div>
       ${bodyHtml}
-      ${!isLoggedIn ? '<p class="helptext" style="margin-top:8px;">Hinweis: Gespeicherte Charaktere erscheinen in den Dropdowns erst nach der Anmeldung (oben rechts) - als Gast stehen "Aktuell geladen" und der eingefrorene Stand zur Verfügung.</p>' : ''}
-      ${vergleichSnapshot ? '<p class="helptext" style="margin-top:8px;">Der eingefrorene Stand lebt nur in diesem Browser-Tab und geht beim Neuladen verloren.</p>' : ''}`;
+      ${!isLoggedIn ? `<p class="helptext" style="margin-top:8px;">${t('vgl.guesthint')}</p>` : ''}
+      ${vergleichSnapshot ? `<p class="helptext" style="margin-top:8px;">${t('vgl.snapshothint')}</p>` : ''}`;
   }
   return `<div class="accordion" id="acc-dmg-vergleich" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('vergleich')">
@@ -3974,7 +4094,7 @@ function renderUebersicht(){
   el.innerHTML = `${klasseHinweis}
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>${t('card.faehigkeit')}</h2>
-    <p class="helptext">Gilt für Schaden <strong>und</strong> Heilung.</p>
+    <p class="helptext">${t('help.gilthschadenheilung')}</p>
     <div class="grunddaten-grid">
       ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
       ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
@@ -4290,13 +4410,13 @@ async function renderAdminStats(){
     <p class="helptext" style="margin-top:10px;">Rollen: ${s.roleCounts.user||0}× Nutzer, ${s.roleCounts.moderator||0}× Moderator, ${s.roleCounts.coadmin||0}× Coadmin, ${s.roleCounts.admin||0}× Admin.
     Presets/Formeln zuletzt geändert: ${s.sharedUpdatedAt ? formatUpdatedAt(s.sharedUpdatedAt) : 'nie'} (Version ${s.sharedRev}).</p>`;
   }catch(e){
-    el.innerHTML = `<p class="helptext" style="color:var(--off);">Statistik konnte nicht geladen werden: ${escapeHtml(e.message)}</p>`;
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('admin.userstats.loaderror')} ${escapeHtml(e.message)}</p>`;
   }
 }
 async function renderUserOverview(){
   const el = document.getElementById('userOverview');
   if(!el) return;
-  el.innerHTML = '<p class="helptext">Lade Benutzer …</p>';
+  el.innerHTML = `<p class="helptext">${t('admin.loadingusers')}</p>`;
   try{
     const users = await apiAdminListUsers();
     // "Zuletzt aktiv" = jüngstes Änderungsdatum über alle Charaktere des Benutzers;
@@ -4335,9 +4455,9 @@ async function renderUserOverview(){
         </div>
         <div class="user-chars" id="userchars-${slug}" style="display:none;">${charList}</div>
       </div>`;
-    }).join('') || '<p class="helptext">Keine Benutzer gefunden.</p>';
+    }).join('') || `<p class="helptext">${t('admin.nousersfound')}</p>`;
   }catch(e){
-    el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${e.message}</p>`;
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${e.message}</p>`;
   }
 }
 function toggleUserChars(slug){
@@ -4393,25 +4513,25 @@ let pendingBackupFile = null;
 async function renderBackupsCard(){
   const el = document.getElementById('backupOverview');
   if(!el) return;
-  el.innerHTML = '<p class="helptext">Lade Sicherungen …</p>';
+  el.innerHTML = `<p class="helptext">${t('admin.loadingbackups')}</p>`;
   try{
     adminBackups = await apiAdminBackups();
     const sharedList = adminBackups.shared.length ? adminBackups.shared.map((b, i)=>`<div class="char-item">
         <span style="flex:1;">${formatUpdatedAt(b.mtime)} <span class="muted">(${Math.max(1, Math.round(b.size/1024))} KB)</span></span>
         <button type="button" class="action small" onclick="downloadSharedBackup(${i})">Herunterladen</button>
         <button type="button" class="action small" onclick="confirmRestoreShared(${i})">Wiederherstellen</button>
-      </div>`).join('') : '<p class="helptext">Noch keine Stände vorhanden (entstehen automatisch bei jedem Presets-/Formeln-Speichern).</p>';
+      </div>`).join('') : `<p class="helptext">${t('admin.nohistoryyet')}</p>`;
     const dailyList = adminBackups.daily.length ? adminBackups.daily.map((d, i)=>`<div class="char-item">
         <span style="flex:1;">${d.day} <span class="muted">(${d.files} Dateien)</span></span>
         <button type="button" class="action small" onclick="downloadDailyBackup(${i})">Herunterladen (.tar.gz)</button>
-      </div>`).join('') : '<p class="helptext">Noch kein Tages-Backup vorhanden (wird beim Serverstart und danach täglich angelegt).</p>';
+      </div>`).join('') : `<p class="helptext">${t('admin.nodailybackupyet')}</p>`;
     el.innerHTML = `
       <h3 style="font-size:0.9rem;margin:8px 0 8px 0;">Presets/Formeln-Historie <span class="muted" style="font-weight:400;">(die letzten 10 Stände, je einer vor jedem Speichern)</span></h3>
       <div class="char-list">${sharedList}</div>
       <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Tägliche Voll-Backups <span class="muted" style="font-weight:400;">(die letzten 7 Tage: Konten, Charaktere, Presets/Formeln)</span></h3>
       <div class="char-list">${dailyList}</div>`;
   }catch(e){
-    el.innerHTML = `<p class="helptext" style="color:var(--off);">Fehler beim Laden: ${escapeHtml(e.message)}</p>`;
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${escapeHtml(e.message)}</p>`;
   }
 }
 
@@ -4570,7 +4690,7 @@ function renderFoodEditor(){
     const names = Object.keys(items);
     const cardsHtml = names.length
       ? names.map(name=>entryCardHtml(name, items[name], '', true, true)).join('')
-      : '<p class="helptext" style="margin:0 0 10px 0;">Noch kein Essen in dieser Kategorie.</p>';
+      : `<p class="helptext" style="margin:0 0 10px 0;">${t('food.noneyet')}</p>`;
     const hint = catName==='Utility' ? ' <span class="muted">(gilt für Utility 1 und Utility 2)</span>' : '';
     return `<div class="accordion" id="acc-foodcat-${ci}" style="margin-top:8px;">
       <button type="button" onclick="toggleFoodGroup(${ci})">
@@ -5211,7 +5331,7 @@ function renderInsignien(){
   let linksHtml, rechtsHtml;
   if(zielIdx <= startIdx){
     linksHtml = '';
-    rechtsHtml = `<p class="helptext">Die Ziel-Qualität muss höher sein als die Start-Qualität.</p>`;
+    rechtsHtml = `<p class="helptext">${t('ins.qualityerror')}</p>`;
   } else {
     linksHtml = `
       <div class="ins-stat-row">
@@ -5238,8 +5358,8 @@ function renderInsignien(){
 
   el.innerHTML = `
   <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Insignienrechner</h2>
-    <p class="helptext">Zeigt, wie viel Insignien-Pulver du zum Hochstufen brauchst, mit welcher Qualität du dieses Pulver am günstigsten verwertest, und ob Hochstufen oder Direktkauf der Ziel-Qualität günstiger ist.</p>
+    <h2><span class="dot" style="background:var(--gold)"></span>${t('app.insignien')}</h2>
+    <p class="helptext">${t('ins.intro')}</p>
     <div class="grunddaten-grid">
       <div><label>Start-Qualität (die hast du)</label><select id="insStart">${optionsHtml(insignieStart)}</select></div>
       <div><label>Ziel-Qualität (die willst du)</label><select id="insZiel">${optionsHtml(insignieZiel)}</select></div>
@@ -5410,7 +5530,7 @@ async function ensureGpPlansLoaded(force){
 let gpMyCharsOrder = [];
 function renderGpCharList(){
   const el = document.getElementById('gpCharList');
-  if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade …</p>'; return; }
+  if(gpCharacters === null){ el.innerHTML = `<p class="helptext">${t('generic.loading')}</p>`; return; }
   const mine = gpCharacters.filter(c => c.isOwner);
   gpMyCharsOrder = mine.map(c => c.name);
   el.innerHTML = mine.length ? mine.map((c,i) => {
@@ -5426,7 +5546,7 @@ function renderGpCharList(){
       <button type="button" class="action small" onclick="gpRenameCharacterByIndex(${i})">Umbenennen</button>
       <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">Löschen</button>
     </div>`;
-    }).join('') : '<p class="helptext">Noch keine eigenen Gruppenplaner-Charaktere angelegt.</p>';
+    }).join('') : `<p class="helptext">${t('gp.nocharsyet')}</p>`;
   renderGpCharEditor();
 }
 function gpEditCharacterByIndex(i){
@@ -5996,7 +6116,7 @@ function renderGpCharEditor(){
     }).join('');
     return `<div class="accordion" id="acc-dmg-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
         <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
-      </button><div class="body"><div class="besitz-grid">${items || '<p class="helptext">Referenzliste ist noch leer.</p>'}</div></div></div>`;
+      </button><div class="body"><div class="besitz-grid">${items || `<p class="helptext">${t('gp.emptyref')}</p>`}</div></div></div>`;
   }).join('');
   // Seit v0.26.0 (Nutzerwunsch "Lieblingsartefakte auswählen können, max dps
   // geht aber in der Regel vor"): eigener Chip-Bereich, der Optionen sind
@@ -6014,7 +6134,7 @@ function renderGpCharEditor(){
       ${gpRefIconImgHtml((e&&e.icon)||'')}
       <span>${escapeHtml(gpEntryDisplayName(e, name))}</span>
     </label>`;
-  }).join('') : '<p class="helptext">Zuerst oben bei Artefakte Besitz ankreuzen und speichern - danach lassen sich hier Favoriten daraus markieren.</p>';
+  }).join('') : `<p class="helptext">${t('gp.favoritehint')}</p>`;
   el.innerHTML = `<div class="card">
     <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
@@ -6283,14 +6403,14 @@ async function gpSaveReferenzlisten(){
 /* ---------- Unterseite "Planung" (das eigentliche Board) ---------- */
 function renderGpPlanList(){
   const el = document.getElementById('gpPlanList');
-  if(gpPlans === null){ el.innerHTML = '<p class="helptext">Lade …</p>'; return; }
+  if(gpPlans === null){ el.innerHTML = `<p class="helptext">${t('generic.loading')}</p>`; return; }
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
       <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">Öffnen</button>
       <button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">Umbenennen</button>
       <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">Duplizieren</button>
       <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">Löschen</button>
-    </div>`).join('') : '<p class="helptext">Noch keine Pläne angelegt.</p>';
+    </div>`).join('') : `<p class="helptext">${t('gp.noplansyet')}</p>`;
   document.getElementById('gpPlanBoard').innerHTML = '';
 }
 async function gpCreatePlan(){
