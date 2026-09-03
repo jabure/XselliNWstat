@@ -3569,14 +3569,37 @@ function renderUebersicht(){
     }).join('');
 
     const lines = series.map(s=>{
-      const d = s.pts.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ');
+      // Nur die Abschnitte zeichnen, in denen der Zugewinn über 0 liegt - nach einem Cap
+      // fällt der Wert auf 0 und bleibt es (kein Nutzen mehr durch weitere %), statt einer
+      // flachen Nulllinie bricht die Linie an der Stelle einfach ab.
+      const segments = [];
+      let current = [];
+      s.pts.forEach(p=>{
+        if(p.y > 0){ current.push(p); }
+        else if(current.length){ segments.push(current); current = []; }
+      });
+      if(current.length) segments.push(current);
+      const d = segments.map(seg => seg.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ')).join(' ');
       const cx = xScale(s.curX).toFixed(1), cy = yScale(s.curY).toFixed(1);
+      const dot = s.curY > 0 ? `<circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>` : '';
       return `<g class="chart-series">
         <path class="chart-hit" d="${d}" fill="none" stroke="transparent" stroke-width="14"/>
         <path class="chart-line" data-base-width="2.5" d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5"/>
-        <circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>
+        ${dot}
       </g>`;
     }).join('');
+
+    // Hinweis für gegenseitig abhängige Stat-Paare (z.B. Robustheit/Robustheitstärke):
+    // zeigt eine Stat-Kurve durchgehend 0%, weil die jeweils andere Stat noch nicht
+    // eingetragen ist, gibt's hier eine kurze Erklärung statt einer stillschweigend leeren Linie.
+    const pairHints = series.filter(s => s.pairId).map(s=>{
+      const partner = series.find(p => p.id === s.pairId);
+      if(!partner || partner.curX > 0) return null;
+      return `<strong>${s.label}</strong> zeigt aktuell 0&nbsp;%, weil <strong>${partner.label}</strong> noch nicht eingetragen ist.`;
+    }).filter(Boolean);
+    const pairHintHtml = pairHints.length
+      ? `<p class="helptext" style="margin-top:6px;">${pairHints.join('<br>')}</p>`
+      : '';
 
     const xAxisLabel = 'Aktueller Stat-Wert (%)';
     const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
@@ -3594,6 +3617,7 @@ function renderUebersicht(){
           ${xAxisTicks}
           <text x="${(pad.left+chartW/2).toFixed(1)}" y="${h-6}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${xAxisLabel}</text>
         </svg>
+        ${pairHintHtml}
       </div>
     </div>`;
   }
@@ -3643,8 +3667,8 @@ function renderUebersicht(){
     {id:'verteidigung', label:'Verteidigung', color:'#4285F4', xMax:130, curX: rawF('verteidigung')},
     {id:'wahrnehmung', label:'Wahrnehmung', color:'#E91E8C', xMax:100, curX: rawF('wahrnehmung')},
     {id:'kritvermeidung', label:'Krit-Vermeidung', color:'#34A853', xMax:100, curX: rawF('kritvermeidung')},
-    {id:'robustheit', label:'Robustheit', color:'#9C6ADE', xMax:100, curX: rawF('robustheit')},
-    {id:'robustheitstaerke', label:'Robustheitstärke', color:'#FBBC04', xMax:130, curX: rawF('robustheitstaerke')},
+    {id:'robustheit', label:'Robustheit', color:'#9C6ADE', xMax:100, curX: rawF('robustheit'), pairId:'robustheitstaerke'},
+    {id:'robustheitstaerke', label:'Robustheitstärke', color:'#FBBC04', xMax:130, curX: rawF('robustheitstaerke'), pairId:'robustheit'},
   ];
   function tankTotalGiven(overrideId, x){
     const vertRaw = overrideId==='verteidigung' ? x : rawF('verteidigung');

@@ -332,6 +332,26 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.35.0: Zugewinn-Kurven (Schaden/Heilung/Tank) zeichnen keine
+  flache Nulllinie mehr, plus Hinweistext bei gegenseitig abhängigen
+  Stat-Paaren.**
+  - `buildImpactChart`: die Linie wird jetzt in Segmente aufgeteilt und nur
+    dort gezeichnet, wo der Zugewinn > 0 ist - sobald ein Stat gecappt ist
+    (Zugewinn fällt auf 0), bricht die Linie ab statt flach am unteren Rand
+    weiterzulaufen. Der Punktmarker wird ebenfalls nur gezeigt, wenn der
+    aktuelle Zugewinn > 0 ist.
+  - **Robustheit/Robustheitstärke sind mathematisch gegenseitig abhängig**
+    (`robF_ = 1 + (Robustheit/100) × ((1/(1+Robustheitstärke/100))−1)` - ist
+    eine der beiden 0, ist der ganze Zugewinn 0, egal wie hoch die andere
+    ist). Das war schon vorher so gewollt (siehe Kommentar "alle anderen
+    Stats bleiben auf ihrem aktuellen echten Wert" bei `buildImpactChart`)
+    und bleibt fachlich unverändert - NEU ist nur ein `pairHintHtml`-
+    Hinweistext unter dem Tank-Chart ("Robustheit zeigt aktuell 0 %, weil
+    Robustheitstärke noch nicht eingetragen ist"), der erscheint, sobald die
+    jeweils andere Stat noch bei 0 steht. Generisch über `pairId` an den
+    `tankChartDefs`-Einträgen gelöst, greift auch für andere Charts, falls
+    dort mal ein ähnliches Stat-Paar dazukommt.
+  - Alle 256 Smoke-Tests weiter grün.
 - **Seit v0.34.0: UI-Audit gegen Web Interface Guidelines (Vercel/antfu) +
   Interface-Design-Skill (Dammyjay93) - reine Accessibility-/Polish-Fixes,
   keine Funktionsänderung, alle 256 Smoke-Tests weiter grün.**
