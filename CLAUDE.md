@@ -332,6 +332,48 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.34.0: UI-Audit gegen Web Interface Guidelines (Vercel/antfu) +
+  Interface-Design-Skill (Dammyjay93) - reine Accessibility-/Polish-Fixes,
+  keine Funktionsänderung, alle 256 Smoke-Tests weiter grün.**
+  - **Icon-Buttons**: `aria-label` ergänzt bei allen reinen Icon-Buttons ohne
+    sichtbaren Text (Auf/Ab-Pfeile im Account-Panel, alle "✕"-Entfernen-
+    Buttons in Statrechner/Referenztabelle/Gruppenplaner, Trophäen-Button
+    "Bestes eigenes Setup"). Buttons mit sichtbarem Text (z.B. "Kopieren",
+    "Export") NICHT angefasst - dort reicht der Text bereits als
+    zugänglicher Name, `title` bleibt zusätzlich als Tooltip erhalten.
+  - **Labels verknüpft**: `for="<input-id>"` bei allen statischen Label/Feld-
+    Paaren im Account-Bereich ergänzt (Benutzername, Passwort, Neuer
+    Charakter, Vorlage, Passwort ändern) sowie bei den dynamischen Send-/
+    Umbenennen-Panels (`for="send-input-${i}"` / `for="rename-input-${i}"`)
+    und beim Gruppenplaner-Ingame-Handle-Feld. Klick aufs Label fokussiert
+    jetzt das Feld, Screenreader liest die Zuordnung korrekt vor. Die vielen
+    dynamisch generierten Tabellen-/Grid-Inputs (Stat-Werte, Ausrüstungs-
+    Zeilen usw.) bewusst NICHT angefasst - dort ist die Spalten-Überschrift
+    der Kontext, echte Label-Verknüpfung wäre ein größerer Umbau.
+  - **Bilder**: `alt` bei den beiden `<img>`-Stellen ergänzt, die bisher
+    keins hatten (Besitz-Icons bekommen `alt="<Item-Name>"`, die reine
+    Icon-Vorschau im Referenzlisten-Editor `alt=""` als dekorativ markiert).
+  - **Fokus-Zustand**: `.app-select` (App-Umschalter oben links) hatte
+    `outline:none` ohne echten Ersatz - jetzt zusätzlich
+    `:focus-visible{outline:2px solid var(--gold);...}`, damit Tastatur-
+    Nutzer weiterhin einen sichtbaren Fokus-Ring sehen, während der Klick-
+    Fokus weiter nur die dezente Border-Farbe bekommt.
+  - **Dark Mode**: `color-scheme:dark` auf `<body>` ergänzt, damit native
+    Elemente (Select-Dropdowns, Scrollbars) in Browsern, die das auswerten,
+    zum dunklen Theme passen statt hell durchzuscheinen.
+  - **Touch**: `touch-action:manipulation` bei `button.action` und
+    `.app-select` ergänzt (verhindert die Doppel-Tap-Zoom-Verzögerung von
+    mobilen Browsern bei schnellen Taps).
+  - **Typografie**: 15 echte Auslassungspunkte in Nutzertexten (Ladezustände
+    "Lade …"/"Speichere …", Platzhalter "Name eingeben…" usw.) von `...` auf
+    das echte Ellipsis-Zeichen `…` umgestellt. JS-Spread-Syntax (`...arr`)
+    im Code wurde NICHT angefasst - nur Text in sichtbaren Strings/
+    Platzhaltern, jede Stelle einzeln per Zeilennummer geprüft, bevor sie
+    ersetzt wurde.
+  - Bewusst NICHT gemacht (nächste Kandidaten für eine spätere Runde):
+    `autocomplete` auf den restlichen Formularfeldern (nur Login/Passwort
+    hatten es schon), Labels für Tabellen-/Grid-Inputs, "Loading…"-Ellipsis
+    in Bereichen die noch nicht geprüft wurden.
 - **Seit v0.33.0: Optimierer komplett auf "Gesamtbild"-Betrachtung
   umgestellt statt Zeile-für-Zeile (ausführlich mit Xselli abgesprochene
   Umstellung, siehe Chat-Verlauf - kein einzelnes Bugfix-Beispiel, sondern

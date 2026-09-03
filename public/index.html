@@ -30,6 +30,7 @@
     margin:0; padding:24px; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     line-height:1.55; letter-spacing:0.01em;
+    color-scheme:dark;
   }
   .wrap{max-width:none; margin:0;}
   h1{
@@ -134,6 +135,7 @@
   button.action{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
     padding:9px 16px; border-radius:6px; cursor:pointer; font-size:0.88rem; font-weight:600;
+    touch-action:manipulation;
   }
   button.action:hover{border-color:var(--gold);}
   button.danger{border-color:var(--danger); color:#f0b3ac;}
@@ -220,8 +222,10 @@
     /* Fest auf eine kompakte Breite begrenzt, statt sich über die Zeile auszudehnen -
        soll wirklich nur oben links in der Ecke sitzen, der Konto-Button bleibt rechts. */
     width:auto; max-width:220px; flex:0 0 auto;
+    touch-action:manipulation;
   }
   .app-select:focus{outline:none; border-color:var(--gold);}
+  .app-select:focus-visible{outline:2px solid var(--gold); outline-offset:1px;}
   /* Oberste Zeile: App-Auswahl links, Konto-Button rechts */
   .top-bar{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
   .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
@@ -614,7 +618,7 @@
 <div id="pageUsers" style="display:none;">
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>Statistik</h2>
-    <div id="adminStats"><p class="helptext">Lade ...</p></div>
+    <div id="adminStats"><p class="helptext">Lade …</p></div>
   </div>
   <div class="card">
     <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
@@ -643,7 +647,7 @@
       <p class="helptext">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
       <div id="gpCharList"></div>
       <div class="btnrow" style="margin-top:12px;">
-        <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben..." style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
+        <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben…" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <input type="text" id="gpNewCharHandle" placeholder="@Ingame-Handle (optional)" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <button type="button" class="action gold" onclick="gpCreateCharacter()">Charakter anlegen</button>
       </div>
@@ -658,7 +662,7 @@
       <p class="helptext">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar für alle mit Moderator-Rolle oder höher.</p>
       <div id="gpPlanList"></div>
       <div class="btnrow" style="margin-top:12px;">
-        <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans..." style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
+        <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans…" style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
         <button type="button" class="action gold" onclick="gpCreatePlan()">Plan anlegen</button>
       </div>
     </div>
@@ -732,7 +736,7 @@ const DEFAULT_GP_MOUNTS = [
 const DEFAULT_GP_MOUNTBONUS = [
   {name:"Mystische Aura", beschreibung:"gibt Kraft und verteidigung"},
   {name:"Runische Aura", beschreibung:"gibt kraft und Zielgenauigkeit"},
-  {name:"Rudelstrategien", beschreibung:"gibt kampfvorteil und wahrnehmung ( stackt mit einer abnemenden effektivität (100/50/35/12,5...))"},
+  {name:"Rudelstrategien", beschreibung:"gibt kampfvorteil und wahrnehmung ( stackt mit einer abnemenden effektivität (100/50/35/12,5…))"},
 ];
 const DEFAULT_GP_GEFAEHRTEN = [
   {name:"Skorpion", beschreibung:"lässt sein Ziel einen Kampfvorteil gewähren, 100% ontime (außer Mechanik)"},
@@ -1114,8 +1118,8 @@ async function renderAccountPanel(){
       <h3>Anmelden oder registrieren</h3>
       <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
       <div class="login-grid">
-        <div><label>Benutzername</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
-        <div><label>Passwort</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div><label for="acc_username">Benutzername</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div><label for="acc_password">Passwort</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
       </div>
       <div id="accMsg" class="helptext" style="color:var(--off);"></div>
       <div class="btnrow">
@@ -1149,8 +1153,8 @@ async function renderAccountPanel(){
     return `<div>
       <div class="char-item">
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <button type="button" class="action small" style="padding:2px 6px; ${i===0?'visibility:hidden;':''}" title="Nach oben verschieben" onclick="moveCharacterByIndex(${i},-1)">&#9650;</button>
-          <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="Nach unten verschieben" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
+          <button type="button" class="action small" style="padding:2px 6px; ${i===0?'visibility:hidden;':''}" title="Nach oben verschieben" aria-label="Nach oben verschieben" onclick="moveCharacterByIndex(${i},-1)">&#9650;</button>
+          <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="Nach unten verschieben" aria-label="Nach unten verschieben" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
         </div>
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
           <span class="char-name">${c.name}</span>
@@ -1180,11 +1184,11 @@ async function renderAccountPanel(){
     <p class="helptext" style="margin-top:4px;">Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.</p>
     <div class="login-grid" style="margin-top:12px;">
       <div>
-        <label>Neuer Charakter</label>
-        <input type="text" id="acc_newchar" placeholder="Name eingeben..." onkeydown="if(event.key==='Enter')createCharacter()">
+        <label for="acc_newchar">Neuer Charakter</label>
+        <input type="text" id="acc_newchar" placeholder="Name eingeben…" onkeydown="if(event.key==='Enter')createCharacter()">
       </div>
       <div>
-        <label>Vorlage</label>
+        <label for="acc_copyfrom">Vorlage</label>
         <select id="acc_copyfrom">${vorlageOptions}</select>
       </div>
     </div>
@@ -1200,8 +1204,8 @@ async function renderAccountPanel(){
     <div id="pwChangeArea" style="display:${pwChangeRequired ? 'block' : 'none'};margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
       ${pwChangeRequired ? '<p class="helptext" style="color:var(--gold);margin-top:0;">Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).</p>' : ''}
       <div class="login-grid">
-        <div><label>Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
-        <div><label>Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+        <div><label for="acc_oldpw">Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+        <div><label for="acc_newpw">Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
       </div>
       <div class="btnrow"><button class="action gold" type="button" onclick="changePassword()">Neues Passwort speichern</button></div>
     </div>`;
@@ -1298,7 +1302,7 @@ function toggleSendByIndex(i){
   panel.style.display = 'block';
   panel.innerHTML = `
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
-      <label style="font-size:0.8rem;">Kopie an einen anderen Benutzer senden</label>
+      <label for="send-input-${i}" style="font-size:0.8rem;">Kopie an einen anderen Benutzer senden</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
         <input type="text" id="send-input-${i}" placeholder="Benutzername" style="flex:1;" onkeydown="if(event.key==='Enter')sendCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="sendCharacterByIndex(${i})">Senden</button>
@@ -1357,7 +1361,7 @@ function toggleRenameByIndex(i){
   panel.style.display = 'block';
   panel.innerHTML = `
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
-      <label style="font-size:0.8rem;">Charakter umbenennen</label>
+      <label for="rename-input-${i}" style="font-size:0.8rem;">Charakter umbenennen</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
         <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;" onkeydown="if(event.key==='Enter')renameCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="renameCharacterByIndex(${i})">Speichern</button>
@@ -1775,7 +1779,7 @@ function queueSave(){
     }, 400);
     return;
   }
-  document.getElementById('saveStatus').textContent = 'Speichere ...';
+  document.getElementById('saveStatus').textContent = 'Speichere …';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async ()=>{
     try{
@@ -2393,7 +2397,7 @@ function renderFoodWerteTable(cat){
    größte Fortschritt Richtung Caps, dann die Trefferpunkte.
    Die beiden Utility-Slots bleiben grundsätzlich unangetastet. */
 function optimizeBuffFood(){
-  document.getElementById('saveStatus').textContent = 'Suche bestes Buff Food ...';
+  document.getElementById('saveStatus').textContent = 'Suche bestes Buff Food …';
   setTimeout(runBuffFoodOptimierung, 30); // erst die Meldung zeichnen lassen, dann rechnen
 }
 function runBuffFoodOptimierung(){
@@ -2986,7 +2990,7 @@ function renderAlleCharsSection(){
   if(!isLoggedIn){
     inner = '<p class="helptext">Melde dich oben rechts an, um alle deine gespeicherten Charaktere nebeneinander zu sehen.</p>';
   } else if(uebersichtCharsLoading){
-    inner = '<p class="helptext">Lade Charaktere ...</p>';
+    inner = '<p class="helptext">Lade Charaktere …</p>';
   } else if(uebersichtCharsData === null){
     inner = `<p class="helptext" style="margin-top:0;">Zeigt alle deine Charaktere nebeneinander - sortiert nach Klassentyp (DPS, Heiler, Tank) und gerechnet mit denselben Fähigkeits-/Gegner-Werten wie oben. Die für den jeweiligen Klassentyp relevanten Werte sind farblich hervorgehoben.</p>
       <div class="btnrow" style="margin-top:0;"><button type="button" class="action" onclick="loadAlleChars()">Alle Charaktere laden</button></div>`;
@@ -3103,7 +3107,7 @@ function renderVergleichSection(){
       return `<select data-vgl="${which}">${opts}</select>`;
     };
     const A = vergleichSlot(vergleichAuswahl.a), B = vergleichSlot(vergleichAuswahl.b);
-    const statusMsg = s => s.status==='loading' ? `<p class="helptext">Lade "${escapeHtml(s.label)}" ...</p>`
+    const statusMsg = s => s.status==='loading' ? `<p class="helptext">Lade "${escapeHtml(s.label)}" …</p>`
       : (s.status==='error' ? `<p class="helptext" style="color:var(--off);">Fehler beim Laden von "${escapeHtml(s.label)}": ${escapeHtml(s.error)}</p>` : '');
 
     let bodyHtml = '';
@@ -3974,7 +3978,7 @@ async function renderAdminStats(){
 async function renderUserOverview(){
   const el = document.getElementById('userOverview');
   if(!el) return;
-  el.innerHTML = '<p class="helptext">Lade Benutzer ...</p>';
+  el.innerHTML = '<p class="helptext">Lade Benutzer …</p>';
   try{
     const users = await apiAdminListUsers();
     // "Zuletzt aktiv" = jüngstes Änderungsdatum über alle Charaktere des Benutzers;
@@ -4071,7 +4075,7 @@ let pendingBackupFile = null;
 async function renderBackupsCard(){
   const el = document.getElementById('backupOverview');
   if(!el) return;
-  el.innerHTML = '<p class="helptext">Lade Sicherungen ...</p>';
+  el.innerHTML = '<p class="helptext">Lade Sicherungen …</p>';
   try{
     adminBackups = await apiAdminBackups();
     const sharedList = adminBackups.shared.length ? adminBackups.shared.map((b, i)=>`<div class="char-item">
@@ -4163,7 +4167,7 @@ function statRowHtml(statId, werte, prozent){
     <select class="stat-select">${statOptionsHtml(statId)}</select>
     <input type="text" inputmode="numeric" class="num-in werte-in stat-werte" value="${formatWerte(werte||0)}" placeholder="Werte">
     <span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in stat-prozent" value="${formatPct(prozent||0)}"><span class="pct-suffix">%</span></span>
-    <button type="button" class="action danger small" onclick="this.closest('.stat-row').remove()">✕</button>
+    <button type="button" class="action danger small" title="Entfernen" aria-label="Entfernen" onclick="this.closest('.stat-row').remove()">✕</button>
   </div>`;
 }
 function addStatRowTo(btn){
@@ -4180,13 +4184,13 @@ function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
   const infoVal = (statsObj && statsObj._info) ? String(statsObj._info) : '';
   const infoHtml = withInfo ? `<div style="margin-top:8px;">
       <label>Sonstige Info (nur Text, beeinflusst keine Stats)</label>
-      <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz ...">
+      <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz …">
     </div>` : '';
   const persistsChecked = (statsObj && statsObj._persistsDeath) ? 'checked' : '';
   const deathHtml = withDeathCheck ? `<label class="slot-check" style="margin-top:8px;"><input type="checkbox" class="entry-persists-death" ${persistsChecked}> Besteht über den Tod hinaus</label>` : '';
   return `<div class="entry-card">
     <div class="entry-head">
-      <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben...">
+      <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben…">
       <button type="button" class="action danger small" onclick="this.closest('.entry-card').remove()">Entfernen</button>
     </div>
     <div class="stat-rows">${rows}</div>
@@ -5061,7 +5065,7 @@ async function ensureGpPlansLoaded(force){
 let gpMyCharsOrder = [];
 function renderGpCharList(){
   const el = document.getElementById('gpCharList');
-  if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
+  if(gpCharacters === null){ el.innerHTML = '<p class="helptext">Lade …</p>'; return; }
   const mine = gpCharacters.filter(c => c.isOwner);
   gpMyCharsOrder = mine.map(c => c.name);
   el.innerHTML = mine.length ? mine.map((c,i) => {
@@ -5608,7 +5612,7 @@ function gpOwnedIconsHtml(data){
   if(!icons.length) return '';
   const shown = icons.slice(0, 8);
   const rest = icons.length - shown.length;
-  return `<span class="besitz-icons">${shown.map(i=>`<img src="${escapeHtml(i.icon)}" title="${escapeHtml(i.name)}" onerror="this.style.display='none';">`).join('')}${rest>0?`<span class="muted">+${rest}</span>`:''}</span>`;
+  return `<span class="besitz-icons">${shown.map(i=>`<img src="${escapeHtml(i.icon)}" alt="${escapeHtml(i.name)}" title="${escapeHtml(i.name)}" onerror="this.style.display='none';">`).join('')}${rest>0?`<span class="muted">+${rest}</span>`:''}</span>`;
 }
 function renderGpCharEditor(){
   const el = document.getElementById('gpCharEditor');
@@ -5658,7 +5662,7 @@ function renderGpCharEditor(){
     <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
       <div><label>Klasse</label><select id="gpEditKlasse">${klasseOptions}</select></div>
-      <div><label>Ingame-Handle (@...)</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
+      <div><label for="gpEditHandle">Ingame-Handle (@...)</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
     </div>
     <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">Rollen, die dieser Charakter spielen kann</label>
       ${rolleChk('dps','DPS')} ${rolleChk('heal','Heiler')} ${rolleChk('tank','Tank')}
@@ -5703,7 +5707,7 @@ async function gpSaveCharEditor(){
 const GPREF_BLANK_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 function gpRefIconImgHtml(iconVal){
   const has = !!iconVal;
-  return `<img class="gpref-icon-preview${has?'':' empty'}" src="${has?escapeHtml(iconVal):GPREF_BLANK_ICON}" onerror="this.src='${GPREF_BLANK_ICON}';this.classList.add('empty');">`;
+  return `<img class="gpref-icon-preview${has?'':' empty'}" src="${has?escapeHtml(iconVal):GPREF_BLANK_ICON}" alt="" onerror="this.src='${GPREF_BLANK_ICON}';this.classList.add('empty');">`;
 }
 // Seit v0.20.0 (Nutzerwunsch "Icon direkt reinladen statt URL eintippen"): das
 // Icon-Feld ist ein Datei-Upload (input type=file) statt eines Text-URL-Felds.
@@ -5779,10 +5783,10 @@ function gpRefRowHtml(e, fields){
       ${gpRefIconImgHtml(iconVal)}
       <input type="hidden" class="gpref-field" data-field="icon" value="${iconVal.replace(/"/g,'&quot;')}">
       ${gpRefIconFileHtml()}
-      <button type="button" class="action small" onclick="gpClearIconField(this)" title="Icon entfernen">✕</button>
+      <button type="button" class="action small" onclick="gpClearIconField(this)" title="Icon entfernen" aria-label="Icon entfernen">✕</button>
     </div></td>
     ${fields.map(f=>`<td>${gpRefFieldHtml(e, f)}</td>`).join('')}
-    <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen">✕</button></td>
+    <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen" aria-label="Entfernen">✕</button></td>
   </tr>`;
 }
 function gpRefListEditorHtml(listId, entries, fields){
@@ -5922,7 +5926,7 @@ async function gpSaveReferenzlisten(){
 /* ---------- Unterseite "Planung" (das eigentliche Board) ---------- */
 function renderGpPlanList(){
   const el = document.getElementById('gpPlanList');
-  if(gpPlans === null){ el.innerHTML = '<p class="helptext">Lade ...</p>'; return; }
+  if(gpPlans === null){ el.innerHTML = '<p class="helptext">Lade …</p>'; return; }
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
       <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">Öffnen</button>
@@ -6236,8 +6240,8 @@ function renderGpPlanBoard(){
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
         <td>
-          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="Bestes eigenes Setup (höchster Dmg-Buff aus Artefakt/Mount/Gefährte/Gefährten-Verstärkung) auswählen">🏆</button>
-          <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})">✕</button>
+          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="Bestes eigenes Setup (höchster Dmg-Buff aus Artefakt/Mount/Gefährte/Gefährten-Verstärkung) auswählen" aria-label="Bestes eigenes Setup auswählen">🏆</button>
+          <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})" title="Zeile entfernen" aria-label="Zeile entfernen">✕</button>
         </td>
       </tr>`;
     }).join('');
