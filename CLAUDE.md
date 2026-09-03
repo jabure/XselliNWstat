@@ -332,6 +332,50 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.45.0: Fehlende Überschriften nachübersetzt + 3 Sicherheits-/Bug-
+  Fixes aus dem Website-Audit umgesetzt.**
+  - **Überschriften**: alle bisher übersehenen `<h2>`/`<h3>` jetzt zweisprachig
+    - statisch (neues `data-i18n`): Charakter-Grunddaten, Ausrüstung & Boni,
+      Zurücksetzen, Gefährten-/Reittier-Gruppen-Presets, Statistik,
+      Benutzerübersicht, Sicherungen.
+    - JS-generiert (`${t(...)}`): Presets/Formeln-Historie, Tägliche Voll-
+      Backups, die drei Vergleichs-Abschnitte (Schaden/Heilung/Tank),
+      "Charakter bearbeiten: X", Besitz-/Lieblingsartefakte-Header im
+      Gruppenplaner-Charakter-Editor, "Optimierungsregeln"-Kartenkopf.
+    - Referenzlisten-/Besitz-Kategorie-Namen (Artefakte/Mounts/Mount-
+      Ausrüstungsbonus/Gefährten/Gefährten-Verstärkung) bekamen dafür ein
+      neues `titleKey`/`labelKey`-Feld an `GP_REF_SPECS` bzw.
+      `GP_BESITZ_KATEGORIEN` (beide sind `const`-Arrays, die nur einmal beim
+      Laden ausgewertet werden - `t()` direkt im Objekt-Literal hätte beim
+      Sprachwechsel nicht mehr aktualisiert, deshalb Key statt fertigem Text
+      gespeichert und erst beim Rendern übersetzt).
+    - **Fix während des Bauens**: bei "Charakter-Grunddaten" hätte
+      `data-i18n` direkt auf dem `<h2>` den verschachtelten
+      `#grunddatenCharName`-Span beim Sprachwechsel gelöscht (`applyLangUI`
+      überschreibt `innerHTML` komplett) - stattdessen `data-i18n` auf einen
+      inneren `<span>` gesetzt, Charaktername-Span bleibt als Geschwister-
+      Element erhalten. Mit jsdom verifiziert.
+  - **Sicherheitsfix 1 (XSS)**: `summarizeContrib()` gab `contrib._info`
+    (das freie "Sonstige Info"-Textfeld bei Gefährten/Reittieren/Buff Food)
+    ungefiltert in `innerHTML` aus - jetzt mit `escapeHtml()`. Jeder
+    Moderator+ hätte dort HTML/JS einschleusen können, das bei allen
+    Nutzern des jeweiligen Presets ausgeführt worden wäre.
+  - **Sicherheitsfix 2 (XSS)**: alle 6 Stellen, die `dbDisplayName()` für
+    die Gefährten-/Reittier-/Buff-Food-Dropdowns nutzen, bauten
+    `<option value="${n}">${dbDisplayName(db,n)}</option>` ohne
+    `escapeHtml()` - weder für den (schon vorher bestehenden) deutschen
+    Namen noch den neuen `_nameEn`. Ein `"` im Namen hätte aus dem
+    `value`-Attribut ausbrechen können. Jetzt beide Teile escaped.
+  - **Sicherheitsfix 3**: `/api/auth/register` hatte keine Rate-Begrenzung
+    (anders als der Login). Neue IP-basierte Bremse im selben simplen
+    In-Memory-Stil wie die bestehende Login-Bremse: max. 5 Registrierungen
+    pro IP und Stunde, danach HTTP 429. Dafür zusätzlich `app.set('trust
+    proxy', 1)` ergänzt - ohne das hätte `req.ip` hinter dem Docker-
+    Reverse-Proxy immer nur dessen Adresse gezeigt und die Bremse hätte
+    alle Nutzer zusammen statt einzeln gezählt.
+  - Rate-Limit funktional getestet (5x erlaubt, 6. Versuch → 429). Alle 256
+    Smoke-Tests grün (Registrierungen im Testlauf bleiben deutlich unter
+    dem neuen Limit).
 - **Seit v0.44.0: Fast alle restlichen Hilfetexte auf Englisch übersetzt -
   vierter und letzter großer Baustein der "allgemeinen Beschreibungen".**
   - Statische Presets/Users/Backups-Einleitungstexte über neue `data-i18n`-

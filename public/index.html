@@ -432,7 +432,7 @@
     <!-- Links: Grunddaten + Stat-Gruppen -->
     <div class="rechner-col-left">
       <div class="card">
-        <h2>Charakter-Grunddaten <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:0.85rem;"></span></h2>
+        <h2><span data-i18n="h.grunddaten">Charakter-Grunddaten</span> <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:0.85rem;"></span></h2>
         <div class="grunddaten-grid">
           <div>
             <label for="itemlevel">Gegenstandsstufe</label>
@@ -465,7 +465,7 @@
     <!-- Rechts: Ausrüstung & Boni -->
     <div class="rechner-col-right">
       <div class="card">
-        <h2><span class="dot" style="background:var(--gold)"></span>Ausrüstung &amp; Boni</h2>
+        <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="h.ausruestungboni">Ausrüstung &amp; Boni</span></h2>
         <p class="helptext" data-i18n="static.ausruestung.intro">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
         <div class="btnrow" style="margin:0 0 10px 0;">
           <button type="button" class="action small" onclick="setAllStatSubgroups('sources', true)">Alles aufklappen</button>
@@ -478,7 +478,7 @@
 
   <!-- Reset -->
   <div class="card">
-    <h2>Zurücksetzen</h2>
+    <h2 data-i18n="h.zuruecksetzen">Zurücksetzen</h2>
     <div class="btnrow">
       <button class="action" onclick="confirmAction('werte')">Werte zurücksetzen</button>
       <button class="action" onclick="confirmAction('ausruestung')">Ausrüstung zurücksetzen</button>
@@ -504,7 +504,7 @@
       <div id="companionEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
 
-      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
+      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;" data-i18n="h.gefpresets">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
       <p class="helptext" data-i18n="static.gefaehrtepreset.intro">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
       <div id="gefaehrtenPresetEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
@@ -520,7 +520,7 @@
       <div id="mountEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
 
-      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
+      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;" data-i18n="h.reitpresets">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
       <div id="reittierPresetEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('reittierPresetEditor','reittier')">+ Preset hinzufügen</button></div>
     </div>
@@ -632,16 +632,16 @@
 
 <div id="pageUsers" style="display:none;">
   <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Statistik</h2>
+    <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="h.statistik">Statistik</span></h2>
     <div id="adminStats"><p class="helptext" data-i18n="generic.loading">Lade …</p></div>
   </div>
   <div class="card">
-    <h2><span class="dot" style="background:var(--def)"></span>Benutzerübersicht</h2>
+    <h2><span class="dot" style="background:var(--def)"></span><span data-i18n="h.benutzeruebersicht">Benutzerübersicht</span></h2>
     <p class="helptext" data-i18n="static.roles.intro">Rollen (höher = mehr Rechte, jede Rolle hat auch die Rechte der niedrigeren): <strong>Moderator</strong> (Gefährten/Reittiere/Buff Food) &lt; <strong>Coadmin</strong> (zusätzlich Formeln) &lt; <strong>Admin</strong> (zusätzlich Benutzerübersicht). Wirkt erst nach der nächsten An-/Abmeldung der betroffenen Person.</p>
     <div id="userOverview" class="char-list"></div>
   </div>
   <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Sicherungen</h2>
+    <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="h.sicherungen">Sicherungen</span></h2>
     <p class="helptext" data-i18n="static.backups.intro">Automatische Backups, direkt hier nutzbar - ohne Serverzugriff. Die Wiederherstellung betrifft nur die geteilten Presets/Formeln; Konten und Charaktere stecken in den Tages-Backups (Wiederherstellung davon weiterhin über den Server-Admin).</p>
     <div id="backupOverview"></div>
   </div>
@@ -1013,6 +1013,34 @@ const TRANSLATIONS = {
     'food.noneyet': 'Noch kein Essen in dieser Kategorie.',
     'gp.emptyref': 'Referenzliste ist noch leer.',
     'gp.favoritehint': 'Zuerst oben bei Artefakte Besitz ankreuzen und speichern - danach lassen sich hier Favoriten daraus markieren.',
+
+    'h.grunddaten': 'Charakter-Grunddaten',
+    'h.ausruestungboni': 'Ausrüstung &amp; Boni',
+    'h.zuruecksetzen': 'Zurücksetzen',
+    'h.gefpresets': 'Gefährten-Gruppen-Presets (5er/10er Standard)',
+    'h.reitpresets': 'Reittier-Gruppen-Presets (5er/10er Standard)',
+    'h.statistik': 'Statistik',
+    'h.benutzeruebersicht': 'Benutzerübersicht',
+    'h.sicherungen': 'Sicherungen',
+
+    'h.presetshistorie': 'Presets/Formeln-Historie',
+    'h.presetshistoriesub': '(die letzten 10 Stände, je einer vor jedem Speichern)',
+    'h.dailybackups': 'Tägliche Voll-Backups',
+    'h.dailybackupssub': '(die letzten 7 Tage: Konten, Charaktere, Presets/Formeln)',
+    'sec.schaden': 'Schaden',
+    'sec.heilung': 'Heilung',
+    'sec.tank': 'Tank (effektive Trefferpunkte)',
+    'gp.editchar': 'Charakter bearbeiten:',
+    'h.gpbesitz': 'Besitz (für die Aufstellungs-Dropdowns im Board)',
+    'h.gplieblinge': 'Lieblingsartefakte',
+    'h.gpliebIingesub': '(werden im Optimierer nur bei Gleichstand bevorzugt - der höchste Dmg-Buff geht immer vor)',
+    'h.optimizerrules': 'Optimierungsregeln (🏆-Knopf)',
+    'gp.ref.artefakte': 'Artefakte',
+    'gp.ref.mounts': 'Mounts',
+    'gp.ref.mountbonus': 'Mount-Ausrüstungsbonus',
+    'gp.ref.gefaehrten': 'Gefährten',
+    'gp.ref.gefverstaerkung': 'Gefährten-Verstärkung',
+    'gp.of': 'von',
     'btn.reload': 'Neu laden',
     'tt.githubchanges': 'Alle \u00c4nderungen mit Beschreibung auf GitHub',
     'tt.exportjson': 'Als JSON-Datei herunterladen (Backup)',
@@ -1156,6 +1184,34 @@ const TRANSLATIONS = {
     'food.noneyet': 'No food in this category yet.',
     'gp.emptyref': 'Reference list is still empty.',
     'gp.favoritehint': 'First check ownership above under Artifacts and save - then you can mark favorites from those here.',
+
+    'h.grunddaten': 'Character Base Data',
+    'h.ausruestungboni': 'Equipment &amp; Bonuses',
+    'h.zuruecksetzen': 'Reset',
+    'h.gefpresets': 'Companion Group Presets (5/10-player standard)',
+    'h.reitpresets': 'Mount Group Presets (5/10-player standard)',
+    'h.statistik': 'Statistics',
+    'h.benutzeruebersicht': 'User Overview',
+    'h.sicherungen': 'Backups',
+
+    'h.presetshistorie': 'Presets/Formulas History',
+    'h.presetshistoriesub': '(the last 10 states, one before each save)',
+    'h.dailybackups': 'Daily Full Backups',
+    'h.dailybackupssub': '(the last 7 days: accounts, characters, presets/formulas)',
+    'sec.schaden': 'Damage',
+    'sec.heilung': 'Healing',
+    'sec.tank': 'Tank (effective hit points)',
+    'gp.editchar': 'Edit character:',
+    'h.gpbesitz': 'Ownership (for the lineup dropdowns on the board)',
+    'h.gplieblinge': 'Favorite Artifacts',
+    'h.gpliebIingesub': '(only preferred by the optimizer on a tie - the highest dmg buff always wins first)',
+    'h.optimizerrules': 'Optimizer Rules (🏆 button)',
+    'gp.ref.artefakte': 'Artifacts',
+    'gp.ref.mounts': 'Mounts',
+    'gp.ref.mountbonus': 'Mount Equipment Bonus',
+    'gp.ref.gefaehrten': 'Companions',
+    'gp.ref.gefverstaerkung': 'Companion Reinforcement',
+    'gp.of': 'of',
     'btn.reload': 'Reload',
     'tt.githubchanges': 'All changes with description on GitHub',
     'tt.exportjson': 'Download as JSON file (backup)',
@@ -2521,7 +2577,7 @@ function summarizeContrib(name, db){
     if(prozent) parts.push(`${label} +${prozent}%`);
   }
   let out = parts.length ? parts.join(', ') : '–';
-  if(contrib._info) out += `<br><em class="muted">${contrib._info}</em>`;
+  if(contrib._info) out += `<br><em class="muted">${escapeHtml(contrib._info)}</em>`;
   return out;
 }
 
@@ -2551,7 +2607,7 @@ function renderPresetSlots(cat, names, db, presets){
   const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>`;
   const slotCards = cat.sources.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="slot-card">
       <label>${src}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -2571,7 +2627,7 @@ function renderGefaehrtenWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(companionDb,n)}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(companionDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
       <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
@@ -2638,7 +2694,7 @@ function renderReittierSlots(cat){
   const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">Manuell Werte</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(mountDb,n)}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
     return `<div class="slot-card">
       <label>${src}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -2659,7 +2715,7 @@ function renderReittierWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(mountDb,n)}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
       <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
@@ -2739,7 +2795,7 @@ function renderFoodWerteTable(cat){
     const sel = getSlotSelection(fs.key);
     const items = foodSlotItems(fs);
     const db = foodDb[fs.category] || {};
-    const options = ['Leer', ...items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
+    const options = ['Leer', ...items].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${fs.label}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
@@ -3601,7 +3657,7 @@ function renderVergleichSection(){
           { label:statLabel('bonusschaden'), usedA:pct(kA.frac('bonusschaden')*100), usedB:pct(kB.frac('bonusschaden')*100),
             fA:'× '+fmt(fA_.dmg.bonusF), fB:'× '+fmt(fB_.dmg.bonusF), impact:rel(fA_.dmg.bonusF, fB_.dmg.bonusF) },
         ];
-        sections.push(sectionBlock('var(--off)', 'Schaden',
+        sections.push(sectionBlock('var(--off)', t('sec.schaden'),
           verdict(kA.totalDmg, kB.totalDmg, 'Schaden') + bars(kA.totalDmg, kB.totalDmg) +
           buildBreakdown('Schaden', entries, kA.totalDmg, kB.totalDmg)));
       }
@@ -3617,7 +3673,7 @@ function renderVergleichSection(){
           { label:statLabel('gesamtheilung'), usedA:pct(kA.heilTotal), usedB:pct(kB.heilTotal),
             fA:'× '+fmt(fA_.heal.heilF), fB:'× '+fmt(fB_.heal.heilF), impact:rel(fA_.heal.heilF, fB_.heal.heilF) },
         ];
-        sections.push(sectionBlock('var(--sup)', 'Heilung',
+        sections.push(sectionBlock('var(--sup)', t('sec.heilung'),
           verdict(kA.heilWert, kB.heilWert, 'Heilung') + bars(kA.heilWert, kB.heilWert) +
           buildBreakdown('Heilung', entries, kA.heilWert, kB.heilWert)));
       }
@@ -3642,7 +3698,7 @@ function renderVergleichSection(){
           { label:statLabel('schadensreduzierung'), usedA:pct(tA.sr), usedB:pct(tB.sr),
             fA:'÷ '+fmt(fA_.tank.srF), fB:'÷ '+fmt(fB_.tank.srF), impact:inv(fA_.tank.srF, fB_.tank.srF) },
         ];
-        sections.push(sectionBlock('var(--def)', 'Tank (effektive Trefferpunkte)',
+        sections.push(sectionBlock('var(--def)', t('sec.tank'),
           verdict(kA.ehp, kB.ehp, 'effektive Trefferpunkte (eHP)') + bars(kA.ehp, kB.ehp) +
           buildBreakdown('eHP', entries, kA.ehp, kB.ehp)));
       }
@@ -4526,9 +4582,9 @@ async function renderBackupsCard(){
         <button type="button" class="action small" onclick="downloadDailyBackup(${i})">Herunterladen (.tar.gz)</button>
       </div>`).join('') : `<p class="helptext">${t('admin.nodailybackupyet')}</p>`;
     el.innerHTML = `
-      <h3 style="font-size:0.9rem;margin:8px 0 8px 0;">Presets/Formeln-Historie <span class="muted" style="font-weight:400;">(die letzten 10 Stände, je einer vor jedem Speichern)</span></h3>
+      <h3 style="font-size:0.9rem;margin:8px 0 8px 0;">${t('h.presetshistorie')} <span class="muted" style="font-weight:400;">${t('h.presetshistoriesub')}</span></h3>
       <div class="char-list">${sharedList}</div>
-      <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Tägliche Voll-Backups <span class="muted" style="font-weight:400;">(die letzten 7 Tage: Konten, Charaktere, Presets/Formeln)</span></h3>
+      <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">${t('h.dailybackups')} <span class="muted" style="font-weight:400;">${t('h.dailybackupssub')}</span></h3>
       <div class="char-list">${dailyList}</div>`;
   }catch(e){
     el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${escapeHtml(e.message)}</p>`;
@@ -4762,7 +4818,7 @@ function collectFoodEditor(){
 function presetCardHtml(presetName, slotLabels, names, assigned, db){
   const selects = slotLabels.map((label,i)=>{
     const val = assigned[i] || 'Leer';
-    const opts = ['Leer', ...names].map(n=>`<option value="${n}" ${n===val?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
+    const opts = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===val?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="preset-slot"><label>${label}</label><select class="preset-slot-select">${opts}</select></div>`;
   }).join('');
   return `<div class="preset-card">
@@ -5646,11 +5702,11 @@ const GP_KLASSE_ICON = { 'Kämpfer':'⚔️','Waldläufer':'🏹','Schurke':'�
 //   Referenzlisten-Seite, Nutzerwunsch "Optimierungsregeln nachträglich
 //   bearbeiten können") statt hier fest im Code. Siehe gpOptimizeRolleErlaubt.
 const GP_BESITZ_KATEGORIEN = [
-  { key:'artefakte', label:'Artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle', favKey:'lieblingsartefakte' },
-  { key:'mounts', label:'Mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', rollenKonfigurierbar:true },
-  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', rollenKonfigurierbar:true },
-  { key:'gefaehrten', label:'Gefährten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', dpsDmgKey:'schaden', rowField:'gefaehrte' },
-  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus', rollenKonfigurierbar:true },
+  { key:'artefakte', label:'Artefakte', labelKey:'gp.ref.artefakte', liste:()=>gpArtefakte, sub:e=>e.buff!==undefined?fmt(e.buff)+' %':'', dmgKey:'buff', rowField:'artefakt', roleKey:'rolle', favKey:'lieblingsartefakte' },
+  { key:'mounts', label:'Mounts', labelKey:'gp.ref.mounts', liste:()=>gpMounts, sub:e=>e.faehigkeit||'', dmgKey:'dmgBonus', rowField:'mount', rollenKonfigurierbar:true },
+  { key:'mountBonus', label:'Mount-Ausrüstungsbonus', labelKey:'gp.ref.mountbonus', liste:()=>gpMountBonus, sub:e=>e.beschreibung||'', rowField:'mountBonus', rollenKonfigurierbar:true },
+  { key:'gefaehrten', label:'Gefährten', labelKey:'gp.ref.gefaehrten', liste:()=>gpGefaehrten, sub:e=>e.beschreibung||'', dmgKey:'buff', dpsDmgKey:'schaden', rowField:'gefaehrte' },
+  { key:'gefaehrtenVerstaerkung', label:'Gefährten-Verstärkung', labelKey:'gp.ref.gefverstaerkung', liste:()=>gpGefaehrtenVerstaerkung, sub:e=>e.beschreibung||'', dmgKey:'buff', rowField:'gefaehrtenBonus', rollenKonfigurierbar:true },
 ];
 // Seit v0.28.0 (Nutzerwunsch): editierbare Rollen-Regel je "rollenKonfigurierbar"-
 // Kategorie - für welche Rollen (dps/heal/tank) optimiert der 🏆-Knopf diese
@@ -6115,7 +6171,7 @@ function renderGpCharEditor(){
       </label>`;
     }).join('');
     return `<div class="accordion" id="acc-dmg-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
-        <span><span class="dot" style="background:var(--gold)"></span>${kat.label} <span class="muted" style="font-weight:400;">(${owned.length} von ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
+        <span><span class="dot" style="background:var(--gold)"></span>${t(kat.labelKey)} <span class="muted" style="font-weight:400;">(${owned.length} ${t('gp.of')} ${kat.liste().length})</span></span><span class="chevron">&#9656;</span>
       </button><div class="body"><div class="besitz-grid">${items || `<p class="helptext">${t('gp.emptyref')}</p>`}</div></div></div>`;
   }).join('');
   // Seit v0.26.0 (Nutzerwunsch "Lieblingsartefakte auswählen können, max dps
@@ -6136,7 +6192,7 @@ function renderGpCharEditor(){
     </label>`;
   }).join('') : `<p class="helptext">${t('gp.favoritehint')}</p>`;
   el.innerHTML = `<div class="card">
-    <h2>Charakter bearbeiten: ${escapeHtml(gpEditingCharName)}</h2>
+    <h2>${t('gp.editchar')} ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
       <div><label>Klasse</label><select id="gpEditKlasse">${klasseOptions}</select></div>
       <div><label for="gpEditHandle">Ingame-Handle (@...)</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
@@ -6144,9 +6200,9 @@ function renderGpCharEditor(){
     <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">Rollen, die dieser Charakter spielen kann</label>
       ${rolleChk('dps','DPS')} ${rolleChk('heal','Heiler')} ${rolleChk('tank','Tank')}
     </div>
-    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">Besitz (für die Aufstellungs-Dropdowns im Board)</h3>
+    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gpbesitz')}</h3>
     ${kategorien}
-    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">Lieblingsartefakte <span class="muted" style="font-weight:400;">(werden im Optimierer nur bei Gleichstand bevorzugt - der höchste Dmg-Buff geht immer vor)</span></h3>
+    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gplieblinge')} <span class="muted" style="font-weight:400;">${t('h.gpliebIingesub')}</span></h3>
     <div class="besitz-grid">${lieblingsChips}</div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">Speichern</button></div>
   </div>`;
@@ -6317,9 +6373,9 @@ const GP_REF_SPECS = [
   // Optimierer stellt VOR der sonstigen Bestwert-Suche sicher, dass
   // mindestens ein markierter Eintrag pro 5er-Segment vergeben ist, sofern
   // irgendjemand im Segment ihn besitzt (s. gpPflicht/gpErzwingePflichtItems).
-  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'nameEn',label:'Name (EN)',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'nameEn',label:'Name (EN)',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
+  { key:'gpArtefakte', title:'Artefakte', titleKey:'gp.ref.artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'nameEn',label:'Name (EN)',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpMounts', title:'Mounts', titleKey:'gp.ref.mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'nameEn',label:'Name (EN)',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', titleKey:'gp.ref.mountbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
   // dafür, dass der Gruppen-Optimierer (gpOptimiereKategorieGesamtbild) sie mitberücksichtigen
@@ -6329,8 +6385,8 @@ const GP_REF_SPECS = [
   // Seit v0.23.0: zusätzliches "schaden"-Feld (eigener Schaden des Gefährten,
   // getrennt vom Support-Dmg-Buff "buff") - der Optimierer bevorzugt dieses
   // Feld bei DPS-Zeilen (dpsDmgKey), Supports bleiben weiter beim Dmg-Buff.
-  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrten', title:'Gefährten', titleKey:'gp.ref.gefaehrten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', titleKey:'gp.ref.gefverstaerkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
 ];
 // Seit v0.28.0 (Nutzerwunsch "schreibe alle Optimierungsregeln in die
 // Referenzliste, damit ich sie nachträglich bearbeiten kann"): editierbare
@@ -6342,10 +6398,10 @@ function gpOptimizerRegelnHtml(){
   const checkboxZeilen = GP_BESITZ_KATEGORIEN.filter(k => k.rollenKonfigurierbar).map(kat => {
     const regel = gpOptimizerRegeln[kat.key] || DEFAULT_GP_OPTIMIZER_REGELN[kat.key];
     const boxen = rollen.map(([flag,label]) => `<label class="slot-check"><input type="checkbox" data-gpregel="${kat.key}" data-gpregelrolle="${flag}" ${regel[flag]?'checked':''}> ${label}</label>`).join(' ');
-    return `<div style="margin:6px 0;"><strong>${kat.label}</strong> optimieren für: ${boxen}</div>`;
+    return `<div style="margin:6px 0;"><strong>${t(kat.labelKey)}</strong> optimieren für: ${boxen}</div>`;
   }).join('');
   return `<div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Optimierungsregeln (🏆-Knopf)</h2>
+    <h2><span class="dot" style="background:var(--gold)"></span>${t('h.optimizerrules')}</h2>
     <p class="helptext">Für welche Rollen der Optimierer folgende Kategorien überhaupt anfasst - editierbar:</p>
     ${checkboxZeilen}
     <div style="margin:14px 0;">
@@ -6381,7 +6437,7 @@ function gpCollectOptimizerRegeln(){
 function renderGpReferenz(){
   const el = document.getElementById('gpPageReferenz');
   const sections = GP_REF_SPECS.map(spec => `<div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>${spec.title}</h2>
+    <h2><span class="dot" style="background:var(--gold)"></span>${t(spec.titleKey)}</h2>
     ${gpRefListEditorHtml('gpref-'+spec.key, spec.get(), spec.fields)}
   </div>`).join('');
   el.innerHTML = sections + gpOptimizerRegelnHtml() + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">Referenzlisten speichern (für alle)</button></div>`;

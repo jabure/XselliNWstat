@@ -86,6 +86,10 @@ function removeTransfersInvolving(username){
 }
 
 const app = express();
+// Läuft hinter einem Reverse-Proxy (Docker-Netzwerk "proxy") - ohne das hier würde
+// req.ip immer nur die Adresse des Proxys zeigen, und die IP-basierte
+// Registrierungs-Bremse unten alle Nutzer zusammen statt einzeln zählen.
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
 
 const PKG_VERSION = require('./package.json').version;
@@ -151,14 +155,42 @@ function requireRole(minRole){
   };
 }
 
+// Einfache Bremse gegen automatisiertes Massen-Anlegen von Konten: pro IP
+// werden Registrierungen gezählt (im Speicher, überlebt keinen Neustart -
+// reicht für diesen Zweck, gleiches Muster wie die Login-Bremse unten).
+const registerAttempts = {}; // ip -> { count, firstAt }
+const REGISTER_MAX_PER_WINDOW = 5;
+const REGISTER_WINDOW_MINUTES = 60;
+function registerLockedFor(ip){
+  const a = registerAttempts[ip];
+  if(!a) return 0;
+  const elapsed = Date.now() - a.firstAt;
+  if(elapsed > REGISTER_WINDOW_MINUTES*60*1000){ delete registerAttempts[ip]; return 0; }
+  if(a.count < REGISTER_MAX_PER_WINDOW) return 0;
+  return Math.ceil((REGISTER_WINDOW_MINUTES*60*1000 - elapsed) / 60000);
+}
+function noteRegisterAttempt(ip){
+  const a = registerAttempts[ip];
+  if(!a || Date.now() - a.firstAt > REGISTER_WINDOW_MINUTES*60*1000){
+    registerAttempts[ip] = { count: 1, firstAt: Date.now() };
+  } else {
+    a.count++;
+  }
+}
+
 /* ---------- Auth ---------- */
 app.post('/api/auth/register', async (req, res) => {
+  const lockedMin = registerLockedFor(req.ip);
+  if(lockedMin > 0){
+    return res.status(429).json({ error: `Zu viele Registrierungen von dieser Adresse - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
+  }
   const { username, password } = req.body || {};
   if(!username || !password || username.length < 2 || password.length < 4){
     return res.status(400).json({ error: 'Benutzername (min. 2 Zeichen) und Passwort (min. 4 Zeichen) erforderlich' });
   }
   const users = readJson(USERS_FILE, {});
   if(users[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
+  noteRegisterAttempt(req.ip);
   const passwordHash = await bcrypt.hash(password, 10);
   // Wer sich mit exakt dem Namen aus ADMIN_USERNAME registriert, wird automatisch
   // zum ersten Admin. Weitere Rollen kann dieser danach über die Benutzerübersicht vergeben.
