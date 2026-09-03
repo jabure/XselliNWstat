@@ -332,6 +332,50 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.37.0: Website-weites Design-Audit umgesetzt (Punkte A/B/C aus dem
+  Vorschlag, D "Icon-Mix vereinheitlichen" bewusst ausgelassen).**
+  - **A - Tabellen-Scroll**: die Statrechner-Haupttabelle (`stats-table`)
+    sowie die Heilungs- und Tank-Tabelle bei der Schadensberechnung waren
+    als einzige Tabellen im Projekt NICHT in `.wide-table-scroll` gewrappt -
+    jetzt konsistent wie alle anderen, verhindert Layout-Sprengung auf
+    schmalen Bildschirmen.
+  - **B - Chart-Farben ans Theme angepasst**: die 5 Google-Material-Farben
+    in den Zugewinn-Charts (Schaden/Heilung/Tank) sind jetzt CSS-Variablen
+    aus dem App-Theme (`--gold`/`--def`/`--sup`/`--off` + neues `--violet`
+    für den 5. Farbton). Gleicher Stat hat jetzt in allen drei Charts
+    dieselbe Farbe (z.B. Kraft immer Gold, Kritschaden immer Violett).
+    SVG-`stroke`-Attribute können `var(--x)` direkt nutzen (wird schon bei
+    den Gitterlinien so gemacht) - keine Vorlagen-Änderung nötig.
+  - **C - Hardcodierte Hex-Farben konsolidiert**: `#2f5b4c` (4×, Rahmen von
+    Eingabefeldern) → neue Variable `--edit-border`, `#23262f` (2×,
+    Tabellenzeilen-Trennlinie) → neue Variable `--border-subtle`, `#2c303b`
+    im Ring-Chart war ein exaktes Duplikat von `--border` → jetzt `var(--border)`.
+    Rein kosmetisch identisch, aber ein künftiges Theme-Update müsste nur
+    noch die `:root`-Variablen anfassen statt einzelne Fundstellen zu suchen.
+  - Alle 256 Smoke-Tests weiter grün.
+- **Seit v0.36.0: Verschönerung der Zugewinn-Charts + farbliche Akzente für
+  Schaden/Heilung/Tank-Akkordeons (auf Xselli-Wunsch, mit UI-Skills-Vorschlägen
+  aus dem vorherigen UI-Audit).**
+  - **Legende klickbar**: Klick (oder Enter/Leertaste, `role="button"
+    tabindex="0"`) auf einen Legenden-Eintrag blendet die zugehörige Kurve
+    komplett aus/ein (`hidden`-Array in `attachChartHover`, unabhängig vom
+    bisherigen Hover-Highlight). `aria-pressed` spiegelt den Zustand.
+  - **Sanfte Kurven**: neue Helper-Funktion `smoothPathD` wandelt die
+    Punktreihen (Catmull-Rom zu kubischen Bezier-Kurven) in einen weichen
+    Kurvenzug um statt gerader Linien zwischen den 41 Stützpunkten - reine
+    Optik, die zugrunde liegenden Datenpunkte/Berechnungen sind unverändert.
+    Arbeitet zusammen mit den seit v0.35.0 abgebrochenen Nullwert-Segmenten
+    (jedes Segment wird einzeln geglättet).
+  - **Tabellarische Ziffern** (`font-variant-numeric:tabular-nums`) auf den
+    Y-Achsen-Beschriftungen der Charts, damit sich die Breite der Zahlen
+    beim Re-Render nicht mehr minimal verschiebt.
+  - **Akkordeon-Akzentfarben**: `acc-dmg-schaden`/`-heilung`/`-tank` haben
+    jetzt einen 3px farbigen linken Rand (`var(--off)`/`var(--sup)`/
+    `var(--def)`), passend zur bereits vorhandenen Punktfarbe im jeweiligen
+    Header - macht die drei Bereiche auf einen Blick unterscheidbar. Andere
+    Akkordeons (Referenzlisten, Admin-Bereich usw.) bewusst nicht
+    angefasst, nur die drei genannten IDs bekamen die Inline-Ergänzung.
+  - Alle 256 Smoke-Tests weiter grün.
 - **Seit v0.35.0: Zugewinn-Kurven (Schaden/Heilung/Tank) zeichnen keine
   flache Nulllinie mehr, plus Hinweistext bei gegenseitig abhängigen
   Stat-Paaren.**

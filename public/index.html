@@ -23,6 +23,9 @@
     --danger:#a4433a;
     --edit:#4fae8a;
     --edit-bg:#1a2c26;
+    --edit-border:#2f5b4c;
+    --border-subtle:#23262f;
+    --violet:#8a7ec9;
     --radius:10px;
   }
   *{box-sizing:border-box;}
@@ -52,7 +55,7 @@
   .grunddaten-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
   label{display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:4px;}
   input[type=number], input[type=text], input[type=password], select, textarea{
-    width:100%; background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit); color:var(--text);
+    width:100%; background:var(--edit-bg); border:1px solid var(--edit-border); border-left:3px solid var(--edit); color:var(--text);
     border-radius:6px; padding:8px 10px; font-size:0.92rem; font-family:inherit;
     font-variant-numeric:tabular-nums;
   }
@@ -68,7 +71,7 @@
     -webkit-box-shadow:0 0 0 1000px var(--edit-bg) inset;
     -webkit-text-fill-color:var(--text);
     caret-color:var(--text);
-    border:1px solid #2f5b4c; border-left:3px solid var(--edit);
+    border:1px solid var(--edit-border); border-left:3px solid var(--edit);
   }
   /* Das "Auge"-Symbol von Edge im Passwortfeld an das dunkle Design anpassen */
   input[type=password]::-ms-reveal{filter:invert(0.8);}
@@ -80,7 +83,7 @@
   .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:0.8rem; color:var(--text-dim);}
   .legend-item{display:flex; align-items:center; gap:7px;}
   .legend-swatch{width:14px; height:14px; border-radius:3px; flex:none;}
-  .legend-swatch.editable{background:var(--edit-bg); border:1px solid #2f5b4c; border-left:3px solid var(--edit);}
+  .legend-swatch.editable{background:var(--edit-bg); border:1px solid var(--edit-border); border-left:3px solid var(--edit);}
   .legend-swatch.computed{background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft);}
   .rings{display:flex; gap:24px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
   .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px;}
@@ -91,7 +94,7 @@
     text-align:left; color:var(--text-dim); font-weight:600; font-size:0.76rem;
     text-transform:uppercase; letter-spacing:0.04em; padding:6px 8px; border-bottom:1px solid var(--border);
   }
-  td{padding:6px 8px; border-bottom:1px solid #23262f; vertical-align:middle;}
+  td{padding:6px 8px; border-bottom:1px solid var(--border-subtle); vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
   .statname{font-weight:600;}
   .num-in{width:90px;}
@@ -248,7 +251,7 @@
   }
   .user-toggle .chevron{display:inline-block; transition:transform .15s ease;}
   .user-chars{padding:8px 10px 4px 30px; font-size:0.85rem;}
-  .user-char-item{padding:5px 0; color:var(--text-dim); border-bottom:1px solid #23262f; display:flex; gap:8px; align-items:center;}
+  .user-char-item{padding:5px 0; color:var(--text-dim); border-bottom:1px solid var(--border-subtle); display:flex; gap:8px; align-items:center;}
   .user-char-item:last-child{border-bottom:none;}
   .cat-badges{display:inline-flex; gap:6px; flex-wrap:wrap;}
   .account-bar{display:flex; justify-content:flex-end; margin-bottom:6px;}
@@ -1137,7 +1140,7 @@ async function renderAccountPanel(){
   try{ incomingTransfers = (await apiGetTransfers()).incoming || []; }catch(e){ /* egal, zeigt dann einfach nichts an */ }
 
   const incomingHtml = incomingTransfers.length ? `
-    <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid #2f5b4c; border-radius:8px;">
+    <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid var(--edit-border); border-radius:8px;">
       <label style="font-size:0.8rem;">Charakter-Kopien, die dir angeboten wurden</label>
       ${incomingTransfers.map(t=>`<div class="char-item" style="padding:6px 10px;">
         <span style="flex:1;">${t.charName} <span class="muted">&middot; von ${t.from}</span></span>
@@ -1960,7 +1963,7 @@ function renderRings(results){
     const r=30, c=2*Math.PI*r, off = c - (g.val/100)*c;
     return `<div class="ring-box">
       <svg width="76" height="76" viewBox="0 0 76 76">
-        <circle cx="38" cy="38" r="${r}" fill="none" stroke="#2c303b" stroke-width="7"/>
+        <circle cx="38" cy="38" r="${r}" fill="none" stroke="var(--border)" stroke-width="7"/>
         <circle cx="38" cy="38" r="${r}" fill="none" stroke="${g.color}" stroke-width="7"
           stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"
           transform="rotate(-90 38 38)"/>
@@ -2032,6 +2035,7 @@ function buildStatGroupsDOM(){
       <button type="button" class="action small" onclick="setAllStatSubgroups('stats', true)">Alles aufklappen</button>
       <button type="button" class="action small" onclick="setAllStatSubgroups('stats', false)">Alles zuklappen</button>
     </div>
+    <div class="wide-table-scroll">
     <table class="stats-table">
       <thead><tr>
         <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
@@ -2039,6 +2043,7 @@ function buildStatGroupsDOM(){
       </tr></thead>
       ${bodyHtml}
     </table>
+    </div>
   </div>`;
 
   el.querySelectorAll('input[data-role]').forEach(inp=>{
@@ -3519,6 +3524,25 @@ function renderUebersicht(){
   // den Gesamtwert (Schaden/Heilung/EHP), wenn genau dieser eine Stat hypothetisch den Wert x hätte.
   // Jede Linie bekommt eine unsichtbare, breitere "Hit"-Linie darunter für einen angenehmen Hover-Bereich;
   // beim Hovern wird die getroffene Linie hervorgehoben und alle anderen abgedunkelt (siehe attachChartHover).
+  // Wandelt eine Punktreihe (bereits in Pixel-Koordinaten) in einen sanften Kurvenzug um
+  // (Catmull-Rom zu kubischen Bezier-Kurven) statt gerader Linien zwischen den Punkten -
+  // rein optisch, die zugrunde liegenden Datenpunkte bleiben exakt gleich.
+  function smoothPathD(pts){
+    if(pts.length === 0) return '';
+    if(pts.length === 1) return `M${pts[0].x},${pts[0].y}`;
+    let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    for(let i=0;i<pts.length-1;i++){
+      const p0 = pts[i-1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i+1];
+      const p3 = pts[i+2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x)/6, cp1y = p1.y + (p2.y - p0.y)/6;
+      const cp2x = p2.x - (p3.x - p1.x)/6, cp2y = p2.y - (p3.y - p1.y)/6;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
   function buildImpactChart(chartId, statDefs, totalGivenFn){
     const N = 40;
     const series = statDefs.map(s=>{
@@ -3555,7 +3579,7 @@ function renderUebersicht(){
     const yTicks = [];
     for(let t=0; t<=yMax+1e-9; t+=yStep) yTicks.push(t);
     const gridLines = yTicks.map(t=>`<line x1="${pad.left}" y1="${yScale(t).toFixed(1)}" x2="${(w-pad.right).toFixed(1)}" y2="${yScale(t).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-dim)">${fmt(t).replace('.',',')}%</text>`).join('');
+      <text x="${pad.left-8}" y="${(yScale(t)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--text-dim)" style="font-variant-numeric:tabular-nums;">${fmt(t).replace('.',',')}%</text>`).join('');
 
     // Horizontale (X-Achsen) Beschriftung: Zahlenwerte an regelmäßigen Abständen unter der Achse.
     const xStep = xMax > 100 ? 20 : (xMax > 50 ? 10 : 5);
@@ -3579,7 +3603,7 @@ function renderUebersicht(){
         else if(current.length){ segments.push(current); current = []; }
       });
       if(current.length) segments.push(current);
-      const d = segments.map(seg => seg.map((p,i)=>`${i===0?'M':'L'}${xScale(p.x).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ')).join(' ');
+      const d = segments.map(seg => smoothPathD(seg.map(p=>({x:xScale(p.x), y:yScale(p.y)})))).join(' ');
       const cx = xScale(s.curX).toFixed(1), cy = yScale(s.curY).toFixed(1);
       const dot = s.curY > 0 ? `<circle cx="${cx}" cy="${cy}" r="4" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>` : '';
       return `<g class="chart-series">
@@ -3602,7 +3626,7 @@ function renderUebersicht(){
       : '';
 
     const xAxisLabel = 'Aktueller Stat-Wert (%)';
-    const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
+    const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" role="button" tabindex="0" aria-pressed="false" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
       <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
       <span style="font-size:0.83rem;color:var(--text);">${s.label}</span>
     </div>`).join('');
@@ -3624,11 +3648,11 @@ function renderUebersicht(){
 
   // Schaden-Grafik
   const dmgChartDefs = [
-    {id:'kraft', label:'Kraft', color:'#4285F4', xMax:130, curX: rawF('kraft')},
-    {id:'zielgenauigkeit', label:'Zielgenauigkeit', color:'#E91E8C', xMax:100, curX: rawF('zielgenauigkeit')},
-    {id:'kampfvorteil', label:'Kampfvorteil', color:'#FBBC04', xMax:130, curX: rawF('kampfvorteil')},
-    {id:'kritwert', label:'Kritischer Trefferwert', color:'#34A853', xMax:100, curX: rawF('kritwert')},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'#E8710A', xMax:130, curX: rawF('kritschaden')},
+    {id:'kraft', label:'Kraft', color:'var(--gold)', xMax:130, curX: rawF('kraft')},
+    {id:'zielgenauigkeit', label:'Zielgenauigkeit', color:'var(--def)', xMax:100, curX: rawF('zielgenauigkeit')},
+    {id:'kampfvorteil', label:'Kampfvorteil', color:'var(--sup)', xMax:130, curX: rawF('kampfvorteil')},
+    {id:'kritwert', label:'Kritischer Trefferwert', color:'var(--off)', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
   ];
   const dmgCapFrac = (id, val) => { const c = capOf(id); return (c!==null ? Math.min(val, c) : val) / 100; };
   function dmgTotalGiven(overrideId, x){
@@ -3646,10 +3670,10 @@ function renderUebersicht(){
 
   // Heilung-Grafik
   const healChartDefs = [
-    {id:'kraft', label:'Kraft', color:'#4285F4', xMax:130, curX: rawF('kraft')},
-    {id:'kritwert', label:'Kritischer Trefferwert', color:'#34A853', xMax:100, curX: rawF('kritwert')},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'#E8710A', xMax:130, curX: rawF('kritschaden')},
-    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', color:'#9C6ADE', xMax:150, curX: heilTotal},
+    {id:'kraft', label:'Kraft', color:'var(--gold)', xMax:130, curX: rawF('kraft')},
+    {id:'kritwert', label:'Kritischer Trefferwert', color:'var(--off)', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
+    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', color:'var(--edit)', xMax:150, curX: heilTotal},
   ];
   function healTotalGiven(overrideId, x){
     const kraftRaw = overrideId==='kraft' ? x : rawF('kraft');
@@ -3664,11 +3688,11 @@ function renderUebersicht(){
 
   // Tank-Grafik
   const tankChartDefs = [
-    {id:'verteidigung', label:'Verteidigung', color:'#4285F4', xMax:130, curX: rawF('verteidigung')},
-    {id:'wahrnehmung', label:'Wahrnehmung', color:'#E91E8C', xMax:100, curX: rawF('wahrnehmung')},
-    {id:'kritvermeidung', label:'Krit-Vermeidung', color:'#34A853', xMax:100, curX: rawF('kritvermeidung')},
-    {id:'robustheit', label:'Robustheit', color:'#9C6ADE', xMax:100, curX: rawF('robustheit'), pairId:'robustheitstaerke'},
-    {id:'robustheitstaerke', label:'Robustheitstärke', color:'#FBBC04', xMax:130, curX: rawF('robustheitstaerke'), pairId:'robustheit'},
+    {id:'verteidigung', label:'Verteidigung', color:'var(--def)', xMax:130, curX: rawF('verteidigung')},
+    {id:'wahrnehmung', label:'Wahrnehmung', color:'var(--sup)', xMax:100, curX: rawF('wahrnehmung')},
+    {id:'kritvermeidung', label:'Krit-Vermeidung', color:'var(--off)', xMax:100, curX: rawF('kritvermeidung')},
+    {id:'robustheit', label:'Robustheit', color:'var(--gold)', xMax:100, curX: rawF('robustheit'), pairId:'robustheitstaerke'},
+    {id:'robustheitstaerke', label:'Robustheitstärke', color:'var(--violet)', xMax:130, curX: rawF('robustheitstaerke'), pairId:'robustheit'},
   ];
   function tankTotalGiven(overrideId, x){
     const vertRaw = overrideId==='verteidigung' ? x : rawF('verteidigung');
@@ -3712,7 +3736,7 @@ function renderUebersicht(){
 
   ${renderVergleichSection()}
 
-  <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;">
+  <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;border-left:3px solid var(--off);">
     <button type="button" onclick="toggleDmgAccordion('schaden')">
       <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
     </button>
@@ -3734,15 +3758,17 @@ function renderUebersicht(){
     </div>
   </div>
 
-  <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;">
+  <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;border-left:3px solid var(--sup);">
     <button type="button" onclick="toggleDmgAccordion('heilung')">
       <span><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
+      <div class="wide-table-scroll">
       <table>
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Heilung bei +${fmt(P.deltaPct)} %</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${healRows}</tbody>
       </table>
+      </div>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
       <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden ÷ 2) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Kritischer Trefferschaden zählt bei Heilung nur zur Hälfte (offizielle Änderung seit Mod 19, <a href="https://neverwinter.obikin89.com/stats" target="_blank" rel="noopener" style="color:var(--gold);">Quelle</a>). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
@@ -3752,15 +3778,17 @@ function renderUebersicht(){
     </div>
   </div>
 
-  <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;">
+  <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;border-left:3px solid var(--def);">
     <button type="button" onclick="toggleDmgAccordion('tank')">
       <span><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
+      <div class="wide-table-scroll">
       <table>
         <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
+      </div>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
       <p class="helptext">Formel: Trefferpunkte ÷ (Verteidigung × Wahrnehmung × Krit-Vermeidung × Robustheit×-stärke × Schadensreduzierung) - 1:1 wie im Excel-Blatt nachgebaut.<br>
@@ -3847,15 +3875,18 @@ function renderUebersicht(){
 function attachChartHover(wrap){
   const groups = Array.from(wrap.querySelectorAll('.chart-series'));
   if(!groups.length) return;
+  const hidden = groups.map(()=>false);
   const highlight = idx => {
     groups.forEach((g,i)=>{
+      if(hidden[i]) return;
       const line = g.querySelector('.chart-line');
       if(i===idx){ line.setAttribute('stroke-width', '4.5'); line.style.opacity = '1'; }
       else { line.setAttribute('stroke-width', line.dataset.baseWidth); line.style.opacity = '0.2'; }
     });
   };
   const reset = () => {
-    groups.forEach(g=>{
+    groups.forEach((g,i)=>{
+      if(hidden[i]) return;
       const line = g.querySelector('.chart-line');
       line.setAttribute('stroke-width', line.dataset.baseWidth);
       line.style.opacity = '1';
@@ -3866,10 +3897,24 @@ function attachChartHover(wrap){
     hit.addEventListener('mouseenter', ()=>highlight(i));
     hit.addEventListener('mouseleave', reset);
   });
+  // Klick auf die Legende blendet eine Kurve komplett aus/ein (unabhängig vom Hover-
+  // Highlight) - praktisch, um bei vollen Charts (z.B. 5 Tank-Stats) einzelne Linien
+  // gezielt zu vergleichen. Per Tastatur über Enter/Leertaste erreichbar.
+  const toggle = item => {
+    const idx = Number(item.dataset.idx);
+    hidden[idx] = !hidden[idx];
+    groups[idx].style.display = hidden[idx] ? 'none' : '';
+    item.style.opacity = hidden[idx] ? '0.4' : '1';
+    item.setAttribute('aria-pressed', hidden[idx] ? 'true' : 'false');
+  };
   wrap.querySelectorAll('.chart-legend-item').forEach(item=>{
     const idx = Number(item.dataset.idx);
-    item.addEventListener('mouseenter', ()=>highlight(idx));
+    item.addEventListener('mouseenter', ()=>{ if(!hidden[idx]) highlight(idx); });
     item.addEventListener('mouseleave', reset);
+    item.addEventListener('click', ()=>toggle(item));
+    item.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(item); }
+    });
   });
 }
 function toggleDmgAccordion(key){
