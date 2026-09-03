@@ -423,9 +423,9 @@
 
 <div id="pageRechner">
   <div class="legend" style="align-items:center;">
-    <div class="legend-item"><span class="legend-swatch editable"></span>Selbst eintragen</div>
-    <div class="legend-item"><span class="legend-swatch computed"></span>Wird automatisch berechnet</div>
-    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="${t('tt.filldemo')}" onclick="confirmAction('demo')">Beispielcharakter laden</button>
+    <div class="legend-item"><span class="legend-swatch editable"></span><span data-i18n="legend.editable">Selbst eintragen</span></div>
+    <div class="legend-item"><span class="legend-swatch computed"></span><span data-i18n="legend.computed">Wird automatisch berechnet</span></div>
+    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="${t('tt.filldemo')}" onclick="confirmAction('demo')" data-i18n="btn.filldemo">Beispielcharakter laden</button>
   </div>
 
   <div class="rechner-grid">
@@ -435,24 +435,24 @@
         <h2><span data-i18n="h.grunddaten">Charakter-Grunddaten</span> <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:0.85rem;"></span></h2>
         <div class="grunddaten-grid">
           <div>
-            <label for="itemlevel">Gegenstandsstufe</label>
+            <label for="itemlevel" data-i18n="label.itemlevel">Gegenstandsstufe</label>
             <input type="text" inputmode="numeric" class="werte-in" id="itemlevel" value="" placeholder="z. B. 123.397">
           </div>
           <div>
-            <label for="klasse">Klasse</label>
+            <label for="klasse" data-i18n="label.klasse">Klasse</label>
             <select id="klasse">
-              <option value="" selected>– wählen –</option>
-              <option>Barbar</option><option>Barde</option><option>Kleriker</option>
-              <option>Kämpfer</option><option>Paladin</option><option>Waldläufer</option>
-              <option>Schurke</option><option>Hexenmeister</option><option>Magier</option>
+              <option value="" selected data-i18n="klasse.choose">– wählen –</option>
+              <option value="Barbar" data-i18n="klasse.barbar">Barbar</option><option value="Barde" data-i18n="klasse.barde">Barde</option><option value="Kleriker" data-i18n="klasse.kleriker">Kleriker</option>
+              <option value="Kämpfer" data-i18n="klasse.kaempfer">Kämpfer</option><option value="Paladin" data-i18n="klasse.paladin">Paladin</option><option value="Waldläufer" data-i18n="klasse.waldlaeufer">Waldläufer</option>
+              <option value="Schurke" data-i18n="klasse.schurke">Schurke</option><option value="Hexenmeister" data-i18n="klasse.hexenmeister">Hexenmeister</option><option value="Magier" data-i18n="klasse.magier">Magier</option>
             </select>
           </div>
           <div>
-            <label for="vorbildpfad">Vorbildpfad</label>
+            <label for="vorbildpfad" data-i18n="label.vorbildpfad">Vorbildpfad</label>
             <select id="vorbildpfad"></select>
           </div>
           <div>
-            <label for="klassentyp">Klassentyp (aus Vorbildpfad)</label>
+            <label for="klassentyp" data-i18n="label.klassentyp">Klassentyp (aus Vorbildpfad)</label>
             <div id="klassentyp" class="klassentyp-badge">DPS</div>
           </div>
         </div>
@@ -468,8 +468,8 @@
         <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="h.ausruestungboni">Ausrüstung &amp; Boni</span></h2>
         <p class="helptext" data-i18n="static.ausruestung.intro">Ausrüstung: Werte und % pro Teil selbst eintragen. Gefährten, Buff Food und Reittier Buffs: auswählen und/oder die Werte direkt anpassen.</p>
         <div class="btnrow" style="margin:0 0 10px 0;">
-          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', true)">Alles aufklappen</button>
-          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', false)">Alles zuklappen</button>
+          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', true)" data-i18n="btn.expandall">Alles aufklappen</button>
+          <button type="button" class="action small" onclick="setAllStatSubgroups('sources', false)" data-i18n="btn.collapseall">Alles zuklappen</button>
         </div>
         <div id="sourceAccordions"></div>
       </div>
@@ -480,9 +480,9 @@
   <div class="card">
     <h2 data-i18n="h.zuruecksetzen">Zurücksetzen</h2>
     <div class="btnrow">
-      <button class="action" onclick="confirmAction('werte')">Werte zurücksetzen</button>
-      <button class="action" onclick="confirmAction('ausruestung')">Ausrüstung zurücksetzen</button>
-      <button class="action danger" onclick="confirmAction('alles')">Alles zurücksetzen</button>
+      <button class="action" onclick="confirmAction('werte')" data-i18n="btn.resetwerte">Werte zurücksetzen</button>
+      <button class="action" onclick="confirmAction('ausruestung')" data-i18n="btn.resetausruestung">Ausrüstung zurücksetzen</button>
+      <button class="action danger" onclick="confirmAction('alles')" data-i18n="btn.resetalles">Alles zurücksetzen</button>
     </div>
   </div>
 </div>
@@ -1041,6 +1041,73 @@ const TRANSLATIONS = {
     'gp.ref.gefaehrten': 'Gefährten',
     'gp.ref.gefverstaerkung': 'Gefährten-Verstärkung',
     'gp.of': 'von',
+
+    'klasse.choose': '– wählen –',
+    'klasse.choosefirst': '– erst Klasse wählen –',
+    'klasse.barbar': 'Barbar',
+    'klasse.barde': 'Barde',
+    'klasse.kleriker': 'Kleriker',
+    'klasse.kaempfer': 'Kämpfer',
+    'klasse.paladin': 'Paladin',
+    'klasse.waldlaeufer': 'Waldläufer',
+    'klasse.schurke': 'Schurke',
+    'klasse.hexenmeister': 'Hexenmeister',
+    'klasse.magier': 'Magier',
+    'legend.editable': 'Selbst eintragen',
+    'legend.computed': 'Wird automatisch berechnet',
+    'btn.filldemo': 'Beispielcharakter laden',
+    'label.itemlevel': 'Gegenstandsstufe',
+    'label.klasse': 'Klasse',
+    'label.vorbildpfad': 'Vorbildpfad',
+    'label.klassentyp': 'Klassentyp (aus Vorbildpfad)',
+    'btn.expandall': 'Alles aufklappen',
+    'btn.collapseall': 'Alles zuklappen',
+    'btn.resetwerte': 'Werte zurücksetzen',
+    'btn.resetausruestung': 'Ausrüstung zurücksetzen',
+    'btn.resetalles': 'Alles zurücksetzen',
+    'role.heiler': 'Heiler',
+
+    'gegner.prefix': 'Gegner:',
+    'gegner.deflectsev': 'Deflect-Härte',
+
+    'label.faehigkeit': 'Schaden/Heilung der Fähigkeit',
+    'label.deltapct': 'Vergleich: "Was bringt +X %?"',
+    'label.wsbonuswerte': 'Bonus Waffenschaden (Werte)',
+    'label.wsbonuspct': 'Bonus Waffenschaden',
+    'help.noklasse': 'Es ist noch keine Klasse gewählt - der Waffenschaden wird deshalb mit dem Tank-Faktor 1,0 gerechnet und fällt zu niedrig aus. Bitte zuerst auf der <strong>Rechner</strong>-Seite Klasse und Vorbildpfad wählen.',
+    'label.waffenschaden': 'Waffenschaden:',
+    'label.bonus': 'Bonus',
+    'label.gegenstandsstufe2': 'Gegenstandsstufe',
+
+    'row.itemlevel': 'Gegenstandsstufe',
+    'row.gesamtschaden': 'Gesamtschaden der Fähigkeit',
+    'row.heilungfaehigkeit': 'Heilung der Fähigkeit',
+    'row.ehp': 'Effektive Trefferpunkte (eHP)',
+    'row.lastedited': 'zuletzt bearbeitet',
+    'row.nowlive': 'jetzt (live)',
+    'th.faktor': 'Faktor',
+    'th.genutzt': 'genutzt',
+
+    'th.stat': 'Stat',
+    'th.maxpct': 'Max %',
+    'th.aktwerte': 'Aktuelle Werte (H)',
+    'th.aktpct': 'Aktuelle % (I)',
+    'th.totalwerte': 'Totale Werte',
+    'th.gesamtpct': 'Gesamt %',
+    'th.genutztgecappt': 'Genutzt (gecappt)',
+    'th.schadenbei': 'Schaden bei +',
+    'th.heilungbei': 'Heilung bei +',
+    'th.aktiv': 'Aktiv',
+    'th.werte': 'Werte',
+
+    'confirm.demoziel.char': 'die Daten des aktuell geladenen Charakters',
+    'confirm.demoziel.eingaben': 'deine aktuellen Eingaben',
+    'confirm.werte': 'Alle "Aktuelle Werte" und "Aktuelle %" Eingaben zurücksetzen?',
+    'confirm.ausruestung': 'Alle Ausrüstungs- und Bonus-Eingaben zurücksetzen?',
+    'confirm.alles': 'Wirklich ALLES zurücksetzen, inklusive Grunddaten?',
+    'confirm.demo': 'Beispielcharakter laden? Das überschreibt',
+    'confirm.btn.load': 'Ja, laden',
+    'confirm.btn.reset': 'Ja, zurücksetzen',
     'btn.reload': 'Neu laden',
     'tt.githubchanges': 'Alle \u00c4nderungen mit Beschreibung auf GitHub',
     'tt.exportjson': 'Als JSON-Datei herunterladen (Backup)',
@@ -1212,6 +1279,73 @@ const TRANSLATIONS = {
     'gp.ref.gefaehrten': 'Companions',
     'gp.ref.gefverstaerkung': 'Companion Reinforcement',
     'gp.of': 'of',
+
+    'klasse.choose': '– select –',
+    'klasse.choosefirst': '– choose a class first –',
+    'klasse.barbar': 'Barbarian',
+    'klasse.barde': 'Bard',
+    'klasse.kleriker': 'Cleric',
+    'klasse.kaempfer': 'Fighter',
+    'klasse.paladin': 'Paladin',
+    'klasse.waldlaeufer': 'Ranger',
+    'klasse.schurke': 'Rogue',
+    'klasse.hexenmeister': 'Warlock',
+    'klasse.magier': 'Wizard',
+    'legend.editable': 'Enter yourself',
+    'legend.computed': 'Calculated automatically',
+    'btn.filldemo': 'Load example character',
+    'label.itemlevel': 'Item Level',
+    'label.klasse': 'Class',
+    'label.vorbildpfad': 'Paragon Path',
+    'label.klassentyp': 'Class Type (from paragon path)',
+    'btn.expandall': 'Expand all',
+    'btn.collapseall': 'Collapse all',
+    'btn.resetwerte': 'Reset values',
+    'btn.resetausruestung': 'Reset equipment',
+    'btn.resetalles': 'Reset everything',
+    'role.heiler': 'Healer',
+
+    'gegner.prefix': 'Enemy:',
+    'gegner.deflectsev': 'Deflect Severity',
+
+    'label.faehigkeit': 'Damage/Healing of the ability',
+    'label.deltapct': 'Comparison: "What does +X % give?"',
+    'label.wsbonuswerte': 'Bonus weapon damage (value)',
+    'label.wsbonuspct': 'Bonus weapon damage',
+    'help.noklasse': 'No class selected yet - the weapon damage is therefore calculated with the tank factor 1.0 and comes out too low. Please choose a class and paragon path on the <strong>Calculator</strong> page first.',
+    'label.waffenschaden': 'Weapon damage:',
+    'label.bonus': 'Bonus',
+    'label.gegenstandsstufe2': 'Item Level',
+
+    'row.itemlevel': 'Item Level',
+    'row.gesamtschaden': 'Total damage of the ability',
+    'row.heilungfaehigkeit': 'Healing of the ability',
+    'row.ehp': 'Effective Hit Points (eHP)',
+    'row.lastedited': 'last edited',
+    'row.nowlive': 'now (live)',
+    'th.faktor': 'Factor',
+    'th.genutzt': 'used',
+
+    'th.stat': 'Stat',
+    'th.maxpct': 'Max %',
+    'th.aktwerte': 'Current Values (H)',
+    'th.aktpct': 'Current % (I)',
+    'th.totalwerte': 'Total Values',
+    'th.gesamtpct': 'Total %',
+    'th.genutztgecappt': 'Used (capped)',
+    'th.schadenbei': 'Damage at +',
+    'th.heilungbei': 'Healing at +',
+    'th.aktiv': 'Active',
+    'th.werte': 'Values',
+
+    'confirm.demoziel.char': 'the data of the currently loaded character',
+    'confirm.demoziel.eingaben': 'your current entries',
+    'confirm.werte': 'Reset all "Current Values" and "Current %" entries?',
+    'confirm.ausruestung': 'Reset all equipment and bonus entries?',
+    'confirm.alles': 'Really reset EVERYTHING, including base data?',
+    'confirm.demo': 'Load example character? This will overwrite',
+    'confirm.btn.load': 'Yes, load',
+    'confirm.btn.reset': 'Yes, reset',
     'btn.reload': 'Reload',
     'tt.githubchanges': 'All changes with description on GitHub',
     'tt.exportjson': 'Download as JSON file (backup)',
@@ -1256,7 +1390,7 @@ function L(obj){
 function reRenderCurrentView(){
   if(currentApp === 'stats'){
     const openTab = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
-    if(openTab === 'rechner'){ buildStatGroupsDOM(); refresh(true); }
+    if(openTab === 'rechner'){ buildStatGroupsDOM(); refresh(true); populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad); }
     else if(openTab === 'uebersicht') renderUebersicht();
     else if(openTab === 'formeln') renderMaxPrGrid();
   } else if(currentApp === 'gruppenplaner'){
@@ -2009,6 +2143,30 @@ const KLASSEN_PFADE = {
   'Hexenmeister': ['Seelenbinder (Heiler)', 'Höllenbrut (DPS)'],
   'Magier': ['Arkanist', 'Thaumaturg'],
 };
+// Englische Anzeigenamen der Vorbildpfade (offizielle Neverwinter-Begriffe) - der
+// deutsche String aus KLASSEN_PFADE bleibt überall die interne ID (Speicherung,
+// Wehrhaftigkeit-Verteilungs-Schlüssel "Klasse|Vorbildpfad" usw.), das hier ist
+// rein für die Anzeige im Dropdown.
+const VORBILDPFAD_EN = {
+  'Klingenmeister (DPS)': 'Blademaster (DPS)', 'Wächter (Tank)': 'Sentinel (Tank)',
+  'Liedklinge (DPS)': 'Songblade (DPS)', 'Minnesänger (Heiler)': 'Minstrel (Healer)',
+  'Geweihter Kleriker (Heiler)': 'Devout (Healer)', 'Arkaner Richter (DPS)': 'Arbiter (DPS)',
+  'Schwertmeister (DPS)': 'Dreadnought (DPS)',
+  'Eidwahrer (Tank)': 'Justicar (Tank)', 'Gerechter (Heiler)': 'Oathkeeper (Healer)',
+  'Pfadfinder': 'Hunter', 'Sturmwächter': 'Warden',
+  'Attentäter': 'Assassin', 'Flüsterklinge': 'Whisperknife',
+  'Seelenbinder (Heiler)': 'Soulweaver (Healer)', 'Höllenbrut (DPS)': 'Hellbringer (DPS)',
+  'Arkanist': 'Arcanist', 'Thaumaturg': 'Thaumaturge',
+};
+// "Wächter" kommt bei Barbar UND Kämpfer vor, aber mit unterschiedlichem Namen auf
+// Englisch (Sentinel vs. Vanguard) - lässt sich nicht global per String ersetzen,
+// deshalb hier separat je Klasse aufgelöst statt im obigen Objekt (das nur einen
+// Wert pro Schlüssel haben kann).
+function vorbildpfadLabel(klasse, pfad){
+  if(currentLang !== 'en') return pfad;
+  if(pfad === 'Wächter (Tank)' && klasse === 'Kämpfer') return 'Vanguard (Tank)';
+  return VORBILDPFAD_EN[pfad] || pfad;
+}
 
 // Wehrhaftigkeit-Differenz (F-I von Wehrhaftigkeit) wird je nach Klasse+Vorbildpfad
 // anteilig auf andere Stats verteilt (aus deiner "Presets" Tabelle AD96:CX122 übernommen).
@@ -2459,14 +2617,14 @@ function buildStatGroupsDOM(){
 
   el.innerHTML = `<div class="card">
     <div class="btnrow" style="margin:0 0 10px 0;">
-      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', true)">Alles aufklappen</button>
-      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', false)">Alles zuklappen</button>
+      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', true)">${t('btn.expandall')}</button>
+      <button type="button" class="action small" onclick="setAllStatSubgroups('stats', false)">${t('btn.collapseall')}</button>
     </div>
     <div class="wide-table-scroll">
     <table class="stats-table">
       <thead><tr>
-        <th>Stat</th><th>Max %</th><th>Aktuelle Werte (H)</th><th>Aktuelle % (I)</th>
-        <th>Totale Werte</th><th>&Delta;</th>
+        <th>${t('th.stat')}</th><th>${t('th.maxpct')}</th><th>${t('th.aktwerte')}</th><th>${t('th.aktpct')}</th>
+        <th>${t('th.totalwerte')}</th><th>&Delta;</th>
       </tr></thead>
       ${bodyHtml}
     </table>
@@ -2535,7 +2693,7 @@ function updateStatGroups(results){
 function renderManualTable(cat){
   const totalCols = 1 + cat.sources.length*2;
   const headRow1 = `<th></th>` + cat.sources.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
-  const headRow2 = `<th>Stat</th>` + cat.sources.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const headRow2 = `<th>${t('th.stat')}</th>` + cat.sources.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
   const bodyHtml = STAT_GROUPS.map(g=>{
@@ -2636,7 +2794,7 @@ function renderGefaehrtenWerteTable(){
 
   const totalCols = 1 + slots.length*2;
   const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
-  const headRow2 = `<th>Stat</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const headRow2 = `<th>${t('th.stat')}</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
   const bodyHtml = STAT_GROUPS.map(g=>{
@@ -2724,7 +2882,7 @@ function renderReittierWerteTable(){
 
   const totalCols = 1 + slots.length*2;
   const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
-  const headRow2 = `<th>Stat</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">Werte</th><th>%</th>`).join('');
+  const headRow2 = `<th>${t('th.stat')}</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
   const bodyHtml = STAT_GROUPS.map(g=>{
@@ -3466,11 +3624,11 @@ function renderAlleCharsSection(){
 
     // Kennzahlen (immer sichtbar): die Hauptkennzahl des jeweiligen Klassentyps ist hervorgehoben.
     const kennRows = [
-      zeile('Gegenstandsstufe', entries.map(e=>e.k.itemlevel), entries.map(e=>formatWerte(e.k.itemlevel))),
-      zeile('Gesamtschaden der Fähigkeit', entries.map(e=>e.k.totalDmg), entries.map(e=>formatWerte(e.k.totalDmg)), { relevFor: t => t === 'DPS' }),
-      zeile('Heilung der Fähigkeit', entries.map(e=>e.k.heilWert), entries.map(e=>formatWerte(e.k.heilWert)), { relevFor: t => t === 'Heiler' }),
-      zeile('Effektive Trefferpunkte (eHP)', entries.map(e=>e.k.ehp), entries.map(e=>formatWerte(e.k.ehp)), { relevFor: t => t === 'Tank' }),
-      zeile('zuletzt bearbeitet', [], entries.map(e => e.name === currentChar ? 'jetzt (live)' : (e.updatedAt ? formatUpdatedAt(e.updatedAt) : '–')), { muted: true }),
+      zeile(t('row.itemlevel'), entries.map(e=>e.k.itemlevel), entries.map(e=>formatWerte(e.k.itemlevel))),
+      zeile(t('row.gesamtschaden'), entries.map(e=>e.k.totalDmg), entries.map(e=>formatWerte(e.k.totalDmg)), { relevFor: typ => typ === 'DPS' }),
+      zeile(t('row.heilungfaehigkeit'), entries.map(e=>e.k.heilWert), entries.map(e=>formatWerte(e.k.heilWert)), { relevFor: typ => typ === 'Heiler' }),
+      zeile(t('row.ehp'), entries.map(e=>e.k.ehp), entries.map(e=>formatWerte(e.k.ehp)), { relevFor: typ => typ === 'Tank' }),
+      zeile(t('row.lastedited'), [], entries.map(e => e.name === currentChar ? t('row.nowlive') : (e.updatedAt ? formatUpdatedAt(e.updatedAt) : '–')), { muted: true }),
     ].join('');
 
     // Offensive/Defensive/Unterstützung als auf-/zuklappbare Untergruppen; standardmäßig
@@ -3607,7 +3765,7 @@ function renderVergleichSection(){
         const biggestTxt = (biggest && Math.abs(biggest.impact) > 0.0005)
           ? `<p class="helptext" style="margin:6px 0 0 0;">${t('vgl.biggestdiff')} <strong>${biggest.label}</strong> (${biggest.impact>0?'+':''}${fmt(biggest.impact*100)} % ${metricLabel})</p>` : '';
         return `<div class="wide-table-scroll"><table>
-          <thead><tr><th>Faktor</th><th style="text-align:right;">${nameA} genutzt</th><th style="text-align:right;">${nameB} genutzt</th><th style="text-align:right;">Faktor ${nameA}</th><th style="text-align:right;">Faktor ${nameB}</th><th style="text-align:right;">${metricLabel} ${nameB} vs. ${nameA}</th></tr></thead>
+          <thead><tr><th>${t('th.faktor')}</th><th style="text-align:right;">${nameA} ${t('th.genutzt')}</th><th style="text-align:right;">${nameB} ${t('th.genutzt')}</th><th style="text-align:right;">${t('th.faktor')} ${nameA}</th><th style="text-align:right;">${t('th.faktor')} ${nameB}</th><th style="text-align:right;">${metricLabel} ${nameB} vs. ${nameA}</th></tr></thead>
           <tbody>${rowsHtml}${totalRow}</tbody>
         </table></div>${biggestTxt}
         <p class="helptext" style="margin:6px 0 0 0;">${t('vgl.lastcolhint')} ${metricLabel} ${t('vgl.lastcolhint2')}</p>`;
@@ -4145,20 +4303,20 @@ function renderUebersicht(){
   el.querySelectorAll('.stat-subgroup').forEach(x => { prevSub[x.id] = x.classList.contains('open'); });
 
   const klasseHinweis = !grunddaten.klasse
-    ? `<div class="notice" style="margin-bottom:14px;">Es ist noch keine Klasse gewählt - der Waffenschaden wird deshalb mit dem Tank-Faktor 1,0 gerechnet und fällt zu niedrig aus. Bitte zuerst auf der <strong>Rechner</strong>-Seite Klasse und Vorbildpfad wählen.</div>`
+    ? `<div class="notice" style="margin-bottom:14px;">${t('help.noklasse')}</div>`
     : '';
   el.innerHTML = `${klasseHinweis}
   <div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>${t('card.faehigkeit')}</h2>
     <p class="helptext">${t('help.gilthschadenheilung')}</p>
     <div class="grunddaten-grid">
-      ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
-      ${paramInput('deltaPct','Vergleich: "Was bringt +X %?"')}
-      ${paramInputNum('waffenschadenBonus','Bonus Waffenschaden (Werte)')}
-      ${paramInput('waffenschadenBonusPct','Bonus Waffenschaden')}
+      ${paramInput('faehigkeit', t('label.faehigkeit'))}
+      ${paramInput('deltaPct', t('label.deltapct'))}
+      ${paramInputNum('waffenschadenBonus', t('label.wsbonuswerte'))}
+      ${paramInput('waffenschadenBonusPct', t('label.wsbonuspct'))}
     </div>
     <p class="helptext" style="margin:8px 0 0 0;">${t('help.waffenschadenbonus')}</p>
-    <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})${wsBonus?` + ${formatWerte(wsBonus)} Bonus`:''}${wsBonusPct?`, × (1 + ${fmt(wsBonusPct)} % Bonus)`:''}</span></p>
+    <p style="margin:10px 0 0 0;">${t('label.waffenschaden')} <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= ${t('label.gegenstandsstufe2')} ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp==='Heiler'?t('role.heiler'):(grunddaten.klassentyp||'–')}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})${wsBonus?` + ${formatWerte(wsBonus)} ${t('label.bonus')}`:''}${wsBonusPct?`, × (1 + ${fmt(wsBonusPct)} % ${t('label.bonus')})`:''}</span></p>
   </div>
 
   ${renderVergleichSection()}
@@ -4170,7 +4328,7 @@ function renderUebersicht(){
     <div class="body">
       <div class="wide-table-scroll">
       <table>
-        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Schaden bei +${fmt(P.deltaPct)} %</th><th style="text-align:center;">Aktiv</th></tr></thead>
+        <thead><tr><th>${t('th.stat')}</th><th style="text-align:right;">${t('th.gesamtpct')}</th><th style="text-align:right;">${t('th.genutztgecappt')}</th><th style="text-align:right;">${t('th.faktor')}</th><th style="text-align:right;">${t('th.schadenbei')}${fmt(P.deltaPct)} %</th><th style="text-align:center;">${t('th.aktiv')}</th></tr></thead>
         <tbody>${dmgRows}</tbody>
       </table>
       </div>
@@ -4191,7 +4349,7 @@ function renderUebersicht(){
     <div class="body">
       <div class="wide-table-scroll">
       <table>
-        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:right;">Heilung bei +${fmt(P.deltaPct)} %</th><th style="text-align:center;">Aktiv</th></tr></thead>
+        <thead><tr><th>${t('th.stat')}</th><th style="text-align:right;">${t('th.gesamtpct')}</th><th style="text-align:right;">${t('th.genutztgecappt')}</th><th style="text-align:right;">${t('th.faktor')}</th><th style="text-align:right;">${t('th.heilungbei')}${fmt(P.deltaPct)} %</th><th style="text-align:center;">${t('th.aktiv')}</th></tr></thead>
         <tbody>${healRows}</tbody>
       </table>
       </div>
@@ -4211,7 +4369,7 @@ function renderUebersicht(){
     <div class="body">
       <div class="wide-table-scroll">
       <table>
-        <thead><tr><th>Stat</th><th style="text-align:right;">Gesamt %</th><th style="text-align:right;">Genutzt (gecappt)</th><th style="text-align:right;">Faktor</th><th style="text-align:center;">Aktiv</th></tr></thead>
+        <thead><tr><th>${t('th.stat')}</th><th style="text-align:right;">${t('th.gesamtpct')}</th><th style="text-align:right;">${t('th.genutztgecappt')}</th><th style="text-align:right;">${t('th.faktor')}</th><th style="text-align:center;">${t('th.aktiv')}</th></tr></thead>
         <tbody>${tankRows}</tbody>
       </table>
       </div>
@@ -4239,19 +4397,19 @@ function renderUebersicht(){
       <p class="helptext">${t('help.gegnerprofil')}</p>
       <p class="helptext">${t('help.gegnerdefensive')}</p>
       <div class="grunddaten-grid">
-        ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
-        ${paramInput('gegnerDeflect','Gegner: Deflect')}
-        ${paramInput('gegnerDeflectSev','Gegner: Deflect-Härte')}
-        ${paramInput('gegnerAwareness','Gegner: Awareness')}
-        ${paramInput('gegnerKritvermeidung','Gegner: Kritische Vermeidung')}
+        ${paramInput('gegnerDefensive', t('gegner.prefix')+' '+statLabel('verteidigung'))}
+        ${paramInput('gegnerDeflect', t('gegner.prefix')+' Deflect')}
+        ${paramInput('gegnerDeflectSev', t('gegner.prefix')+' '+t('gegner.deflectsev'))}
+        ${paramInput('gegnerAwareness', t('gegner.prefix')+' '+statLabel('wahrnehmung'))}
+        ${paramInput('gegnerKritvermeidung', t('gegner.prefix')+' '+statLabel('kritvermeidung'))}
       </div>
       <p class="helptext" style="margin-top:14px;">${t('help.gegneroffensive')}</p>
       <div class="grunddaten-grid">
-        ${paramInput('gegnerKraft','Gegner: Kraft')}
-        ${paramInput('gegnerZielgenauigkeit','Gegner: Zielgenauigkeit')}
-        ${paramInput('gegnerKampfvorteil','Gegner: Kampfvorteil')}
-        ${paramInput('gegnerKritwert','Gegner: Kritischer Trefferwert')}
-        ${paramInput('gegnerKritschaden','Gegner: Kritischer Trefferschaden')}
+        ${paramInput('gegnerKraft', t('gegner.prefix')+' '+statLabel('kraft'))}
+        ${paramInput('gegnerZielgenauigkeit', t('gegner.prefix')+' '+statLabel('zielgenauigkeit'))}
+        ${paramInput('gegnerKampfvorteil', t('gegner.prefix')+' '+statLabel('kampfvorteil'))}
+        ${paramInput('gegnerKritwert', t('gegner.prefix')+' '+statLabel('kritwert'))}
+        ${paramInput('gegnerKritschaden', t('gegner.prefix')+' '+statLabel('kritschaden'))}
       </div>
     </div>
   </div>`;
@@ -5003,15 +5161,15 @@ function loadDemoCharacter(){
 let pendingAction = null;
 function confirmAction(type){
   pendingAction = type;
-  const demoZiel = (isLoggedIn && currentChar) ? `die Daten des aktuell geladenen Charakters "${currentChar}"` : 'deine aktuellen Eingaben';
+  const demoZiel = (isLoggedIn && currentChar) ? `${t('confirm.demoziel.char')} "${currentChar}"` : t('confirm.demoziel.eingaben');
   const text = {
-    werte: 'Alle "Aktuelle Werte" und "Aktuelle %" Eingaben zurücksetzen?',
-    ausruestung: 'Alle Ausrüstungs- und Bonus-Eingaben zurücksetzen?',
-    alles: 'Wirklich ALLES zurücksetzen, inklusive Grunddaten?',
-    demo: `Beispielcharakter laden? Das überschreibt ${demoZiel}.`,
+    werte: t('confirm.werte'),
+    ausruestung: t('confirm.ausruestung'),
+    alles: t('confirm.alles'),
+    demo: `${t('confirm.demo')} ${demoZiel}.`,
   }[type];
   document.getElementById('modalText').textContent = text;
-  document.getElementById('modalConfirm').textContent = type === 'demo' ? 'Ja, laden' : 'Ja, zurücksetzen';
+  document.getElementById('modalConfirm').textContent = type === 'demo' ? t('confirm.btn.load') : t('confirm.btn.reset');
   document.getElementById('modalBg').classList.add('show');
 }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); pendingAction = null; }
@@ -5092,12 +5250,12 @@ function populateVorbildpfad(klasse, selected){
   const sel = document.getElementById('vorbildpfad');
   const pfade = KLASSEN_PFADE[klasse] || [];
   if(!pfade.length){
-    sel.innerHTML = '<option value="">– erst Klasse wählen –</option>';
+    sel.innerHTML = `<option value="">${t('klasse.choosefirst')}</option>`;
     grunddaten.vorbildpfad = '';
     updateKlassentyp();
     return;
   }
-  sel.innerHTML = pfade.map(p=>`<option value="${p}">${p}</option>`).join('');
+  sel.innerHTML = pfade.map(p=>`<option value="${p}">${vorbildpfadLabel(klasse, p)}</option>`).join('');
   if(selected && pfade.includes(selected)){
     sel.value = selected;
   } else {
@@ -5118,7 +5276,7 @@ function klassentypFromPfad(pfad){
 function updateKlassentyp(){
   grunddaten.klassentyp = klassentypFromPfad(grunddaten.vorbildpfad);
   const badge = document.getElementById('klassentyp');
-  if(badge) badge.textContent = grunddaten.klassentyp;
+  if(badge) badge.textContent = grunddaten.klassentyp === 'Heiler' ? t('role.heiler') : grunddaten.klassentyp;
   applyKlassentypSubgroups();
 }
 

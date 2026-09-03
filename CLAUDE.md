@@ -332,6 +332,43 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.46.0: Restliche fehlende Übersetzungen auf Rechner- und
+  Schadensberechnung-Seite nachgezogen (auf Nutzerhinweis hin geprüft).**
+  - **Klassen** (alle 9, offizielle Neverwinter-Begriffe recherchiert):
+    Barbar→Barbarian, Barde→Bard, Kleriker→Cleric, Kämpfer→Fighter,
+    Waldläufer→Ranger, Schurke→Rogue, Hexenmeister→Warlock, Magier→Wizard,
+    Paladin bleibt gleich. `<option>`-Werte jetzt explizit auf den
+    deutschen String fixiert (`value="Barbar"` usw.) statt implizit über
+    den Text - sonst hätte die Übersetzung die überall genutzte interne ID
+    verändert.
+  - **Vorbildpfade** (alle 18 Paragon-Pfade, ebenfalls recherchiert): u.a.
+    Klingenmeister→Blademaster, Eidwahrer→Justicar, Attentäter→Assassin,
+    Arkanist→Arcanist. Neue Funktion `vorbildpfadLabel(klasse, pfad)` -
+    "Wächter" kommt bei Barbar UND Kämpfer vor, heißt aber englisch
+    unterschiedlich (Sentinel vs. Vanguard), deshalb Sonderfall statt
+    einfachem 1:1-Mapping. Der deutsche String bleibt überall die interne
+    ID (Speicherung, Wehrhaftigkeit-Verteilungsschlüssel "Klasse|Vorbildpfad").
+  - Klassentyp-Badge ("Heiler"→"Healer", DPS/Tank bleiben englische
+    Fachbegriffe in beiden Sprachen) - `grunddaten.klassentyp` als
+    interner Rechenwert bewusst unverändert gelassen, nur die Anzeige
+    übersetzt.
+  - Legende, Beispielcharakter-Button, alle Grunddaten-Feld-Labels, Auf-/
+    Zuklappen- und Zurücksetzen-Buttons, Gegner-Werte-Feldbeschriftungen
+    (nutzen jetzt `statLabel()` wie der Rest der App), komplette
+    "Fähigkeit & Vergleich"-Karte inkl. Waffenschaden-Zusammenfassungszeile
+    und Klassenhinweis-Text.
+  - Haupttabellen-Kopfzeilen auf beiden Seiten (Stat/Max %/Aktuelle Werte/
+    Totale Werte sowie Gesamt %/Genutzt (gecappt)/Aktiv bei Schaden/
+    Heilung/Tank), Spaltenköpfe der drei "Manuell"-Tabellen, Vergleichs-
+    tabellen-Kopfzeile ("Faktor"/"genutzt"), Kennzahlen-Zeilen der
+    Charakter-Übersicht (Gegenstandsstufe/Gesamtschaden/Heilung/eHP/
+    zuletzt bearbeitet).
+  - `confirmAction()`-Bestätigungsdialoge (Zurücksetzen/Beispielcharakter
+    laden) übersetzt.
+  - Manuell mit jsdom verifiziert: Klassen-Dropdown zeigt alle 9 korrekt,
+    Vorbildpfad-Sonderfall "Wächter" löst sich je Klasse richtig auf
+    (Kämpfer→Vanguard, Barbar→Sentinel), Reset-Dialog zeigt englischen
+    Text - 0 JS-Fehler. Alle 256 Smoke-Tests grün (zweimal gegengeprüft).
 - **Seit v0.45.1: Deployment-Fix, kein App-Feature.** `update.sh` setzt jetzt
   `BUILDX_NO_DEFAULT_ATTESTATIONS=1` vor dem Build. Ursache: Docker Buildx
   versucht bei jedem Build, den aktuellen Git-Commit als Bild-Metadaten
