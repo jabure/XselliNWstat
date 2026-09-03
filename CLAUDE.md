@@ -332,6 +332,15 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.45.1: Deployment-Fix, kein App-Feature.** `update.sh` setzt jetzt
+  `BUILDX_NO_DEFAULT_ATTESTATIONS=1` vor dem Build. Ursache: Docker Buildx
+  versucht bei jedem Build, den aktuellen Git-Commit als Bild-Metadaten
+  einzubetten, findet dafür aber kein `git` in der Cronjob-Umgebung -
+  Warnung `"current commit information was not captured by the build:
+  git was not found in the system"`. Der Build lief davon nie ab (Xselli
+  bestätigt: Website lief durchgehend normal weiter), aber die Warnung war
+  unnötiges Rauschen im Log. Offizielle Docker-Doku-Lösung übernommen statt
+  irgendwo `git` nachzuinstallieren.
 - **Seit v0.45.0: Fehlende Überschriften nachübersetzt + 3 Sicherheits-/Bug-
   Fixes aus dem Website-Audit umgesetzt.**
   - **Überschriften**: alle bisher übersehenen `<h2>`/`<h3>` jetzt zweisprachig
