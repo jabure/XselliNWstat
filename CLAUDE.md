@@ -332,6 +332,55 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.41.0: Seiten-Einleitungstexte (oben unter dem Titel) auf Englisch
+  übersetzt - erster Baustein der "allgemeinen Beschreibungen".**
+  - `APP_INFO.stats/gruppenplaner/insignien` haben jetzt je ein `subtitleEn`-
+    Feld, neuer Helfer `appSubtitle(info)` wählt je nach `currentLang`.
+  - `showApp()` und `applyLangUI()` nutzen den Helfer - Sprachwechsel
+    aktualisiert den Untertitel jetzt sofort mit (vorher nur beim Neuladen).
+  - Restliche "allgemeine Beschreibungen" (Formel-Erklärungen, Tooltips)
+    bewusst noch offen - Umfang wird schrittweise mit Xselli geklärt statt
+    in einem Rutsch übersetzt.
+  - Manuell verifiziert (DE→EN Untertitel-Wechsel), alle 256 Smoke-Tests grün.
+- **Seit v0.40.0: Grundwerte (Kraft, Kritischer Trefferwert usw.) auf Englisch
+  übersetzt - offizielle Neverwinter-Begriffe, per Web-Recherche (offizielle
+  Wiki + Obikin89-Guide, beide schon vorher im Code verlinkt) verifiziert.**
+  - Alle 20 Einträge in `STAT_GROUPS`/`ALL_STATS` haben jetzt ein `labelEn`-
+    Feld. Mapping u.a.: Kraft→Power, Zielgenauigkeit→Accuracy, Kampfvorteil→
+    Combat Advantage, Kritischer Trefferwert→Critical Strike, Kritischer
+    Trefferschaden→Critical Severity, Verteidigung→Defense, Wahrnehmung→
+    Awareness, Krit-Vermeidung→Critical Avoidance, Robustheit→Deflect,
+    Robustheitstärke→Deflect Severity, Trefferpunkte→Hit Points,
+    Wehrhaftigkeit→**Forte** (am schwersten zu verifizieren - über die
+    klassen-/vorbildpfadabhängige Umverteilungs-Mechanik im Code eindeutig
+    identifiziert, siehe Chat-Verlauf für die Recherche-Kette), Kontrollbonus→
+    Control Bonus, Kontrollresistenz→Control Resist, Empfangene/Gewirkte
+    Heilung→Incoming/Outgoing Healing.
+  - Neuer Anzeige-Helfer `L(obj)` (für jedes Objekt mit `label`/`labelEn`,
+    z.B. auch `RING_DEFS`-Gruppen). **`statLabel(statId)` zentral darauf
+    umgestellt** - dadurch automatisch korrekt übersetzt, ohne jede Stelle
+    einzeln anfassen zu müssen: Vergleichs-Aufschlüsselung, Heilung-/Tank-
+    Tabellen bei der Schadensberechnung, Zugewinn-Chart-Legenden (inkl. dem
+    Robustheit/Robustheitstärke-Hinweistext aus v0.35.0).
+  - Direkt angefasst (nutzen `stat.label` nicht über `statLabel()`):
+    Rechner-Haupttabelle (`buildStatGroupsDOM`), "Manuell"-Tabellen
+    (Ausrüstung/Gefährten/Reittiere-Werte), Charakter-Übersicht im Vergleich,
+    Formeln-Seite (`renderMaxPrGrid` - der Screenshot aus der Anfrage),
+    Presets-Admin-Stat-Dropdown (`statOptionsHtml`), Ring-Anzeigen
+    (`RING_DEFS` bekam eigene `labelEn`, dritter Ring "Heilung"→"Healing").
+  - `reRenderCurrentView()` baut bei aktivem Rechner-Tab jetzt zusätzlich
+    `buildStatGroupsDOM()` + `refresh(true)` neu auf, damit ein Sprachwechsel
+    dort sofort sichtbar wird (vorher nur Schadensberechnung/Formeln).
+  - Bewusst NICHT übersetzt (andere Label-Systeme, nicht Teil der Grundwerte-
+    Anfrage): Buff-Food-Slot-Namen (`FOOD_SLOTS`), Gruppenplaner-Kategorien-
+    Labels, Referenzlisten-Feldbeschriftungen, die zusammengesetzte
+    "Krit (Wert × Schaden)"-Zeile im Vergleich.
+  - Manuell mit jsdom verifiziert: DE→EN→DE-Umschaltung zeigt in der
+    Rechner-Haupttabelle exakt die richtigen 20 Begriffe in beiden Sprachen.
+  - Alle 256 Smoke-Tests grün.
+  - **Noch offen**: "Allgemeine Beschreibungen" (Hilfetexte, Formel-
+    Erklärungen, Tooltips) - eigener, nochmal größerer Block, Umfang wird
+    in der nächsten Runde mit Xselli geklärt.
 - **Seit v0.39.0: Zweisprachige Namen (DE/EN) für selbst gepflegte Referenz-
   daten - Gruppenplaner-Referenzlisten UND Statrechner-Presets (Gefährten/
   Reittiere/Buff Food). Deutscher Name bleibt überall die interne ID, Englisch

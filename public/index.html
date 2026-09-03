@@ -987,13 +987,21 @@ function t(key){
   const dict = TRANSLATIONS[currentLang] || TRANSLATIONS.de;
   return (key in dict) ? dict[key] : (TRANSLATIONS.de[key] || key);
 }
+// Anzeigename für ein Stat- oder Gruppen-Objekt aus STAT_GROUPS/ALL_STATS
+// (hat immer label + labelEn): Englisch wenn aktiv und vorhanden, sonst Deutsch.
+function L(obj){
+  if(!obj) return '';
+  if(currentLang === 'en' && obj.labelEn) return obj.labelEn;
+  return obj.label || obj.labelEn || '';
+}
 // Blendet die aktuell sichtbare Seite/Ansicht neu ein, damit ihre (per t() gebauten)
 // Überschriften nach einem Sprachwechsel sofort in der neuen Sprache erscheinen,
 // auch ohne dass sich sonst am Zustand etwas ändert.
 function reRenderCurrentView(){
   if(currentApp === 'stats'){
     const openTab = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
-    if(openTab === 'uebersicht') renderUebersicht();
+    if(openTab === 'rechner'){ buildStatGroupsDOM(); refresh(true); }
+    else if(openTab === 'uebersicht') renderUebersicht();
     else if(openTab === 'formeln') renderMaxPrGrid();
   } else if(currentApp === 'gruppenplaner'){
     showGpPage(currentGpPage);
@@ -1013,7 +1021,10 @@ function applyLangUI(){
   updateAppSwitcherVisibility();
   updateAccountLabel();
   const info = APP_INFO[currentApp];
-  if(info) document.getElementById('mainTitle').textContent = t(info.titleKey) || info.title;
+  if(info){
+    document.getElementById('mainTitle').textContent = t(info.titleKey) || info.title;
+    document.getElementById('mainSubtitle').innerHTML = appSubtitle(info);
+  }
   reRenderCurrentView();
 }
 function setLang(lang){
@@ -1701,31 +1712,31 @@ function dbForCategory(catId){
 // type: 'softcap' (Werte+% mit Rating-Umrechnung), 'simple' (Werte+% reine Summe),
 // 'werteOnly' (nur Werte, kein %), 'derived' (kein direkter Input, wird berechnet)
 const STAT_GROUPS = [
-  { id:'offensive', label:'Offensive', color:'var(--off)', stats:[
-    {id:'kraft', label:'Kraft', type:'softcap', maxPr:1.20},
-    {id:'zielgenauigkeit', label:'Zielgenauigkeit', type:'softcap', maxPr:0.90},
-    {id:'kampfvorteil', label:'Kampfvorteil', type:'softcap', maxPr:1.20},
-    {id:'kritwert', label:'Kritischer Trefferwert', type:'softcap', maxPr:0.90},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', type:'softcap', maxPr:1.20},
-    {id:'bonusschaden', label:'Bonus Schaden %', type:'simple', pctOnly:true, maxPr:null},
+  { id:'offensive', label:'Offensive', labelEn:'Offensive', color:'var(--off)', stats:[
+    {id:'kraft', label:'Kraft', labelEn:'Power', type:'softcap', maxPr:1.20},
+    {id:'zielgenauigkeit', label:'Zielgenauigkeit', labelEn:'Accuracy', type:'softcap', maxPr:0.90},
+    {id:'kampfvorteil', label:'Kampfvorteil', labelEn:'Combat Advantage', type:'softcap', maxPr:1.20},
+    {id:'kritwert', label:'Kritischer Trefferwert', labelEn:'Critical Strike', type:'softcap', maxPr:0.90},
+    {id:'kritschaden', label:'Kritischer Trefferschaden', labelEn:'Critical Severity', type:'softcap', maxPr:1.20},
+    {id:'bonusschaden', label:'Bonus Schaden %', labelEn:'Bonus Damage %', type:'simple', pctOnly:true, maxPr:null},
   ]},
-  { id:'defensive', label:'Defensive', color:'var(--def)', stats:[
-    {id:'verteidigung', label:'Verteidigung', type:'softcap', maxPr:1.20},
-    {id:'wahrnehmung', label:'Wahrnehmung', type:'softcap', maxPr:0.90},
-    {id:'kritvermeidung', label:'Krit-Vermeidung', type:'softcap', maxPr:0.90},
-    {id:'robustheit', label:'Robustheit', type:'softcap', maxPr:0.90},
-    {id:'robustheitstaerke', label:'Robustheitstärke', type:'softcap', maxPr:1.20},
-    {id:'trefferpunkte', label:'Trefferpunkte', type:'werteProzent', maxPr:null},
-    {id:'ausdauerzugewinn', label:'Ausdauerzugewinn', type:'simple', pctOnly:true, maxPr:null},
-    {id:'schadensreduzierung', label:'Schadensreduzierung', type:'simple', pctOnly:true, maxPr:null},
+  { id:'defensive', label:'Defensive', labelEn:'Defensive', color:'var(--def)', stats:[
+    {id:'verteidigung', label:'Verteidigung', labelEn:'Defense', type:'softcap', maxPr:1.20},
+    {id:'wahrnehmung', label:'Wahrnehmung', labelEn:'Awareness', type:'softcap', maxPr:0.90},
+    {id:'kritvermeidung', label:'Krit-Vermeidung', labelEn:'Critical Avoidance', type:'softcap', maxPr:0.90},
+    {id:'robustheit', label:'Robustheit', labelEn:'Deflect', type:'softcap', maxPr:0.90},
+    {id:'robustheitstaerke', label:'Robustheitstärke', labelEn:'Deflect Severity', type:'softcap', maxPr:1.20},
+    {id:'trefferpunkte', label:'Trefferpunkte', labelEn:'Hit Points', type:'werteProzent', maxPr:null},
+    {id:'ausdauerzugewinn', label:'Ausdauerzugewinn', labelEn:'Stamina Gain', type:'simple', pctOnly:true, maxPr:null},
+    {id:'schadensreduzierung', label:'Schadensreduzierung', labelEn:'Damage Reduction', type:'simple', pctOnly:true, maxPr:null},
   ]},
-  { id:'support', label:'Unterstützung', color:'var(--sup)', stats:[
-    {id:'wehrhaftigkeit', label:'Wehrhaftigkeit', type:'softcap', maxPr:1.20},
-    {id:'kontrollbonus', label:'Kontrollbonus', type:'softcap', maxPr:0.90},
-    {id:'kontrollresistenz', label:'Kontrollresistenz', type:'softcap', maxPr:0.90},
-    {id:'empfheilung', label:'Empfangene Heilung', type:'softcap', maxPr:1.20},
-    {id:'gewheilung', label:'Gewirkte Heilung', type:'softcap', maxPr:1.20},
-    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', type:'derived', maxPr:null, derivedFrom:'gewheilung'},
+  { id:'support', label:'Unterstützung', labelEn:'Support', color:'var(--sup)', stats:[
+    {id:'wehrhaftigkeit', label:'Wehrhaftigkeit', labelEn:'Forte', type:'softcap', maxPr:1.20},
+    {id:'kontrollbonus', label:'Kontrollbonus', labelEn:'Control Bonus', type:'softcap', maxPr:0.90},
+    {id:'kontrollresistenz', label:'Kontrollresistenz', labelEn:'Control Resist', type:'softcap', maxPr:0.90},
+    {id:'empfheilung', label:'Empfangene Heilung', labelEn:'Incoming Healing', type:'softcap', maxPr:1.20},
+    {id:'gewheilung', label:'Gewirkte Heilung', labelEn:'Outgoing Healing', type:'softcap', maxPr:1.20},
+    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', labelEn:'Total Outgoing Healing', type:'derived', maxPr:null, derivedFrom:'gewheilung'},
   ]},
 ];
 const ALL_STATS = STAT_GROUPS.flatMap(g => g.stats.map(s => ({...s, group:g.id, groupColor:g.color})));
@@ -2093,13 +2104,13 @@ function fmt(n){
 // Bewusst unabhängig von der STAT_GROUPS-Einteilung, da z. B. Kraft (Offensive-Gruppe)
 // auch für den Heilung-Ring zählt.
 const RING_DEFS = [
-  { label:'Offensive', color:'var(--off)', stats:[
+  { label:'Offensive', labelEn:'Offensive', color:'var(--off)', stats:[
     {id:'kraft'}, {id:'zielgenauigkeit'}, {id:'kampfvorteil'}, {id:'kritwert'}, {id:'kritschaden'},
   ]},
-  { label:'Defensive', color:'var(--def)', stats:[
+  { label:'Defensive', labelEn:'Defensive', color:'var(--def)', stats:[
     {id:'verteidigung'}, {id:'wahrnehmung'}, {id:'kritvermeidung'}, {id:'robustheit', weight:0.5},
   ]},
-  { label:'Heilung', color:'var(--sup)', stats:[
+  { label:'Heilung', labelEn:'Healing', color:'var(--sup)', stats:[
     {id:'kraft'}, {id:'kritwert'}, {id:'kritschaden'}, {id:'gewheilung'},
   ]},
 ];
@@ -2116,7 +2127,7 @@ function renderRings(results){
         wsum += w;
       }
     });
-    return {label:rd.label, color:rd.color, val: wsum ? Math.round((sum/wsum)*100) : 0};
+    return {label:rd.label, labelEn:rd.labelEn, color:rd.color, val: wsum ? Math.round((sum/wsum)*100) : 0};
   });
   const el = document.getElementById('rings');
   el.innerHTML = ringPct.map(g=>{
@@ -2129,7 +2140,7 @@ function renderRings(results){
           transform="rotate(-90 38 38)"/>
         <text x="38" y="43" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="700">${g.val}%</text>
       </svg>
-      <div class="ring-label">${g.label} &Oslash; zum Max</div>
+      <div class="ring-label">${L(g)} &Oslash; zum Max</div>
     </div>`;
   }).join('');
 }
@@ -2145,7 +2156,7 @@ function buildStatGroupsDOM(){
       if(stat.type==='werteOnly' || stat.type==='werteProzent'){
         const note = stat.type==='werteProzent' ? 'Werte + % aus Ausrüstung/Boni' : '&ndash;';
         return `<tr class="subgroup-row">
-          <td class="statname">${stat.label}</td>
+          <td class="statname">${L(stat)}</td>
           <td class="muted">&ndash;</td>
           <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
           <td class="muted">&ndash;</td>
@@ -2155,7 +2166,7 @@ function buildStatGroupsDOM(){
       }
       if(stat.type==='derived'){
         return `<tr class="subgroup-row">
-          <td class="statname">${stat.label}</td>
+          <td class="statname">${L(stat)}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
@@ -2165,7 +2176,7 @@ function buildStatGroupsDOM(){
       }
       if(stat.pctOnly){
         return `<tr class="subgroup-row">
-          <td class="statname">${stat.label}</td>
+          <td class="statname">${L(stat)}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
           <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
@@ -2174,7 +2185,7 @@ function buildStatGroupsDOM(){
         </tr>`;
       }
       return `<tr class="subgroup-row">
-        <td class="statname">${stat.label}</td>
+        <td class="statname">${L(stat)}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
         <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
         <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
@@ -2184,7 +2195,7 @@ function buildStatGroupsDOM(){
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-stats-${g.id}" data-group="${g.id}">
       <tr class="subgroup-header" onclick="toggleSrcSubgroup('stats','${g.id}')">
-        <td colspan="6"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        <td colspan="6"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
     </tbody>`;
@@ -2284,11 +2295,11 @@ function renderManualTable(cat){
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
-      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+      return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-${cat.id}-${g.id}" data-group="${g.id}">
       <tr class="subgroup-header" onclick="toggleSrcSubgroup('${cat.id}','${g.id}')">
-        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
     </tbody>`;
@@ -2304,7 +2315,7 @@ function summarizeContrib(name, db){
   for(const statId in contrib){
     if(statId.startsWith('_')) continue; // _info wird unten separat angezeigt
     const stat = ALL_STATS.find(s=>s.id===statId);
-    const label = stat ? stat.label : statId;
+    const label = stat ? L(stat) : statId;
     const {werte, prozent} = contrib[statId];
     if(werte) parts.push(`${label} +${formatWerte(werte)}`);
     if(prozent) parts.push(`${label} +${prozent}%`);
@@ -2385,11 +2396,11 @@ function renderGefaehrtenWerteTable(){
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
-      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+      return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-gefwerte-${g.id}" data-group="${g.id}">
       <tr class="subgroup-header" onclick="toggleSrcSubgroup('gefwerte','${g.id}')">
-        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
     </tbody>`;
@@ -2473,11 +2484,11 @@ function renderReittierWerteTable(){
         return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
           <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
-      return `<tr class="subgroup-row"><td class="statname">${stat.label}</td>${cells}</tr>`;
+      return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-reittierwerte-${g.id}" data-group="${g.id}">
       <tr class="subgroup-header" onclick="toggleSrcSubgroup('reittierwerte','${g.id}')">
-        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+        <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
     </tbody>`;
@@ -2815,7 +2826,7 @@ function renderMaxPrGrid(){
   el.innerHTML = ALL_STATS.filter(s=>s.maxPr!==null).map(stat=>{
     const val = maxPrOverrides[stat.id] !== undefined ? maxPrOverrides[stat.id] : stat.maxPr;
     return `<div class="maxpr-item">
-      <label>${stat.label}</label>
+      <label>${L(stat)}</label>
       <input type="text" inputmode="decimal" class="num-in pct-in" style="width:100%" data-maxpr="${stat.id}" value="${formatPct(val)}">
     </div>`;
   }).join('');
@@ -2945,7 +2956,7 @@ function cappedF(results, statId){
 }
 function statLabel(statId){
   const s = ALL_STATS.find(x=>x.id===statId);
-  return s ? s.label : statId;
+  return s ? L(s) : statId;
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -3223,11 +3234,11 @@ function renderAlleCharsSection(){
     const gruppen = STAT_GROUPS.map(g => {
       const relevFor = typ => (RELEVANTE_GRUPPEN[typ] || []).includes(g.id);
       const rows = g.stats.map(stat =>
-        zeile(stat.label, entries.map(e=>statVal(e, stat)), entries.map(e=>statText(e, stat)), { relevFor, noBest: true, subrow: true })
+        zeile(L(stat), entries.map(e=>statVal(e, stat)), entries.map(e=>statText(e, stat)), { relevFor, noBest: true, subrow: true })
       ).join('');
       return `<tbody class="stat-subgroup${defaultOffen.includes(g.id) ? ' open' : ''}" id="srcgrp-ovw-${g.id}">
         <tr class="subgroup-header" onclick="toggleSrcSubgroup('ovw','${g.id}')">
-          <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${g.label}</td>
+          <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
         </tr>
         ${rows}
       </tbody>`;
@@ -3808,11 +3819,11 @@ function renderUebersicht(){
 
   // Schaden-Grafik
   const dmgChartDefs = [
-    {id:'kraft', label:'Kraft', color:'var(--gold)', xMax:130, curX: rawF('kraft')},
-    {id:'zielgenauigkeit', label:'Zielgenauigkeit', color:'var(--def)', xMax:100, curX: rawF('zielgenauigkeit')},
-    {id:'kampfvorteil', label:'Kampfvorteil', color:'var(--sup)', xMax:130, curX: rawF('kampfvorteil')},
-    {id:'kritwert', label:'Kritischer Trefferwert', color:'var(--off)', xMax:100, curX: rawF('kritwert')},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
+    {id:'kraft', label:statLabel('kraft'), color:'var(--gold)', xMax:130, curX: rawF('kraft')},
+    {id:'zielgenauigkeit', label:statLabel('zielgenauigkeit'), color:'var(--def)', xMax:100, curX: rawF('zielgenauigkeit')},
+    {id:'kampfvorteil', label:statLabel('kampfvorteil'), color:'var(--sup)', xMax:130, curX: rawF('kampfvorteil')},
+    {id:'kritwert', label:statLabel('kritwert'), color:'var(--off)', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:statLabel('kritschaden'), color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
   ];
   const dmgCapFrac = (id, val) => { const c = capOf(id); return (c!==null ? Math.min(val, c) : val) / 100; };
   function dmgTotalGiven(overrideId, x){
@@ -3830,10 +3841,10 @@ function renderUebersicht(){
 
   // Heilung-Grafik
   const healChartDefs = [
-    {id:'kraft', label:'Kraft', color:'var(--gold)', xMax:130, curX: rawF('kraft')},
-    {id:'kritwert', label:'Kritischer Trefferwert', color:'var(--off)', xMax:100, curX: rawF('kritwert')},
-    {id:'kritschaden', label:'Kritischer Trefferschaden', color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
-    {id:'gesamtheilung', label:'Gesamte Gewirkte Heilung', color:'var(--edit)', xMax:150, curX: heilTotal},
+    {id:'kraft', label:statLabel('kraft'), color:'var(--gold)', xMax:130, curX: rawF('kraft')},
+    {id:'kritwert', label:statLabel('kritwert'), color:'var(--off)', xMax:100, curX: rawF('kritwert')},
+    {id:'kritschaden', label:statLabel('kritschaden'), color:'var(--violet)', xMax:130, curX: rawF('kritschaden')},
+    {id:'gesamtheilung', label:statLabel('gesamtheilung'), color:'var(--edit)', xMax:150, curX: heilTotal},
   ];
   function healTotalGiven(overrideId, x){
     const kraftRaw = overrideId==='kraft' ? x : rawF('kraft');
@@ -3848,11 +3859,11 @@ function renderUebersicht(){
 
   // Tank-Grafik
   const tankChartDefs = [
-    {id:'verteidigung', label:'Verteidigung', color:'var(--def)', xMax:130, curX: rawF('verteidigung')},
-    {id:'wahrnehmung', label:'Wahrnehmung', color:'var(--sup)', xMax:100, curX: rawF('wahrnehmung')},
-    {id:'kritvermeidung', label:'Krit-Vermeidung', color:'var(--off)', xMax:100, curX: rawF('kritvermeidung')},
-    {id:'robustheit', label:'Robustheit', color:'var(--gold)', xMax:100, curX: rawF('robustheit'), pairId:'robustheitstaerke'},
-    {id:'robustheitstaerke', label:'Robustheitstärke', color:'var(--violet)', xMax:130, curX: rawF('robustheitstaerke'), pairId:'robustheit'},
+    {id:'verteidigung', label:statLabel('verteidigung'), color:'var(--def)', xMax:130, curX: rawF('verteidigung')},
+    {id:'wahrnehmung', label:statLabel('wahrnehmung'), color:'var(--sup)', xMax:100, curX: rawF('wahrnehmung')},
+    {id:'kritvermeidung', label:statLabel('kritvermeidung'), color:'var(--off)', xMax:100, curX: rawF('kritvermeidung')},
+    {id:'robustheit', label:statLabel('robustheit'), color:'var(--gold)', xMax:100, curX: rawF('robustheit'), pairId:'robustheitstaerke'},
+    {id:'robustheitstaerke', label:statLabel('robustheitstaerke'), color:'var(--violet)', xMax:130, curX: rawF('robustheitstaerke'), pairId:'robustheit'},
   ];
   function tankTotalGiven(overrideId, x){
     const vertRaw = overrideId==='verteidigung' ? x : rawF('verteidigung');
@@ -4387,7 +4398,7 @@ async function reloadShared(){
 function statOptionsHtml(selected){
   const opts = ['<option value="">– Stat wählen –</option>'];
   ALL_STATS.filter(s=>s.type!=='derived').forEach(s=>{
-    opts.push(`<option value="${s.id}" ${s.id===selected?'selected':''}>${s.label}</option>`);
+    opts.push(`<option value="${s.id}" ${s.id===selected?'selected':''}>${L(s)}</option>`);
   });
   return opts.join('');
 }
@@ -5031,20 +5042,28 @@ const APP_INFO = {
     subtitle: `Trage deine aktuellen Werte aus Neverwinter in die grün markierten Felder ein. Der Rechner zeigt dir anschließend deine Gesamtwerte inklusive zusätzlicher Buffs an.<br>
     Wichtig: Trage nur Werte ein, die zusätzlich aktiviert werden (z. B. Procs beim Angreifen oder Schaden verursachen). Bereits dauerhaft aktive Boni sowie der aktive Gefährte werden nicht eingetragen.<br>
     Für Gefährten und Reittiere stehen Presets zur Verfügung. Änderungswünsche oder Feedback sind jederzeit willkommen – der Rechner befindet sich aktuell noch in der Beta.`,
+    subtitleEn: `Enter your current values from Neverwinter into the green-marked fields. The calculator will then show your total stats including additional buffs.<br>
+    Important: only enter values that get activated on top of your base stats (e.g. procs when attacking or taking damage). Permanently active bonuses and your active companion are not entered here.<br>
+    Presets are available for companions and mounts. Feedback and change requests are always welcome – the calculator is still in beta.`,
   },
   gruppenplaner: {
     title: 'Gruppenplaner',
     titleKey: 'app.gruppenplaner',
     subtitle: `Verwalte eigene Charakter-Profile (Klasse, Rollen, Besitz-Checkliste für Artefakte/Mounts/Gefährten) und stelle Trial-/Dungeon-Gruppen zusammen - komplett getrennt von den Stats-Charakteren.<br>
     Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
+    subtitleEn: `Manage your own character profiles (class, roles, an ownership checklist for artifacts/mounts/companions) and put together trial/dungeon groups - completely separate from your stat-calculator characters.<br>
+    Still in development, so for now it's only visible to moderators and above.`,
   },
   insignien: {
     title: 'Insignienrechner',
     titleKey: 'app.insignien',
     subtitle: `Rechnet aus, wie viel Insignien-Pulver ein Upgrade von einer Start- auf eine Ziel-Qualität kostet, mit welcher Qualität sich dieses Pulver am günstigsten gewinnen lässt, und ob sich Hochstufen oder Direktkauf mehr lohnt.<br>
     Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
+    subtitleEn: `Calculates how much insignia powder an upgrade from a starting to a target quality costs, which quality is cheapest to farm that powder from, and whether upgrading or buying directly is the better deal.<br>
+    Still in development, so for now it's only visible to moderators and above.`,
   },
 };
+function appSubtitle(info){ return (currentLang==='en' && info.subtitleEn) ? info.subtitleEn : info.subtitle; }
 function updateAppSwitcherVisibility(){
   const show = hasRole(GP_MIN_ROLE);
   const sel = document.getElementById('appSelect');
@@ -5067,7 +5086,7 @@ function showApp(name){
   document.getElementById('appInsignien').style.display = name==='insignien' ? '' : 'none';
   const info = APP_INFO[name];
   document.getElementById('mainTitle').textContent = info.titleKey ? t(info.titleKey) : info.title;
-  document.getElementById('mainSubtitle').innerHTML = info.subtitle;
+  document.getElementById('mainSubtitle').innerHTML = appSubtitle(info);
   if(name==='gruppenplaner'){
     ensureGpCharactersLoaded();
     ensureGpPlansLoaded();
