@@ -166,7 +166,7 @@ app.post('/api/auth/register', async (req, res) => {
   users[username] = { passwordHash, characters: [], role };
   writeJson(USERS_FILE, users);
   const token = signToken(username, passwordHash);
-  res.status(201).json({ token, username, role });
+  res.status(201).json({ token, username, role, lang: 'de' });
 });
 
 // Einfache Bremse gegen Passwort-Durchprobieren: pro Benutzername werden Fehlversuche
@@ -206,7 +206,7 @@ app.post('/api/auth/login', async (req, res) => {
   if(!ok){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   delete loginAttempts[username];
   const token = signToken(username, user.passwordHash);
-  res.json({ token, username, role: getUserRole(username), mustChangePassword: user.mustChangePassword === true });
+  res.json({ token, username, role: getUserRole(username), mustChangePassword: user.mustChangePassword === true, lang: user.lang === 'en' ? 'en' : 'de' });
 });
 
 // Eigenes Passwort ändern (altes Passwort muss stimmen). Wichtig z. B. nachdem ein
@@ -233,7 +233,20 @@ app.post('/api/me/change-password', authMiddleware, async (req, res) => {
 app.get('/api/me', authMiddleware, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
-  res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [], mustChangePassword: !!(user && user.mustChangePassword) });
+  res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [], mustChangePassword: !!(user && user.mustChangePassword), lang: (user && user.lang === 'en') ? 'en' : 'de' });
+});
+
+// Sprachwahl (de/en) am Account speichern, damit sie geräteübergreifend erhalten bleibt
+// (Gäste ohne Login nutzen stattdessen nur Local Storage im Frontend).
+app.put('/api/me/lang', authMiddleware, (req, res) => {
+  const { lang } = req.body || {};
+  if(lang !== 'de' && lang !== 'en') return res.status(400).json({ error: 'lang muss "de" oder "en" sein' });
+  const users = readJson(USERS_FILE, {});
+  const user = users[req.username];
+  if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  user.lang = lang;
+  writeJson(USERS_FILE, users);
+  res.json({ ok: true, lang });
 });
 
 // Liefert zu einem Charakter die Kurzinfos (Klasse/Vorbildpfad) aus seinen Daten,

@@ -213,6 +213,13 @@
     padding:9px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:0.92rem; font-weight:700;
   }
   .page-tab.active{color:var(--gold); border-color:var(--gold-soft); background:var(--panel);}
+  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex:none;}
+  .lang-btn{
+    background:var(--panel-2); border:none; color:var(--text-dim); cursor:pointer;
+    padding:7px 12px; font-size:0.78rem; font-weight:700; touch-action:manipulation;
+  }
+  .lang-btn.active{color:#1a1300; background:var(--gold);}
+  .lang-btn:not(.active):hover{color:var(--text);}
   /* Oberster Umschalter zwischen den drei unabhängigen Werkzeugen (Statrechner/
      Gruppenplaner/Insignienrechner) - als Dropdown statt Buttons, damit er auch
      bei vielen Bereichen kompakt bleibt. */
@@ -234,6 +241,7 @@
   .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
   .entry-head{display:flex; gap:8px; margin-bottom:10px; align-items:center;}
   .entry-head .entry-name{flex:1; font-weight:700;}
+  .entry-head .entry-name-en{flex:1; color:var(--text-dim); font-style:italic;}
   button.action.small{padding:5px 10px; font-size:0.78rem;}
   button.action.danger.small{padding:5px 8px; font-size:0.78rem;}
   .stat-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
@@ -389,6 +397,10 @@
   <div class="top-bar">
     <select class="app-select" id="appSelect" onchange="showApp(this.value)"></select>
     <div class="account-bar">
+      <div class="lang-toggle" role="group" aria-label="Sprache / Language">
+        <button type="button" class="lang-btn active" id="langBtnDe" onclick="setLang('de')" lang="de">DE</button>
+        <button type="button" class="lang-btn" id="langBtnEn" onclick="setLang('en')" lang="en">EN</button>
+      </div>
       <button type="button" class="account-btn" onclick="openAccountPanel()">&#128100; <span id="accountLabel">Gast (nicht gespeichert)</span></button>
     </div>
   </div>
@@ -400,11 +412,11 @@
 
   <div id="appStats">
   <div class="page-nav">
-    <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button">Rechner</button>
-    <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button">Schadensberechnung</button>
-    <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;">Presets</button>
-    <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;">Formeln</button>
-    <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;">Benutzer</button>
+    <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button" data-i18n="tab.rechner">Rechner</button>
+    <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button" data-i18n="tab.uebersicht">Schadensberechnung</button>
+    <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;" data-i18n="tab.presets">Presets</button>
+    <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;" data-i18n="tab.formeln">Formeln</button>
+    <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;" data-i18n="tab.users">Benutzer</button>
   </div>
 
   <div id="saveStatus" class="save-status"></div>
@@ -639,9 +651,9 @@
 <div id="appGruppenplaner" style="display:none;">
   <div class="notice" style="margin-bottom:14px;">Der Gruppenplaner befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar. Er wird später für alle geöffnet.</div>
   <div class="page-nav">
-    <button class="page-tab active" id="gptab-charaktere" onclick="showGpPage('charaktere')" type="button">Meine Charaktere</button>
-    <button class="page-tab" id="gptab-planung" onclick="showGpPage('planung')" type="button">Planung</button>
-    <button class="page-tab" id="gptab-referenz" onclick="showGpPage('referenz')" type="button">Referenzlisten</button>
+    <button class="page-tab active" id="gptab-charaktere" onclick="showGpPage('charaktere')" type="button" data-i18n="gptab.charaktere">Meine Charaktere</button>
+    <button class="page-tab" id="gptab-planung" onclick="showGpPage('planung')" type="button" data-i18n="gptab.planung">Planung</button>
+    <button class="page-tab" id="gptab-referenz" onclick="showGpPage('referenz')" type="button" data-i18n="gptab.referenz">Referenzlisten</button>
   </div>
 
   <div id="gpPageCharaktere">
@@ -875,6 +887,144 @@ let gpPlanAnsichtModus = false; // true = schlichte Nur-Lese-Ansicht zum Screens
 let currentApp = 'stats';     // 'stats' | 'gruppenplaner' | 'insignien'
 let currentGpPage = 'charaktere';
 
+/* ---------- Sprache (DE/EN) ----------
+   Erste Stufe (Nutzerwunsch): nur der "Rahmen" - Menü/Navigation, Buttons,
+   Seiten-/Kartenüberschriften. Lange Hilfetexte, Formel-Erklärungen usw. bleiben
+   bewusst noch deutsch, kommen in einer späteren Runde dazu (sonst Fehlerrisiko
+   in einem Rutsch zu groß bei ~6000 Zeilen). Gäste ohne Login: nur Local Storage.
+   Eingeloggt: zusätzlich am Account gespeichert (siehe apiSetLang), damit die
+   Sprache geräteübergreifend erhalten bleibt. */
+let currentLang = 'de'; // 'de' | 'en'
+const TRANSLATIONS = {
+  de: {
+    'guest.label': 'Gast (nicht gespeichert)',
+    'app.stats': 'Statrechner',
+    'app.gruppenplaner': 'Gruppenplaner',
+    'app.insignien': 'Insignienrechner',
+    'tab.rechner': 'Rechner',
+    'tab.uebersicht': 'Schadensberechnung',
+    'tab.presets': 'Presets',
+    'tab.formeln': 'Formeln',
+    'tab.users': 'Benutzer',
+    'gptab.charaktere': 'Meine Charaktere',
+    'gptab.planung': 'Planung',
+    'gptab.referenz': 'Referenzlisten',
+    'card.faehigkeit': 'Fähigkeit &amp; Vergleich',
+    'acc.schaden': 'Schadensberechnung',
+    'acc.heilung': 'Heilungsberechnung',
+    'acc.tank': 'Tank-Berechnung',
+    'acc.gegner': 'Gegnerische Werte',
+    'acc.loginheading': 'Anmelden oder registrieren',
+    'acc.username': 'Benutzername',
+    'acc.password': 'Passwort',
+    'acc.newcharlabel': 'Neuer Charakter',
+    'acc.templatelabel': 'Vorlage',
+    'acc.oldpw': 'Aktuelles Passwort',
+    'acc.newpw': 'Neues Passwort (min. 4 Zeichen)',
+    'btn.login': 'Anmelden',
+    'btn.register': 'Registrieren',
+    'btn.cancel': 'Abbrechen',
+    'btn.close': 'Schließen',
+    'btn.logout': 'Abmelden',
+    'btn.createchar': 'Charakter anlegen',
+    'btn.importchar': 'Charakter importieren',
+    'btn.changepw': 'Passwort ändern',
+    'btn.savepw': 'Neues Passwort speichern',
+    'btn.copy': 'Kopieren',
+    'btn.rename': 'Umbenennen',
+    'btn.export': 'Export',
+    'btn.send': 'Senden',
+    'btn.cancelsend': 'Senden abbrechen',
+    'btn.delete': 'Löschen',
+    'btn.accept': 'Annehmen',
+    'btn.decline': 'Ablehnen',
+  },
+  en: {
+    'guest.label': 'Guest (not saved)',
+    'app.stats': 'Stat Calculator',
+    'app.gruppenplaner': 'Group Planner',
+    'app.insignien': 'Insignia Calculator',
+    'tab.rechner': 'Calculator',
+    'tab.uebersicht': 'Damage Calculation',
+    'tab.presets': 'Presets',
+    'tab.formeln': 'Formulas',
+    'tab.users': 'Users',
+    'gptab.charaktere': 'My Characters',
+    'gptab.planung': 'Planning',
+    'gptab.referenz': 'Reference Lists',
+    'card.faehigkeit': 'Ability &amp; Comparison',
+    'acc.schaden': 'Damage Calculation',
+    'acc.heilung': 'Healing Calculation',
+    'acc.tank': 'Tank Calculation',
+    'acc.gegner': 'Enemy Stats',
+    'acc.loginheading': 'Log in or register',
+    'acc.username': 'Username',
+    'acc.password': 'Password',
+    'acc.newcharlabel': 'New Character',
+    'acc.templatelabel': 'Template',
+    'acc.oldpw': 'Current Password',
+    'acc.newpw': 'New Password (min. 4 characters)',
+    'btn.login': 'Log In',
+    'btn.register': 'Register',
+    'btn.cancel': 'Cancel',
+    'btn.close': 'Close',
+    'btn.logout': 'Log Out',
+    'btn.createchar': 'Create Character',
+    'btn.importchar': 'Import Character',
+    'btn.changepw': 'Change Password',
+    'btn.savepw': 'Save New Password',
+    'btn.copy': 'Copy',
+    'btn.rename': 'Rename',
+    'btn.export': 'Export',
+    'btn.send': 'Send',
+    'btn.cancelsend': 'Cancel Send',
+    'btn.delete': 'Delete',
+    'btn.accept': 'Accept',
+    'btn.decline': 'Decline',
+  },
+};
+function t(key){
+  const dict = TRANSLATIONS[currentLang] || TRANSLATIONS.de;
+  return (key in dict) ? dict[key] : (TRANSLATIONS.de[key] || key);
+}
+// Blendet die aktuell sichtbare Seite/Ansicht neu ein, damit ihre (per t() gebauten)
+// Überschriften nach einem Sprachwechsel sofort in der neuen Sprache erscheinen,
+// auch ohne dass sich sonst am Zustand etwas ändert.
+function reRenderCurrentView(){
+  if(currentApp === 'stats'){
+    const openTab = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
+    if(openTab === 'uebersicht') renderUebersicht();
+    else if(openTab === 'formeln') renderMaxPrGrid();
+  } else if(currentApp === 'gruppenplaner'){
+    showGpPage(currentGpPage);
+  } else if(currentApp === 'insignien'){
+    renderInsignien();
+  }
+  if(document.getElementById('accountModalBg') && document.getElementById('accountModalBg').classList.contains('show')){
+    renderAccountPanel();
+  }
+}
+function applyLangUI(){
+  document.documentElement.lang = currentLang === 'en' ? 'en' : 'de';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.innerHTML = t(el.dataset.i18n); });
+  const btnDe = document.getElementById('langBtnDe'), btnEn = document.getElementById('langBtnEn');
+  if(btnDe) btnDe.classList.toggle('active', currentLang==='de');
+  if(btnEn) btnEn.classList.toggle('active', currentLang==='en');
+  updateAppSwitcherVisibility();
+  updateAccountLabel();
+  const info = APP_INFO[currentApp];
+  if(info) document.getElementById('mainTitle').textContent = t(info.titleKey) || info.title;
+  reRenderCurrentView();
+}
+function setLang(lang){
+  if(lang !== 'de' && lang !== 'en') return;
+  if(currentLang === lang) return;
+  currentLang = lang;
+  try{ localStorage.setItem('xselli_lang', lang); }catch(e){}
+  if(isLoggedIn) apiSetLang(lang).catch(()=>{}); // best effort, Local Storage greift so oder so
+  applyLangUI();
+}
+
 const GEFAEHRTEN_SLOTS = Array.from({length:10}, (_,i)=>`Gefährte ${i+1}`);
 // Raptor-Reittiere zählen als Gefährten-Zusatz: jeder gibt einen festen Kraft-Bonus.
 const RAPTOR_SOURCE_KEY = 'Anzahl Raptor';
@@ -908,6 +1058,15 @@ const FOOD_SLOTS = [
   { key:'Buff Food – Utility 2', category:'Utility', label:'Utility 2' },
 ];
 function foodSlotItems(fs){ return Object.keys(foodDb[fs.category] || {}); }
+// Anzeigename für Gefährten/Reittiere/Buff-Food: der deutsche Name ist immer
+// der Objekt-Schlüssel (ID, kann nicht leer sein) - "_nameEn" ist ein optionales
+// Zusatzfeld nur für die Anzeige (Konvention wie _info/_persistsDeath). Fehlt es
+// bei aktiver englischer Sprache, bleibt es einfach beim deutschen Namen.
+function dbDisplayName(db, name){
+  const e = db && db[name];
+  if(currentLang === 'en' && e && e._nameEn) return e._nameEn;
+  return name;
+}
 
 let gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
 let reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
@@ -1042,6 +1201,7 @@ const apiSetFormulas = (partial) => apiRequest('/api/shared/formulas', {method:'
 const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
+const apiSetLang = (lang) => apiRequest('/api/me/lang', {method:'PUT', body:JSON.stringify({lang})});
 const apiChangePassword = (oldPassword, newPassword) => apiRequest('/api/me/change-password', {method:'POST', body:JSON.stringify({oldPassword, newPassword})});
 
 /* ---------- API-Hilfsfunktionen: Gruppenplaner (komplett eigener Datentopf) ---------- */
@@ -1090,7 +1250,7 @@ function clearLoginLocally(){
 function updateAccountLabel(){
   const el = document.getElementById('accountLabel');
   if(!el) return;
-  if(!isLoggedIn) el.textContent = 'Gast (nicht gespeichert)';
+  if(!isLoggedIn) el.textContent = t('guest.label');
   else if(!currentChar) el.textContent = `${currentUser}: Charakter wählen`;
   else el.textContent = `${currentUser} · ${currentChar}`;
   const gdName = document.getElementById('grunddatenCharName');
@@ -1118,17 +1278,17 @@ async function renderAccountPanel(){
   const body = document.getElementById('accountModalBody');
   if(!isLoggedIn){
     body.innerHTML = `
-      <h3>Anmelden oder registrieren</h3>
+      <h3>${t('acc.loginheading')}</h3>
       <p class="helptext">Benutzername + Passwort. Wird sicher auf dem Server gespeichert (Passwort gehasht, nicht im Klartext).</p>
       <div class="login-grid">
-        <div><label for="acc_username">Benutzername</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
-        <div><label for="acc_password">Passwort</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div><label for="acc_username">${t('acc.username')}</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div><label for="acc_password">${t('acc.password')}</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
       </div>
       <div id="accMsg" class="helptext" style="color:var(--off);"></div>
       <div class="btnrow">
-        <button class="action gold" type="button" onclick="loginAccount()">Anmelden</button>
-        <button class="action" type="button" onclick="registerAccount()">Registrieren</button>
-        <button class="action" type="button" onclick="closeAccountModal()">Abbrechen</button>
+        <button class="action gold" type="button" onclick="loginAccount()">${t('btn.login')}</button>
+        <button class="action" type="button" onclick="registerAccount()">${t('btn.register')}</button>
+        <button class="action" type="button" onclick="closeAccountModal()">${t('btn.cancel')}</button>
       </div>`;
     return;
   }
@@ -1142,10 +1302,10 @@ async function renderAccountPanel(){
   const incomingHtml = incomingTransfers.length ? `
     <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid var(--edit-border); border-radius:8px;">
       <label style="font-size:0.8rem;">Charakter-Kopien, die dir angeboten wurden</label>
-      ${incomingTransfers.map(t=>`<div class="char-item" style="padding:6px 10px;">
-        <span style="flex:1;">${t.charName} <span class="muted">&middot; von ${t.from}</span></span>
-        <button type="button" class="action gold small" onclick="acceptTransfer('${t.charName.replace(/'/g,"\\'")}')">Annehmen</button>
-        <button type="button" class="action danger small" onclick="declineTransfer('${t.charName.replace(/'/g,"\\'")}')">Ablehnen</button>
+      ${incomingTransfers.map(tr=>`<div class="char-item" style="padding:6px 10px;">
+        <span style="flex:1;">${tr.charName} <span class="muted">&middot; von ${tr.from}</span></span>
+        <button type="button" class="action gold small" onclick="acceptTransfer('${tr.charName.replace(/'/g,"\\'")}')">${t('btn.accept')}</button>
+        <button type="button" class="action danger small" onclick="declineTransfer('${tr.charName.replace(/'/g,"\\'")}')">${t('btn.decline')}</button>
       </div>`).join('')}
     </div>` : '';
 
@@ -1163,13 +1323,13 @@ async function renderAccountPanel(){
           <span class="char-name">${c.name}</span>
           <span class="char-info">${info}${updatedNote}${statusNote}</span>
         </button>
-        <button class="action small" type="button" title="Kopieren" onclick="copyOwnCharacterByIndex(${i})">Kopieren</button>
-        <button class="action small" type="button" onclick="toggleRenameByIndex(${i})">Umbenennen</button>
+        <button class="action small" type="button" title="${t('btn.copy')}" onclick="copyOwnCharacterByIndex(${i})">${t('btn.copy')}</button>
+        <button class="action small" type="button" onclick="toggleRenameByIndex(${i})">${t('btn.rename')}</button>
         ${c.pendingTransferTo
-          ? `<button class="action small" type="button" onclick="cancelSendByIndex(${i})">Senden abbrechen</button>`
-          : `<button class="action small" type="button" onclick="toggleSendByIndex(${i})">Senden</button>`}
-        <button class="action small" type="button" title="Als JSON-Datei herunterladen (Backup)" onclick="exportCharacterByIndex(${i})">Export</button>
-        <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">Löschen</button>
+          ? `<button class="action small" type="button" onclick="cancelSendByIndex(${i})">${t('btn.cancelsend')}</button>`
+          : `<button class="action small" type="button" onclick="toggleSendByIndex(${i})">${t('btn.send')}</button>`}
+        <button class="action small" type="button" title="Als JSON-Datei herunterladen (Backup)" onclick="exportCharacterByIndex(${i})">${t('btn.export')}</button>
+        <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">${t('btn.delete')}</button>
       </div>
       <div id="rename-panel-${i}" style="display:none;"></div>
       <div id="send-panel-${i}" style="display:none;"></div>
@@ -1187,30 +1347,30 @@ async function renderAccountPanel(){
     <p class="helptext" style="margin-top:4px;">Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.</p>
     <div class="login-grid" style="margin-top:12px;">
       <div>
-        <label for="acc_newchar">Neuer Charakter</label>
+        <label for="acc_newchar">${t('acc.newcharlabel')}</label>
         <input type="text" id="acc_newchar" placeholder="Name eingeben…" onkeydown="if(event.key==='Enter')createCharacter()">
       </div>
       <div>
-        <label for="acc_copyfrom">Vorlage</label>
+        <label for="acc_copyfrom">${t('acc.templatelabel')}</label>
         <select id="acc_copyfrom">${vorlageOptions}</select>
       </div>
     </div>
     <div id="accMsg" class="helptext" style="color:var(--off);"></div>
     <div class="btnrow">
-      <button class="action gold" type="button" onclick="createCharacter()">Charakter anlegen</button>
-      <button class="action" type="button" title="Charakter aus einer Export-Datei (.json) wiederherstellen" onclick="document.getElementById('acc_importfile').click()">Charakter importieren</button>
+      <button class="action gold" type="button" onclick="createCharacter()">${t('btn.createchar')}</button>
+      <button class="action" type="button" title="Charakter aus einer Export-Datei (.json) wiederherstellen" onclick="document.getElementById('acc_importfile').click()">${t('btn.importchar')}</button>
       <input type="file" id="acc_importfile" accept=".json,application/json" style="display:none;" onchange="handleImportFile(event)">
-      <button class="action" type="button" onclick="togglePwChange()">Passwort ändern</button>
-      <button class="action" type="button" onclick="logoutAccount()">Abmelden</button>
-      <button class="action" type="button" onclick="closeAccountModal()">Schließen</button>
+      <button class="action" type="button" onclick="togglePwChange()">${t('btn.changepw')}</button>
+      <button class="action" type="button" onclick="logoutAccount()">${t('btn.logout')}</button>
+      <button class="action" type="button" onclick="closeAccountModal()">${t('btn.close')}</button>
     </div>
     <div id="pwChangeArea" style="display:${pwChangeRequired ? 'block' : 'none'};margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
       ${pwChangeRequired ? '<p class="helptext" style="color:var(--gold);margin-top:0;">Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).</p>' : ''}
       <div class="login-grid">
-        <div><label for="acc_oldpw">Aktuelles Passwort</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
-        <div><label for="acc_newpw">Neues Passwort (min. 4 Zeichen)</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+        <div><label for="acc_oldpw">${t('acc.oldpw')}</label><input type="password" id="acc_oldpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
+        <div><label for="acc_newpw">${t('acc.newpw')}</label><input type="password" id="acc_newpw" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></div>
       </div>
-      <div class="btnrow"><button class="action gold" type="button" onclick="changePassword()">Neues Passwort speichern</button></div>
+      <div class="btnrow"><button class="action gold" type="button" onclick="changePassword()">${t('btn.savepw')}</button></div>
     </div>`;
 }
 
@@ -2180,7 +2340,7 @@ function renderPresetSlots(cat, names, db, presets){
   const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>`;
   const slotCards = cat.sources.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
     return `<div class="slot-card">
       <label>${src}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -2200,7 +2360,7 @@ function renderGefaehrtenWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(companionDb,n)}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
       <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
@@ -2267,7 +2427,7 @@ function renderReittierSlots(cat){
   const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">Manuell Werte</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(mountDb,n)}</option>`).join('');
     return `<div class="slot-card">
       <label>${src}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -2288,7 +2448,7 @@ function renderReittierWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const options = ['Leer', ...names].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(mountDb,n)}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
       <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
@@ -2368,7 +2528,7 @@ function renderFoodWerteTable(cat){
     const sel = getSlotSelection(fs.key);
     const items = foodSlotItems(fs);
     const db = foodDb[fs.category] || {};
-    const options = ['Leer', ...items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${n}</option>`).join('');
+    const options = ['Leer', ...items].map(n=>`<option value="${n}" ${n===sel?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:0.75rem;">${fs.label}: aus Preset laden</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
@@ -3722,7 +3882,7 @@ function renderUebersicht(){
     : '';
   el.innerHTML = `${klasseHinweis}
   <div class="card">
-    <h2><span class="dot" style="background:var(--gold)"></span>Fähigkeit &amp; Vergleich</h2>
+    <h2><span class="dot" style="background:var(--gold)"></span>${t('card.faehigkeit')}</h2>
     <p class="helptext">Gilt für Schaden <strong>und</strong> Heilung.</p>
     <div class="grunddaten-grid">
       ${paramInput('faehigkeit','Schaden/Heilung der Fähigkeit')}
@@ -3738,7 +3898,7 @@ function renderUebersicht(){
 
   <div class="accordion" id="acc-dmg-schaden" style="margin-top:16px;border-left:3px solid var(--off);">
     <button type="button" onclick="toggleDmgAccordion('schaden')">
-      <span><span class="dot" style="background:var(--off)"></span>Schadensberechnung</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--off)"></span>${t('acc.schaden')}</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
       <div class="wide-table-scroll">
@@ -3760,7 +3920,7 @@ function renderUebersicht(){
 
   <div class="accordion" id="acc-dmg-heilung" style="margin-top:8px;border-left:3px solid var(--sup);">
     <button type="button" onclick="toggleDmgAccordion('heilung')">
-      <span><span class="dot" style="background:var(--sup)"></span>Heilungsberechnung</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--sup)"></span>${t('acc.heilung')}</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
       <div class="wide-table-scroll">
@@ -3780,7 +3940,7 @@ function renderUebersicht(){
 
   <div class="accordion" id="acc-dmg-tank" style="margin-top:8px;border-left:3px solid var(--def);">
     <button type="button" onclick="toggleDmgAccordion('tank')">
-      <span><span class="dot" style="background:var(--def)"></span>Tank-Berechnung</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--def)"></span>${t('acc.tank')}</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
       <div class="wide-table-scroll">
@@ -3806,7 +3966,7 @@ function renderUebersicht(){
 
   <div class="accordion" id="acc-dmg-gegner" style="margin-top:8px;">
     <button type="button" onclick="toggleDmgAccordion('gegner')">
-      <span><span class="dot" style="background:var(--def)"></span>Gegnerische Werte</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--def)"></span>${t('acc.gegner')}</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">
       <div style="max-width:340px;margin-bottom:6px;">
@@ -4248,9 +4408,10 @@ function addStatRowTo(btn){
   attachWerteFormatting(row);
 }
 function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
-  // Schlüssel mit "_" am Anfang (z. B. _info, _persistsDeath) sind keine Stats und werden hier übersprungen.
+  // Schlüssel mit "_" am Anfang (z. B. _info, _persistsDeath, _nameEn) sind keine Stats und werden hier übersprungen.
   const rows = Object.keys(statsObj||{}).filter(id=>!id.startsWith('_')).map(id=>statRowHtml(id, statsObj[id].werte, statsObj[id].prozent)).join('');
   const infoVal = (statsObj && statsObj._info) ? String(statsObj._info) : '';
+  const nameEnVal = (statsObj && statsObj._nameEn) ? String(statsObj._nameEn) : '';
   const infoHtml = withInfo ? `<div style="margin-top:8px;">
       <label>Sonstige Info (nur Text, beeinflusst keine Stats)</label>
       <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz …">
@@ -4260,6 +4421,7 @@ function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
   return `<div class="entry-card">
     <div class="entry-head">
       <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben…">
+      <input type="text" class="entry-name-en" value="${nameEnVal.replace(/"/g,'&quot;')}" placeholder="Name (EN), optional…" title="Englischer Anzeigename - wird nur genutzt, wenn Englisch eingestellt ist; ohne Eintrag bleibt es beim deutschen Namen.">
       <button type="button" class="action danger small" onclick="this.closest('.entry-card').remove()">Entfernen</button>
     </div>
     <div class="stat-rows">${rows}</div>
@@ -4300,6 +4462,8 @@ function collectEntryEditor(containerId){
     });
     const infoInput = card.querySelector('.entry-info');
     if(infoInput && infoInput.value.trim()) stats._info = infoInput.value.trim();
+    const nameEnInput = card.querySelector('.entry-name-en');
+    if(nameEnInput && nameEnInput.value.trim()) stats._nameEn = nameEnInput.value.trim();
     result[name] = stats;
   });
   return result;
@@ -4375,6 +4539,8 @@ function collectFoodEditor(){
       });
       const infoInput = card.querySelector('.entry-info');
       if(infoInput && infoInput.value.trim()) stats._info = infoInput.value.trim();
+      const nameEnInput = card.querySelector('.entry-name-en');
+      if(nameEnInput && nameEnInput.value.trim()) stats._nameEn = nameEnInput.value.trim();
       const deathCheck = card.querySelector('.entry-persists-death');
       if(deathCheck && deathCheck.checked) stats._persistsDeath = true;
       result[catName][name] = stats;
@@ -4384,10 +4550,10 @@ function collectFoodEditor(){
 }
 
 // Gruppen-Presets (5er/10er Standard): pro Preset eine Reihe Dropdowns, ein Slot je Position.
-function presetCardHtml(presetName, slotLabels, names, assigned){
+function presetCardHtml(presetName, slotLabels, names, assigned, db){
   const selects = slotLabels.map((label,i)=>{
     const val = assigned[i] || 'Leer';
-    const opts = ['Leer', ...names].map(n=>`<option value="${n}" ${n===val?'selected':''}>${n}</option>`).join('');
+    const opts = ['Leer', ...names].map(n=>`<option value="${n}" ${n===val?'selected':''}>${dbDisplayName(db,n)}</option>`).join('');
     return `<div class="preset-slot"><label>${label}</label><select class="preset-slot-select">${opts}</select></div>`;
   }).join('');
   return `<div class="preset-card">
@@ -4398,16 +4564,17 @@ function presetCardHtml(presetName, slotLabels, names, assigned){
     <div class="slot-grid">${selects}</div>
   </div>`;
 }
-function renderPresetEditor(containerId, presetsObj, slotLabels, names){
+function renderPresetEditor(containerId, presetsObj, slotLabels, names, db){
   const el = document.getElementById(containerId);
-  el.innerHTML = Object.keys(presetsObj).map(pname=>presetCardHtml(pname, slotLabels, names, presetsObj[pname]||[])).join('');
+  el.innerHTML = Object.keys(presetsObj).map(pname=>presetCardHtml(pname, slotLabels, names, presetsObj[pname]||[], db)).join('');
 }
 function addPresetCard(containerId, kind){
   const el = document.getElementById(containerId);
   const slotLabels = kind==='gefaehrten' ? GEFAEHRTEN_SLOTS : REITTIER_GRUPPE_SLOTS;
-  const names = kind==='gefaehrten' ? Object.keys(companionDb) : Object.keys(mountDb);
+  const db = kind==='gefaehrten' ? companionDb : mountDb;
+  const names = Object.keys(db);
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = presetCardHtml('Neues Preset', slotLabels, names, []);
+  wrapper.innerHTML = presetCardHtml('Neues Preset', slotLabels, names, [], db);
   el.appendChild(wrapper.firstElementChild);
 }
 function collectPresetEditor(containerId){
@@ -4467,8 +4634,8 @@ function fillPresetFields(){
   renderEntryEditor('companionEditor', companionDb);
   renderEntryEditor('mountEditor', mountDb);
   renderFoodEditor();
-  renderPresetEditor('gefaehrtenPresetEditor', gefaehrtenPresets, GEFAEHRTEN_SLOTS, Object.keys(companionDb));
-  renderPresetEditor('reittierPresetEditor', reittierPresets, REITTIER_GRUPPE_SLOTS, Object.keys(mountDb));
+  renderPresetEditor('gefaehrtenPresetEditor', gefaehrtenPresets, GEFAEHRTEN_SLOTS, Object.keys(companionDb), companionDb);
+  renderPresetEditor('reittierPresetEditor', reittierPresets, REITTIER_GRUPPE_SLOTS, Object.keys(mountDb), mountDb);
   renderGegnerProfilEditor();
 }
 async function savePresetsShared(){
@@ -4754,6 +4921,14 @@ async function init(){
   // erst geladen, wenn man sich anmeldet und einen Charakter auswählt.
   applyCharDataBundle({});
 
+  // Sprache: erst Local Storage als Fallback (gilt für Gäste und als Startwert,
+  // bevor eine evtl. Account-Einstellung geladen ist), wird unten bei Login mit
+  // der am Account gespeicherten Sprache überschrieben (geräteübergreifend).
+  try{
+    const savedLang = localStorage.getItem('xselli_lang');
+    if(savedLang === 'de' || savedLang === 'en') currentLang = savedLang;
+  }catch(e){}
+
   try{
     const v = await apiRequest('/api/version');
     document.getElementById('versionTag').innerHTML = 'Version ' + v.version + ' (Beta) &middot; ' +
@@ -4792,6 +4967,7 @@ async function init(){
       const me = await apiMe(); // prüft nebenbei, ob das Token noch gültig ist, liefert isAdmin + Charaktere
       currentRole = me.role || 'user';
       pwChangeRequired = me.mustChangePassword === true;
+      if(me.lang === 'de' || me.lang === 'en') currentLang = me.lang;
       if(pwChangeRequired){
         setTimeout(()=>{
           document.getElementById('saveStatus').textContent = 'Dein Passwort wurde auf das Standardpasswort zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.';
@@ -4822,7 +4998,7 @@ async function init(){
   document.getElementById('itemlevel').value = grunddaten.itemlevel ? formatWerte(grunddaten.itemlevel) : '';
   document.getElementById('klasse').value = grunddaten.klasse;
   populateVorbildpfad(grunddaten.klasse, grunddaten.vorbildpfad);
-  updateAccountLabel();
+  applyLangUI();
 
   bindGrunddaten();
   refresh(true);
@@ -4851,17 +5027,20 @@ const GP_MIN_ROLE = 'moderator';
 const APP_INFO = {
   stats: {
     title: `Xselli's Stats-Rechner`,
+    titleKey: null,
     subtitle: `Trage deine aktuellen Werte aus Neverwinter in die grün markierten Felder ein. Der Rechner zeigt dir anschließend deine Gesamtwerte inklusive zusätzlicher Buffs an.<br>
     Wichtig: Trage nur Werte ein, die zusätzlich aktiviert werden (z. B. Procs beim Angreifen oder Schaden verursachen). Bereits dauerhaft aktive Boni sowie der aktive Gefährte werden nicht eingetragen.<br>
     Für Gefährten und Reittiere stehen Presets zur Verfügung. Änderungswünsche oder Feedback sind jederzeit willkommen – der Rechner befindet sich aktuell noch in der Beta.`,
   },
   gruppenplaner: {
     title: 'Gruppenplaner',
+    titleKey: 'app.gruppenplaner',
     subtitle: `Verwalte eigene Charakter-Profile (Klasse, Rollen, Besitz-Checkliste für Artefakte/Mounts/Gefährten) und stelle Trial-/Dungeon-Gruppen zusammen - komplett getrennt von den Stats-Charakteren.<br>
     Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
   },
   insignien: {
     title: 'Insignienrechner',
+    titleKey: 'app.insignien',
     subtitle: `Rechnet aus, wie viel Insignien-Pulver ein Upgrade von einer Start- auf eine Ziel-Qualität kostet, mit welcher Qualität sich dieses Pulver am günstigsten gewinnen lässt, und ob sich Hochstufen oder Direktkauf mehr lohnt.<br>
     Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
   },
@@ -4869,8 +5048,8 @@ const APP_INFO = {
 function updateAppSwitcherVisibility(){
   const show = hasRole(GP_MIN_ROLE);
   const sel = document.getElementById('appSelect');
-  sel.innerHTML = '<option value="stats">Statrechner</option>' +
-    (show ? '<option value="gruppenplaner">Gruppenplaner</option><option value="insignien">Insignienrechner</option>' : '');
+  sel.innerHTML = `<option value="stats">${t('app.stats')}</option>` +
+    (show ? `<option value="gruppenplaner">${t('app.gruppenplaner')}</option><option value="insignien">${t('app.insignien')}</option>` : '');
   // Falls die Rolle nach Ab-/Ummelden nicht mehr reicht, zurück zum Statrechner.
   if(!show && currentApp !== 'stats') showApp('stats');
   else sel.value = currentApp;
@@ -4887,7 +5066,7 @@ function showApp(name){
   document.getElementById('appGruppenplaner').style.display = name==='gruppenplaner' ? '' : 'none';
   document.getElementById('appInsignien').style.display = name==='insignien' ? '' : 'none';
   const info = APP_INFO[name];
-  document.getElementById('mainTitle').textContent = info.title;
+  document.getElementById('mainTitle').textContent = info.titleKey ? t(info.titleKey) : info.title;
   document.getElementById('mainSubtitle').innerHTML = info.subtitle;
   if(name==='gruppenplaner'){
     ensureGpCharactersLoaded();
@@ -5282,6 +5461,18 @@ function gpOptimizerToleranz(){
   return (t !== undefined && t !== null && !isNaN(t)) ? Number(t) : DEFAULT_GP_OPTIMIZER_REGELN.toleranz;
 }
 function gpKatItemByName(kat, name){ return name ? kat.liste().find(e => e.name === name) : null; }
+// Anzeigename für einen Referenzlisten-Eintrag: in der aktiven Sprache, mit
+// Rückfall auf die jeweils andere Sprache, falls die aktive leer ist (nie
+// leer anzeigen). Der deutsche "name" bleibt überall die interne ID (Dropdown-
+// Werte, Besitz-Checkliste, Optimierer) - "nameEn" ist rein für die Anzeige.
+function gpEntryDisplayName(e, fallbackName){
+  if(!e) return fallbackName || '';
+  if(currentLang === 'en') return e.nameEn || e.name || fallbackName || '';
+  return e.name || e.nameEn || fallbackName || '';
+}
+function gpRefDisplayName(kat, name){
+  return gpEntryDisplayName(gpKatItemByName(kat, name), name);
+}
 // Seit v0.28.0 (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein
 // außer es ist extra angehakt"): true, wenn der Referenzeintrag mit dem
 // Häkchen "Mehrfachvergabe erlaubt" markiert ist - solche Werte werden vom
@@ -5299,7 +5490,7 @@ function gpMehrfachErlaubt(kat, name){
 // oder ohne hinterlegten Wert bleibt es beim reinen Namen.
 function gpOptionLabel(kat, name){
   const e = gpKatItemByName(kat, name);
-  let label = name;
+  let label = gpEntryDisplayName(e, name);
   if(kat.dmgKey){
     const val = e ? e[kat.dmgKey] : undefined;
     if(val !== undefined && val !== '' && !isNaN(val)) label = `${label} (${fmt(val)} %)`;
@@ -5317,7 +5508,7 @@ function gpDmgBadgeHtml(kat, name){
   const e = gpKatItemByName(kat, name);
   if(!e || !e.icon) return '';
   const rolleSuffix = (kat.roleKey && e[kat.roleKey]) ? ' · bevorzugt: ' + e[kat.roleKey] : '';
-  return `<span class="dmgbuff-badge" title="${escapeHtml(e.name + rolleSuffix)}">${gpRefIconImgHtml(e.icon)}</span>`;
+  return `<span class="dmgbuff-badge" title="${escapeHtml(gpEntryDisplayName(e) + rolleSuffix)}">${gpRefIconImgHtml(e.icon)}</span>`;
 }
 // Seit v0.24.0 (Nutzerwunsch "Icon im Textfeld statt daneben, etwas größer"):
 // eigenes, größeres Icon-Element speziell für die Aufstellungs-Dropdowns im
@@ -5328,7 +5519,7 @@ function gpFieldIconHtml(kat, name){
   if(!kat.dmgKey) return '';
   const e = gpKatItemByName(kat, name);
   if(!e || !e.icon) return '';
-  return `<img class="gp-field-icon" src="${escapeHtml(e.icon)}" alt="" title="${escapeHtml(e.name)}">`;
+  return `<img class="gp-field-icon" src="${escapeHtml(e.icon)}" alt="" title="${escapeHtml(gpEntryDisplayName(e))}">`;
 }
 // Grobe Summe der Dmg-Buffs (Artefakte + Mounts) über alle Zeilen einer Gruppe -
 // nur zur schnellen Orientierung, KEINE exakte Nachbildung der Spiel-Stapel-
@@ -5676,7 +5867,7 @@ function gpOwnedIconsHtml(data){
     const owned = besitz[kat.key] || [];
     if(!owned.length) return;
     const byName = new Map(kat.liste().map(e => [e.name, e]));
-    owned.forEach(n => { const e = byName.get(n); if(e && e.icon) icons.push({ name:e.name, icon:e.icon }); });
+    owned.forEach(n => { const e = byName.get(n); if(e && e.icon) icons.push({ name:gpEntryDisplayName(e, n), icon:e.icon }); });
   });
   if(!icons.length) return '';
   const shown = icons.slice(0, 8);
@@ -5703,7 +5894,7 @@ function renderGpCharEditor(){
         <input type="checkbox" data-gpbesitz="${kat.key}" value="${escapeHtml(e.name)}" ${checked?'checked':''}
           onchange="this.closest('.besitz-chip').classList.toggle('checked', this.checked)">
         ${gpRefIconImgHtml(e.icon||'')}
-        <span>${escapeHtml(e.name)}${kat.sub(e) ? ` <span class="muted">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}</span>
+        <span>${escapeHtml(gpEntryDisplayName(e))}${kat.sub(e) ? ` <span class="muted">(${escapeHtml(String(kat.sub(e)))})</span>` : ''}</span>
       </label>`;
     }).join('');
     return `<div class="accordion" id="acc-dmg-gpchar-${kat.key}"><button type="button" onclick="toggleDmgAccordion('gpchar-${kat.key}')">
@@ -5724,7 +5915,7 @@ function renderGpCharEditor(){
       <input type="checkbox" data-gplieblinge value="${escapeHtml(name)}" ${checked?'checked':''}
         onchange="this.closest('.besitz-chip').classList.toggle('checked', this.checked)">
       ${gpRefIconImgHtml((e&&e.icon)||'')}
-      <span>${escapeHtml(name)}</span>
+      <span>${escapeHtml(gpEntryDisplayName(e, name))}</span>
     </label>`;
   }).join('') : '<p class="helptext">Zuerst oben bei Artefakte Besitz ankreuzen und speichern - danach lassen sich hier Favoriten daraus markieren.</p>';
   el.innerHTML = `<div class="card">
@@ -5909,9 +6100,9 @@ const GP_REF_SPECS = [
   // Optimierer stellt VOR der sonstigen Bestwert-Suche sicher, dass
   // mindestens ein markierter Eintrag pro 5er-Segment vergeben ist, sofern
   // irgendjemand im Segment ihn besitzt (s. gpPflicht/gpErzwingePflichtItems).
-  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
+  { key:'gpArtefakte', title:'Artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'nameEn',label:'Name (EN)',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpMounts', title:'Mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'nameEn',label:'Name (EN)',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
   // dafür, dass der Gruppen-Optimierer (gpOptimiereKategorieGesamtbild) sie mitberücksichtigen
@@ -5921,8 +6112,8 @@ const GP_REF_SPECS = [
   // Seit v0.23.0: zusätzliches "schaden"-Feld (eigener Schaden des Gefährten,
   // getrennt vom Support-Dmg-Buff "buff") - der Optimierer bevorzugt dieses
   // Feld bei DPS-Zeilen (dpsDmgKey), Supports bleiben weiter beim Dmg-Buff.
-  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrten', title:'Gefährten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
 ];
 // Seit v0.28.0 (Nutzerwunsch "schreibe alle Optimierungsregeln in die
 // Referenzliste, damit ich sie nachträglich bearbeiten kann"): editierbare
@@ -6389,11 +6580,11 @@ function gpPlanAnsichtHtml(){
       <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
       <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
       ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
-      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${escapeHtml(row.artefakt||'–')}</td>
-      <td>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${escapeHtml(row.mount||'–')}</td>
-      <td>${escapeHtml(row.mountBonus||'–')}</td>
-      <td>${escapeHtml(row.gefaehrte||'–')}</td>
-      <td>${escapeHtml(row.gefaehrtenBonus||'–')}</td>
+      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[0],row.artefakt)||'–')}</td>
+      <td>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[1],row.mount)||'–')}</td>
+      <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[2],row.mountBonus)||'–')}</td>
+      <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[3],row.gefaehrte)||'–')}</td>
+      <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[4],row.gefaehrtenBonus)||'–')}</td>
     </tr>`).join('');
     return `<div class="card">
       <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span>

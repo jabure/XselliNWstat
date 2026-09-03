@@ -332,6 +332,81 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.39.0: Zweisprachige Namen (DE/EN) für selbst gepflegte Referenz-
+  daten - Gruppenplaner-Referenzlisten UND Statrechner-Presets (Gefährten/
+  Reittiere/Buff Food). Deutscher Name bleibt überall die interne ID, Englisch
+  ist ein rein zusätzliches Anzeigefeld mit Fallback in beide Richtungen.**
+  - **Gruppenplaner-Referenzlisten** (Artefakte/Mounts/Mount-Bonus/Gefährten/
+    Gefährten-Verstärkung): neues `nameEn`-Feld in allen 5 `GP_REF_SPECS`.
+    Anzeige-Helper `gpEntryDisplayName(e, fallbackName)`/`gpRefDisplayName(
+    kat, name)` angewendet in Dropdown-Optionen (`gpOptionLabel`), Badge-/
+    Icon-Tooltips (`gpDmgBadgeHtml`, `gpFieldIconHtml`), Besitz-Checkliste,
+    Lieblingsartefakte-Chips, kompakter Icon-Liste (`gpOwnedIconsHtml`) und
+    allen 5 Spalten der Nur-Lese-Ansicht (`gpPlanAnsichtHtml`).
+  - **Statrechner-Presets** (Gefährten/Reittiere/Buff Food - `companionDb`/
+    `mountDb`/`foodDb`): neues "Name (EN)"-Feld im Admin-Editor (`entryCardHtml`),
+    gespeichert als `_nameEn` nach der bestehenden `_info`/`_persistsDeath`-
+    Konvention (Unterstrich-Präfix = kein Stat, wird beim Rendern der Stat-
+    Zeilen automatisch übersprungen). Anzeige-Helper `dbDisplayName(db, name)`
+    angewendet in allen 5 Slot-Dropdowns (Gefährten/Reittiere je Presets- und
+    Werte-Modus, Buff Food) sowie im Presets-Editor (`presetCardHtml`/
+    `renderPresetEditor`/`addPresetCard` bekamen dafür einen `db`-Parameter).
+  - **Kritischer Bug beim Bauen gefunden und gefixt**: meine neue Helper-
+    Funktion hieß zunächst `gpDisplayName(kat, name)` - es gab aber bereits
+    eine gleichnamige Funktion `gpDisplayName(c)` für Charakternamen (inkl.
+    Ingame-Handle-Anzeige), die dadurch überschrieben wurde. Folge: die
+    Spieler-Zuweisung im Board (`gpCharLabelMap`/`gpRowSpielerText`) konnte
+    keine Charaktere mehr finden, der Optimierer fiel deshalb auf "keine
+    Besitz-Einschränkung" zurück und wählte plan-weit das wertvollste
+    Artefakt statt des tatsächlich besessenen - 19 Smoke-Test-Fehler, alle
+    auf denselben Auslöser zurückgeführt (Debug-Log in
+    `gpOptimiereKategorieGesamtbild` zeigte `rec found: false`). Fix: neue
+    Funktion in `gpRefDisplayName` umbenannt, alte `gpDisplayName(c)`
+    unangetastet gelassen. **Lehre für künftige Sessions**: vor dem Vergeben
+    eines neuen Funktionsnamens in dieser 6600-Zeilen-Datei kurz grep
+    `function <name>` prüfen, besonders bei generischen Namen.
+  - Alle 256 Smoke-Tests grün (zweimal in Folge laufen lassen, um die
+    Ursache wirklich als behoben zu bestätigen, nicht nur als Zufallstreffer).
+- **Seit v0.38.0: DE/EN-Sprachumschaltung, Stufe 1 (Rahmen: Menü/Tabs/
+  Kopfzeilen/Konto-Modal) - Inhalte/Hilfetexte bewusst noch deutsch, folgen
+  in einer späteren Runde.**
+  - **Backend**: `PUT /api/me/lang` speichert `de`/`en` am User-Objekt in
+    `users.json`. `GET /api/me`, Login- und Register-Response liefern `lang`
+    mit (Default `de`), damit das Frontend es direkt beim Start hat.
+  - **Frontend-Grundlage**: `TRANSLATIONS`-Wörterbuch (`{de:{...}, en:{...}}`)
+    + `t(key)`-Helper (fällt auf Deutsch zurück, falls ein Schlüssel im
+    aktiven Sprachobjekt fehlt). `currentLang`, `setLang(lang)`,
+    `applyLangUI()` (aktualisiert Titel/Dropdown/Konto-Label/aktiven Sprach-
+    Button und ruft `reRenderCurrentView()` auf) und `reRenderCurrentView()`
+    (rendert die gerade sichtbare Seite/Ansicht neu, damit ihre per `t()`
+    gebauten Texte sofort in der neuen Sprache erscheinen).
+  - **Speicherung**: Local Storage (`xselli_lang`) für alle, zusätzlich am
+    Account für eingeloggte Nutzer (`apiSetLang`, geräteübergreifend - beim
+    Login überschreibt die Account-Einstellung den Local-Storage-Fallback).
+  - **UI**: neuer DE/EN-Pill-Umschalter oben in der Kopfzeile, neben dem
+    Konto-Button.
+  - **Übersetzt**: App-Umschalter-Dropdown (Statrechner/Gruppenplaner/
+    Insignienrechner), alle Seiten-Tabs (Statrechner: Rechner/Schadens-
+    berechnung/Presets/Formeln/Benutzer; Gruppenplaner: Meine Charaktere/
+    Planung/Referenzlisten), die vier Akkordeon-Überschriften bei der
+    Schadensberechnung, das komplette Konto-Modal (Login/Registrieren,
+    Charakterverwaltung inkl. aller Aktions-Buttons, Passwort ändern).
+  - **Bug beim Bauen selbst gefangen**: in der Transfer-Liste hieß die
+    Map-Callback-Variable ebenfalls `t` und hätte die globale `t()`-Funktion
+    verdeckt - vor dem Testen umbenannt (`tr` statt `t`). Ein zweiter Bug
+    (Konto-Modal reagierte nicht auf `setLang()`, weil `reRenderCurrentView`
+    die falsche Element-ID/das falsche Sichtbarkeits-Attribut prüfte -
+    `accountModalBg`+`.show`-Klasse statt `accountModal`+`style.display`)
+    wurde durch einen manuellen jsdom-Test vor dem Commit gefunden und
+    behoben (Details dazu nur im Chat-Verlauf, kein eigener Smoke-Test dafür
+    angelegt - siehe "Noch offen" unten).
+  - Alle 256 Smoke-Tests weiter grün.
+  - **Noch offen für spätere Runden**: Übersetzung der Insignienrechner-
+    Kopfzeilen, der Referenzlisten-/Admin-Akkordeons, der Gruppenplaner-
+    Board-Buttons sowie sämtlicher Hilfetexte/Formel-Erklärungen. Ein
+    eigener Smoke-Test für den Sprachumschalter selbst wäre sinnvoll (aktuell
+    nur manuell verifiziert, siehe `/tmp/lang_check.js`-Pattern in dieser
+    Session, nicht im Repo gespeichert).
 - **Seit v0.37.0: Website-weites Design-Audit umgesetzt (Punkte A/B/C aus dem
   Vorschlag, D "Icon-Mix vereinheitlichen" bewusst ausgelassen).**
   - **A - Tabellen-Scroll**: die Statrechner-Haupttabelle (`stats-table`)
