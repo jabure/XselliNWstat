@@ -425,7 +425,7 @@
   <div class="legend" style="align-items:center;">
     <div class="legend-item"><span class="legend-swatch editable"></span>Selbst eintragen</div>
     <div class="legend-item"><span class="legend-swatch computed"></span>Wird automatisch berechnet</div>
-    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="Füllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gefüllt aussieht" onclick="confirmAction('demo')">Beispielcharakter laden</button>
+    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="${t('tt.filldemo')}" onclick="confirmAction('demo')">Beispielcharakter laden</button>
   </div>
 
   <div class="rechner-grid">
@@ -938,6 +938,46 @@ const TRANSLATIONS = {
     'btn.delete': 'Löschen',
     'btn.accept': 'Annehmen',
     'btn.decline': 'Ablehnen',
+
+    'help.dmgactive': '"Aktiv"/"Aus" bestimmt, ob die Vergleichs-% (+X%) beim "Veränderten Wert" für diesen Stat mitgerechnet wird. Kritwert und Kritschaden sind einzeln schaltbar.',
+    'help.dmgformula': '<strong>Waffenschaden \u00d7 Kraft \u00d7 Zielgenauigkeit \u00d7 Kampfvorteil \u00d7 Krit \u00f7 (1 + Gegner-Verteidigung) \u00d7 F\u00e4higkeitsschaden \u00d7 Bonus Schaden</strong><br>\n      "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" z\u00e4hlt im Spiel. Krit = Kritwert \u00d7 (Kritschaden \u2212 Gegner-Kritvermeidung). Zielgenauigkeit: Faktor = 1 \u00f7 (1 + Deflect \u00d7 (Deflect-H\u00e4rte \u2212 Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.',
+    'help.dmgchart.title': 'Schadenszugewinn pro Prozent',
+    'help.dmgchart.sub': 'Schadenszuwachs pro +1 Prozentpunkt \u00fcber den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.',
+    'help.healformula': 'Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung h\u00e4ngt nicht vom Gegner ab). Formel: Waffenschaden \u00d7 (1 + Kraft) \u00d7 (1 + Kritwert \u00d7 Kritschaden \u00f7 2) \u00d7 F\u00e4higkeit \u00d7 (1 + Gesamte Gewirkte Heilung). Kritischer Trefferschaden z\u00e4hlt bei Heilung nur zur H\u00e4lfte (offizielle \u00c4nderung seit Mod 19, <a href="https://neverwinter.obikin89.com/stats" target="_blank" rel="noopener" style="color:var(--gold);">Quelle</a>). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.',
+    'help.healchart.title': 'Heilungszugewinn pro Prozent',
+    'help.healchart.sub': 'Heilungszuwachs pro +1 Prozentpunkt \u00fcber den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.',
+    'help.tankformula': 'Formel: Trefferpunkte \u00f7 (Verteidigung \u00d7 Wahrnehmung \u00d7 Krit-Vermeidung \u00d7 Robustheit\u00d7-st\u00e4rke \u00d7 Schadensreduzierung) - 1:1 wie im Excel-Blatt nachgebaut.<br>\n      &bull; Verteidigung: \u00f7 (1 + Verteidigung).<br>\n      &bull; Wahrnehmung wirkt gegen "Gegner: Kampfvorteil" (Standard 90 %, wie ein PvE-Gegner) - \u00f7 (1 + (Gegner-Kampfvorteil \u2212 Wahrnehmung)).<br>\n      &bull; Krit-Vermeidung wirkt gegen "Gegner: Kritischer Trefferwert" \u00d7 "Gegner: Kritischer Trefferschaden" (Standard 50 %/90 %) - \u00f7 (1 + Gegner-Kritwert \u00d7 (Gegner-Kritschaden \u2212 Krit-Vermeidung)).<br>\n      &bull; Robustheit + Robustheitst\u00e4rke wirken zusammen wie eine eigene Deflect-Chance/-St\u00e4rke: \u00f7 (1 + Robustheit \u00d7 (1/(1+Robustheitst\u00e4rke) \u2212 1)).<br>\n      &bull; Schadensreduzierung: \u00f7 (1 \u2212 Schadensreduzierung).<br>\n      Die Standardwerte 90/50/90 unter "Gegnerische Werte" entsprechen den PvE-Standardwerten (Gegner: 90 % Kampfvorteil, 50 % Krit-Chance, 90 % Kritschaden) - f\u00fcr einen h\u00e4rteren Gegner dort anpassen.',
+    'help.tankchart.title': 'Tank-Zugewinn pro Prozent',
+    'help.tankchart.sub': 'Zuwachs an effektiven Trefferpunkten pro +1 Prozentpunkt \u00fcber den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.',
+    'help.gegnerprofil': 'Ein Profil setzt alle Felder unten auf einen Schlag (gepflegt von Moderatoren auf der Presets-Seite). Sobald du ein Feld von Hand \u00e4nderst, gilt wieder "eigene Werte".',
+    'help.gegnerdefensive': 'Defensive Gegner-Werte (wirken gegen deinen Schaden):',
+    'help.gegneroffensive': 'Offensive Gegner-Werte (der Gegner greift dich an - flie\u00dft in die Tank-Berechnung ein):',
+    'help.waffenschadenbonus': 'Bonus Waffenschaden: f\u00fcr Waffen, die zus\u00e4tzlichen Waffenschaden geben. Der feste Bonus (Werte) wird auf den berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Wird pro Charakter gespeichert und flie\u00dft in Schaden, Heilung und den Charakter-Vergleich ein.',
+    'help.vergleich': 'Beide Charaktere werden mit denselben F\u00e4higkeits- und Gegner-Werten (siehe "F\u00e4higkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter \u00c4nderungen.',
+    'tt.githubchanges': 'Alle \u00c4nderungen mit Beschreibung auf GitHub',
+    'tt.exportjson': 'Als JSON-Datei herunterladen (Backup)',
+    'tt.bestsetup': 'Bestes eigenes Setup (h\u00f6chster Dmg-Buff aus Artefakt/Mount/Gef\u00e4hrte/Gef\u00e4hrten-Verst\u00e4rkung) ausw\u00e4hlen',
+    'tt.importchar': 'Charakter aus einer Export-Datei (.json) wiederherstellen',
+    'tt.artefaktdup': 'Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen',
+    'tt.nameendesc': 'Englischer Anzeigename - wird nur genutzt, wenn Englisch eingestellt ist; ohne Eintrag bleibt es beim deutschen Namen.',
+    'tt.remove': 'Entfernen',
+    'tt.filldemo': 'F\u00fcllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gef\u00fcllt aussieht',
+    'tt.dmgorientation': 'Grobe Orientierung (Summe aus Artefakt-, Mount-, Gef\u00e4hrten- und Gef\u00e4hrten-Verst\u00e4rkungs-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik',
+    'tt.iconremove': 'Icon entfernen',
+    'tt.iconpick': 'Icon-Bild w\u00e4hlen',
+    'tt.tocompare': 'In den Vergleich \u00fcbernehmen',
+    'tt.moveup': 'Nach oben verschieben',
+    'tt.movedown': 'Nach unten verschieben',
+    'tt.optimizeall': 'Probiert alle Kombinationen durch und w\u00e4hlt je nach Klassentyp die mit dem meisten Gesamtschaden (DPS), der meisten Heilung (Heiler) bzw. den h\u00f6chsten effektiven Trefferpunkten (Tank). Boni \u00fcber dem Cap bringen dabei korrekt nichts. Die beiden Utility-Slots bleiben unver\u00e4ndert.',
+    'tt.resetrow': "Setzt Artefakt/Mount/Mount-Bonus/Gef\u00e4hrte/Gef\u00e4hrten-Bonus aller Zeilen dieser Gruppe auf '\u2013' zur\u00fcck",
+    'tt.applybestrow': 'Wendet f\u00fcr jede Zeile mit zugewiesenem Charakter dessen bestes eigenes Setup an',
+    'tt.applybestall': 'Wendet f\u00fcr jede besetzte Zeile in ALLEN Gruppen dieses Plans das beste eigene Setup an',
+    'tt.removerow': 'Zeile entfernen',
+    'tt.statactive': 'Die Vergleichs-% (+X%) wird f\u00fcr diesen Stat beim "Ver\u00e4nderten Wert" mit eingerechnet - klicken zum Ausschlie\u00dfen',
+    'tt.statinactive': 'Wird beim "Ver\u00e4nderten Wert" NICHT mit eingerechnet - klicken zum Einschlie\u00dfen',
+    'tt.doppelthandle': 'Dieser Spieler/Handle ist mehrfach in diesem Plan eingetragen',
+    'label.aktiv': 'Aktiv',
+    'label.aus': 'Aus',
   },
   en: {
     'guest.label': 'Guest (not saved)',
@@ -981,6 +1021,46 @@ const TRANSLATIONS = {
     'btn.delete': 'Delete',
     'btn.accept': 'Accept',
     'btn.decline': 'Decline',
+
+    'help.dmgactive': '"Active"/"Off" determines whether the comparison % (+X%) is included in the "Changed Value" for this stat. Critical Strike and Critical Severity can be toggled individually.',
+    'help.dmgformula': '<strong>Weapon Damage \u00d7 Power \u00d7 Accuracy \u00d7 Combat Advantage \u00d7 Crit \u00f7 (1 + Enemy Defense) \u00d7 Ability Damage \u00d7 Bonus Damage</strong><br>\n      "Total %" is your uncapped value, "Used (capped)" is what counts in-game. Crit = Critical Strike \u00d7 (Critical Severity \u2212 Enemy Critical Avoidance). Accuracy: factor = 1 \u00f7 (1 + Deflect \u00d7 (Deflect Severity \u2212 Accuracy)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Source: Neverwinter Wiki</a>. Combat Advantage is reduced by the enemy\'s Awareness.',
+    'help.dmgchart.title': 'Damage Gain per Percent',
+    'help.dmgchart.sub': 'Damage increase per +1 percentage point across the full value range; the dot marks your current value.',
+    'help.healformula': 'Like Damage, but <strong>without</strong> enemy values (healing doesn\'t depend on the enemy). Formula: Weapon Damage \u00d7 (1 + Power) \u00d7 (1 + Critical Strike \u00d7 Critical Severity \u00f7 2) \u00d7 Ability \u00d7 (1 + Total Outgoing Healing). Critical Severity only counts at half value for healing (official change since Mod 19, <a href="https://neverwinter.obikin89.com/stats" target="_blank" rel="noopener" style="color:var(--gold);">Source</a>). As a healer, the weapon damage factor is 1.1 instead of 1.2.',
+    'help.healchart.title': 'Healing Gain per Percent',
+    'help.healchart.sub': 'Healing increase per +1 percentage point across the full value range; the dot marks your current value.',
+    'help.tankformula': 'Formula: Hit Points \u00f7 (Defense \u00d7 Awareness \u00d7 Critical Avoidance \u00d7 Deflect\u00d7Severity \u00d7 Damage Reduction) - built 1:1 from the Excel sheet.<br>\n      &bull; Defense: \u00f7 (1 + Defense).<br>\n      &bull; Awareness works against "Enemy: Combat Advantage" (default 90%, like a PvE enemy) - \u00f7 (1 + (Enemy Combat Advantage \u2212 Awareness)).<br>\n      &bull; Critical Avoidance works against "Enemy: Critical Strike" \u00d7 "Enemy: Critical Severity" (default 50%/90%) - \u00f7 (1 + Enemy Critical Strike \u00d7 (Enemy Critical Severity \u2212 Critical Avoidance)).<br>\n      &bull; Deflect + Deflect Severity work together like their own Deflect chance/strength: \u00f7 (1 + Deflect \u00d7 (1/(1+Deflect Severity) \u2212 1)).<br>\n      &bull; Damage Reduction: \u00f7 (1 \u2212 Damage Reduction).<br>\n      The default values 90/50/90 under "Enemy Stats" match PvE standard values (enemy: 90% Combat Advantage, 50% Crit Chance, 90% Crit Severity) - adjust there for a tougher enemy.',
+    'help.tankchart.title': 'Tank Gain per Percent',
+    'help.tankchart.sub': 'Increase in effective hit points per +1 percentage point across the full value range; the dot marks your current value.',
+    'help.gegnerprofil': 'A profile sets all fields below at once (maintained by moderators on the Presets page). As soon as you change a field by hand, it switches back to "custom values".',
+    'help.gegnerdefensive': 'Defensive enemy stats (work against your damage):',
+    'help.gegneroffensive': 'Offensive enemy stats (the enemy attacks you - factors into the tank calculation):',
+    'help.waffenschadenbonus': 'Bonus weapon damage: for weapons that grant additional weapon damage. The flat bonus (value) is added to the calculated weapon damage, the % bonus is then multiplied in. Saved per character and factors into damage, healing, and the character comparison.',
+    'help.vergleich': 'Both characters are calculated with the same ability and enemy values (see "Ability &amp; Comparison" and "Enemy Stats"). "Currently loaded" uses the calculator\'s current state, including unsaved changes.',
+    'tt.githubchanges': 'All changes with description on GitHub',
+    'tt.exportjson': 'Download as JSON file (backup)',
+    'tt.bestsetup': 'Select best own setup (highest dmg buff from artifact/mount/companion/companion reinforcement)',
+    'tt.importchar': 'Restore a character from an export file (.json)',
+    'tt.artefaktdup': 'This artifact is entered multiple times in this group',
+    'tt.nameendesc': 'English display name - only used when English is selected; if left empty it stays at the German name.',
+    'tt.remove': 'Remove',
+    'tt.filldemo': 'Fills the calculator with realistic example data to show what the tool looks like when filled in',
+    'tt.dmgorientation': 'Rough estimate (sum of artifact, mount, companion, and companion-reinforcement dmg buffs across all rows), not an exact stacking mechanic',
+    'tt.iconremove': 'Remove icon',
+    'tt.iconpick': 'Choose icon image',
+    'tt.tocompare': 'Add to comparison',
+    'tt.moveup': 'Move up',
+    'tt.movedown': 'Move down',
+    'tt.optimizeall': 'Tries all combinations and picks the one with the most total damage (DPS), the most healing (Healer), or the highest effective hit points (Tank), depending on class type. Bonuses above the cap correctly count for nothing. Both utility slots stay unchanged.',
+    'tt.resetrow': "Resets artifact/mount/mount bonus/companion/companion bonus for all rows in this group back to '\u2013'",
+    'tt.applybestrow': "Applies each assigned character's best own setup to their row",
+    'tt.applybestall': 'Applies the best own setup for every occupied row in ALL groups of this plan',
+    'tt.removerow': 'Remove row',
+    'tt.statactive': 'The comparison % (+X%) is included for this stat in the "Changed Value" - click to exclude',
+    'tt.statinactive': 'NOT included in the "Changed Value" - click to include',
+    'tt.doppelthandle': 'This player/handle is entered multiple times in this plan',
+    'label.aktiv': 'Active',
+    'label.aus': 'Off',
   },
 };
 function t(key){
@@ -1169,7 +1249,7 @@ function toggleCalcActive(scope, statId){
 }
 function activeToggleBtn(scope, statId){
   const active = isActive(scope, statId);
-  return `<button type="button" class="toggle-active-btn ${active?'on':'off'}" onclick="toggleCalcActive('${scope}','${statId}')" title="${active?'Die Vergleichs-% (+X%) wird für diesen Stat beim \u0022Veränderten Wert\u0022 mit eingerechnet - klicken zum Ausschließen':'Wird beim \u0022Veränderten Wert\u0022 NICHT mit eingerechnet - klicken zum Einschließen'}">${active?'Aktiv':'Aus'}</button>`;
+  return `<button type="button" class="toggle-active-btn ${active?'on':'off'}" onclick="toggleCalcActive('${scope}','${statId}')" title="${active?t('tt.statactive'):t('tt.statinactive')}">${active?t('label.aktiv'):t('label.aus')}</button>`;
 }
 function getCharDataBundle(){
   return { grunddaten, baseInputs, sourceInputs, slotSelections, raptorCount, gefaehrtenMode, reittierMode, gefaehrtenActivePreset, reittierActivePreset, uebersichtParams, calcActive };
@@ -1327,8 +1407,8 @@ async function renderAccountPanel(){
     return `<div>
       <div class="char-item">
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <button type="button" class="action small" style="padding:2px 6px; ${i===0?'visibility:hidden;':''}" title="Nach oben verschieben" aria-label="Nach oben verschieben" onclick="moveCharacterByIndex(${i},-1)">&#9650;</button>
-          <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="Nach unten verschieben" aria-label="Nach unten verschieben" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
+          <button type="button" class="action small" style="padding:2px 6px; ${i===0?'visibility:hidden;':''}" title="${t('tt.moveup')}" aria-label="${t('tt.moveup')}" onclick="moveCharacterByIndex(${i},-1)">&#9650;</button>
+          <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="${t('tt.movedown')}" aria-label="${t('tt.movedown')}" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
         </div>
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
           <span class="char-name">${c.name}</span>
@@ -1339,7 +1419,7 @@ async function renderAccountPanel(){
         ${c.pendingTransferTo
           ? `<button class="action small" type="button" onclick="cancelSendByIndex(${i})">${t('btn.cancelsend')}</button>`
           : `<button class="action small" type="button" onclick="toggleSendByIndex(${i})">${t('btn.send')}</button>`}
-        <button class="action small" type="button" title="Als JSON-Datei herunterladen (Backup)" onclick="exportCharacterByIndex(${i})">${t('btn.export')}</button>
+        <button class="action small" type="button" title="${t('tt.exportjson')}" onclick="exportCharacterByIndex(${i})">${t('btn.export')}</button>
         <button class="action danger small" type="button" onclick="confirmDeleteCharacterByIndex(${i})">${t('btn.delete')}</button>
       </div>
       <div id="rename-panel-${i}" style="display:none;"></div>
@@ -1369,7 +1449,7 @@ async function renderAccountPanel(){
     <div id="accMsg" class="helptext" style="color:var(--off);"></div>
     <div class="btnrow">
       <button class="action gold" type="button" onclick="createCharacter()">${t('btn.createchar')}</button>
-      <button class="action" type="button" title="Charakter aus einer Export-Datei (.json) wiederherstellen" onclick="document.getElementById('acc_importfile').click()">${t('btn.importchar')}</button>
+      <button class="action" type="button" title="${t('tt.importchar')}" onclick="document.getElementById('acc_importfile').click()">${t('btn.importchar')}</button>
       <input type="file" id="acc_importfile" accept=".json,application/json" style="display:none;" onchange="handleImportFile(event)">
       <button class="action" type="button" onclick="togglePwChange()">${t('btn.changepw')}</button>
       <button class="action" type="button" onclick="logoutAccount()">${t('btn.logout')}</button>
@@ -2549,7 +2629,7 @@ function renderFoodWerteTable(cat){
   }).join('');
   return `<p class="helptext" style="margin-top:0;">Essen laden (füllt die Werte automatisch). Zum manuellen Anpassen unten "Manuell" aufklappen.</p>
     <div class="btnrow" style="margin:0 0 12px 0;">
-      <button type="button" class="action gold" title="Probiert alle Kombinationen durch und wählt je nach Klassentyp die mit dem meisten Gesamtschaden (DPS), der meisten Heilung (Heiler) bzw. den höchsten effektiven Trefferpunkten (Tank). Boni über dem Cap bringen dabei korrekt nichts. Die beiden Utility-Slots bleiben unverändert." onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
+      <button type="button" class="action gold" title="${t('tt.optimizeall')}" onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
       <span class="helptext" style="margin:0;align-self:center;">optimiert je nach Klassentyp auf Schaden (DPS), Heilung (Heiler) oder eHP (Tank) - Utility bleibt unverändert</span>
     </div>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
@@ -3189,7 +3269,7 @@ function renderAlleCharsSection(){
     const totalCols = 1 + entries.length;
 
     const head = entries.map(e => `<th style="text-align:right;">
-      <button type="button" class="ovw-charbtn" title="In den Vergleich übernehmen" onclick="uebersichtCharZumVergleich(${e.origIdx})">${escapeHtml(e.name)}</button>${typBadge(e.typ)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
+      <button type="button" class="ovw-charbtn" title="${t('tt.tocompare')}" onclick="uebersichtCharZumVergleich(${e.origIdx})">${escapeHtml(e.name)}</button>${typBadge(e.typ)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
     </th>`).join('');
 
     // Eine Zeile: Werte je Charakter; bester Wert gold markiert (außer opt.noBest),
@@ -3450,7 +3530,7 @@ function renderVergleichSection(){
       const noneChecked = !vergleichSections.schaden && !vergleichSections.heilung && !vergleichSections.tank;
       bodyHtml = kopf + chkRow +
         (noneChecked ? '<p class="helptext" style="margin-top:10px;">Kreuze oben an, was verglichen werden soll (Schaden, Heilung und/oder Tank).</p>' : sections.join('')) +
-        `<p class="helptext" style="margin-top:12px;">Beide Charaktere werden mit denselben Fähigkeits- und Gegner-Werten (siehe "Fähigkeit &amp; Vergleich" und "Gegnerische Werte") berechnet. "Aktuell geladen" nutzt den Stand im Rechner inklusive noch nicht gespeicherter Änderungen.</p>`;
+        `<p class="helptext" style="margin-top:12px;">${t('help.vergleich')}</p>`;
     }
     inner = `<p class="helptext" style="margin-top:0;">Vergleiche zwei deiner Charaktere direkt nebeneinander - oder friere den aktuellen Stand ein, ändere dann Werte/Ausrüstung und sieh live, was die Änderung bringt (Vorher/Nachher).</p>
       <div class="btnrow" style="margin:0 0 12px 0;">
@@ -3901,7 +3981,7 @@ function renderUebersicht(){
       ${paramInputNum('waffenschadenBonus','Bonus Waffenschaden (Werte)')}
       ${paramInput('waffenschadenBonusPct','Bonus Waffenschaden')}
     </div>
-    <p class="helptext" style="margin:8px 0 0 0;">Bonus Waffenschaden: für Waffen, die zusätzlichen Waffenschaden geben. Der feste Bonus (Werte) wird auf den berechneten Waffenschaden addiert, der %-Bonus danach multipliziert. Wird pro Charakter gespeichert und fließt in Schaden, Heilung und den Charakter-Vergleich ein.</p>
+    <p class="helptext" style="margin:8px 0 0 0;">${t('help.waffenschadenbonus')}</p>
     <p style="margin:10px 0 0 0;">Waffenschaden: <span class="computed">${formatWerte(waffenschaden)}</span> <span class="muted">= Gegenstandsstufe ${formatWerte(itemlevel)} ÷ 10 × ${klassenFaktor} (${grunddaten.klassentyp||'–'}${grunddaten.klassentyp==='DPS'?' = 1,2':(grunddaten.klassentyp==='Heiler'?' = 1,1':' = 1,0')})${wsBonus?` + ${formatWerte(wsBonus)} Bonus`:''}${wsBonusPct?`, × (1 + ${fmt(wsBonusPct)} % Bonus)`:''}</span></p>
   </div>
 
@@ -3918,13 +3998,12 @@ function renderUebersicht(){
         <tbody>${dmgRows}</tbody>
       </table>
       </div>
-      <p class="helptext" style="margin-top:10px;">"Aktiv"/"Aus" bestimmt, ob die Vergleichs-% (+X%) beim "Veränderten Wert" für diesen Stat mitgerechnet wird. Kritwert und Kritschaden sind einzeln schaltbar.</p>
+      <p class="helptext" style="margin-top:10px;">${t('help.dmgactive')}</p>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
-      <p class="helptext"><strong>Waffenschaden × Kraft × Zielgenauigkeit × Kampfvorteil × Krit ÷ (1 + Gegner-Verteidigung) × Fähigkeitsschaden × Bonus Schaden</strong><br>
-      "Gesamt %" ist dein ungecappter Wert, "Genutzt (gecappt)" zählt im Spiel. Krit = Kritwert × (Kritschaden − Gegner-Kritvermeidung). Zielgenauigkeit: Faktor = 1 ÷ (1 + Deflect × (Deflect-Härte − Zielgenauigkeit)), <a href="https://neverwinter.fandom.com/wiki/Combat" target="_blank" rel="noopener" style="color:var(--gold);">Quelle: Neverwinter-Wiki</a>. Kampfvorteil wird um die Awareness des Gegners verringert.</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Schadenszugewinn pro Prozent</h3>
-      <p class="helptext" style="margin-top:0;">Schadenszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      <p class="helptext">${t('help.dmgformula')}</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.dmgchart.title')}</h3>
+      <p class="helptext" style="margin-top:0;">${t('help.dmgchart.sub')}</p>
       ${buildImpactChart('dmg', dmgChartDefs, dmgTotalGiven)}
     </div>
   </div>
@@ -3942,9 +4021,9 @@ function renderUebersicht(){
       </div>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
-      <p class="helptext">Wie Schaden, aber <strong>ohne</strong> Gegner-Werte (Heilung hängt nicht vom Gegner ab). Formel: Waffenschaden × (1 + Kraft) × (1 + Kritwert × Kritschaden ÷ 2) × Fähigkeit × (1 + Gesamte Gewirkte Heilung). Kritischer Trefferschaden zählt bei Heilung nur zur Hälfte (offizielle Änderung seit Mod 19, <a href="https://neverwinter.obikin89.com/stats" target="_blank" rel="noopener" style="color:var(--gold);">Quelle</a>). Als Heiler ist der Waffenschaden-Faktor 1,1 statt 1,2.</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Heilungszugewinn pro Prozent</h3>
-      <p class="helptext" style="margin-top:0;">Heilungszuwachs pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      <p class="helptext">${t('help.healformula')}</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.healchart.title')}</h3>
+      <p class="helptext" style="margin-top:0;">${t('help.healchart.sub')}</p>
       ${buildImpactChart('heal', healChartDefs, healTotalGiven)}
     </div>
   </div>
@@ -3962,15 +4041,9 @@ function renderUebersicht(){
       </div>
       <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong></p>
       <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
-      <p class="helptext">Formel: Trefferpunkte ÷ (Verteidigung × Wahrnehmung × Krit-Vermeidung × Robustheit×-stärke × Schadensreduzierung) - 1:1 wie im Excel-Blatt nachgebaut.<br>
-      &bull; Verteidigung: ÷ (1 + Verteidigung).<br>
-      &bull; Wahrnehmung wirkt gegen "Gegner: Kampfvorteil" (Standard 90 %, wie ein PvE-Gegner) - ÷ (1 + (Gegner-Kampfvorteil − Wahrnehmung)).<br>
-      &bull; Krit-Vermeidung wirkt gegen "Gegner: Kritischer Trefferwert" × "Gegner: Kritischer Trefferschaden" (Standard 50 %/90 %) - ÷ (1 + Gegner-Kritwert × (Gegner-Kritschaden − Krit-Vermeidung)).<br>
-      &bull; Robustheit + Robustheitstärke wirken zusammen wie eine eigene Deflect-Chance/-Stärke: ÷ (1 + Robustheit × (1/(1+Robustheitstärke) − 1)).<br>
-      &bull; Schadensreduzierung: ÷ (1 − Schadensreduzierung).<br>
-      Die Standardwerte 90/50/90 unter "Gegnerische Werte" entsprechen den PvE-Standardwerten (Gegner: 90 % Kampfvorteil, 50 % Krit-Chance, 90 % Kritschaden) - für einen härteren Gegner dort anpassen.</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">Tank-Zugewinn pro Prozent</h3>
-      <p class="helptext" style="margin-top:0;">Zuwachs an effektiven Trefferpunkten pro +1 Prozentpunkt über den gesamten Wertebereich; der Punkt markiert deinen aktuellen Wert.</p>
+      <p class="helptext">${t('help.tankformula')}</p>
+      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.tankchart.title')}</h3>
+      <p class="helptext" style="margin-top:0;">${t('help.tankchart.sub')}</p>
       ${buildImpactChart('tank', tankChartDefs, tankTotalGiven)}
     </div>
   </div>
@@ -3987,8 +4060,8 @@ function renderUebersicht(){
           ${(gegnerProfilNames = Object.keys(gegnerProfile)) && gegnerProfilNames.map((n,i)=>`<option value="gp${i}" ${P.gegnerProfilName===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
         </select>
       </div>
-      <p class="helptext">Ein Profil setzt alle Felder unten auf einen Schlag (gepflegt von Moderatoren auf der Presets-Seite). Sobald du ein Feld von Hand änderst, gilt wieder "eigene Werte".</p>
-      <p class="helptext">Defensive Gegner-Werte (wirken gegen deinen Schaden):</p>
+      <p class="helptext">${t('help.gegnerprofil')}</p>
+      <p class="helptext">${t('help.gegnerdefensive')}</p>
       <div class="grunddaten-grid">
         ${paramInput('gegnerDefensive','Gegner: Verteidigung')}
         ${paramInput('gegnerDeflect','Gegner: Deflect')}
@@ -3996,7 +4069,7 @@ function renderUebersicht(){
         ${paramInput('gegnerAwareness','Gegner: Awareness')}
         ${paramInput('gegnerKritvermeidung','Gegner: Kritische Vermeidung')}
       </div>
-      <p class="helptext" style="margin-top:14px;">Offensive Gegner-Werte (der Gegner greift dich an - fließt in die Tank-Berechnung ein):</p>
+      <p class="helptext" style="margin-top:14px;">${t('help.gegneroffensive')}</p>
       <div class="grunddaten-grid">
         ${paramInput('gegnerKraft','Gegner: Kraft')}
         ${paramInput('gegnerZielgenauigkeit','Gegner: Zielgenauigkeit')}
@@ -4148,7 +4221,12 @@ function updateAdminTabVisibility(){
   });
   // Falls jemand ohne ausreichende Rolle gerade auf einer geschützten Seite war
   // (z.B. nach Logout oder Rollen-Änderung), zurück zur Rechner-Seite wechseln.
-  const openPage = PAGE_IDS.find(p => p!=='rechner' && document.getElementById('page'+capitalize(p)).style.display !== 'none');
+  // "user"-Seiten (Rechner, Schadensberechnung) sind für ALLE gedacht, auch Gäste
+  // ohne Login - hasRole() liefert für Gäste aber immer false, deshalb hier genauso
+  // wie bei der Tab-Sichtbarkeit oben ausschließen, sonst würden Gäste bei jedem
+  // updateAccountLabel()-Aufruf (z.B. nach Sprachwechsel) von der Schadensberechnung
+  // zurück zum Rechner geworfen.
+  const openPage = PAGE_IDS.find(p => p!=='rechner' && PAGE_MIN_ROLE[p]!=='user' && document.getElementById('page'+capitalize(p)).style.display !== 'none');
   if(openPage && !hasRole(PAGE_MIN_ROLE[openPage])) showPage('rechner');
 }
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -4407,7 +4485,7 @@ function statRowHtml(statId, werte, prozent){
     <select class="stat-select">${statOptionsHtml(statId)}</select>
     <input type="text" inputmode="numeric" class="num-in werte-in stat-werte" value="${formatWerte(werte||0)}" placeholder="Werte">
     <span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in stat-prozent" value="${formatPct(prozent||0)}"><span class="pct-suffix">%</span></span>
-    <button type="button" class="action danger small" title="Entfernen" aria-label="Entfernen" onclick="this.closest('.stat-row').remove()">✕</button>
+    <button type="button" class="action danger small" title="${t('tt.remove')}" aria-label="${t('tt.remove')}" onclick="this.closest('.stat-row').remove()">✕</button>
   </div>`;
 }
 function addStatRowTo(btn){
@@ -4432,7 +4510,7 @@ function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
   return `<div class="entry-card">
     <div class="entry-head">
       <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben…">
-      <input type="text" class="entry-name-en" value="${nameEnVal.replace(/"/g,'&quot;')}" placeholder="Name (EN), optional…" title="Englischer Anzeigename - wird nur genutzt, wenn Englisch eingestellt ist; ohne Eintrag bleibt es beim deutschen Namen.">
+      <input type="text" class="entry-name-en" value="${nameEnVal.replace(/"/g,'&quot;')}" placeholder="Name (EN), optional…" title="${t('tt.nameendesc')}">
       <button type="button" class="action danger small" onclick="this.closest('.entry-card').remove()">Entfernen</button>
     </div>
     <div class="stat-rows">${rows}</div>
@@ -4943,7 +5021,7 @@ async function init(){
   try{
     const v = await apiRequest('/api/version');
     document.getElementById('versionTag').innerHTML = 'Version ' + v.version + ' (Beta) &middot; ' +
-      '<a href="https://github.com/jabure/XselliNWstat/commits/main" target="_blank" rel="noopener" style="color:var(--gold);" title="Alle Änderungen mit Beschreibung auf GitHub">Was ist neu?</a>';
+      '<a href="https://github.com/jabure/XselliNWstat/commits/main" target="_blank" rel="noopener" style="color:var(--gold);" title="' + t('tt.githubchanges') + '">Was ist neu?</a>';
   }catch(e){ /* Version nicht so wichtig, dass es die Seite blockieren sollte */ }
 
   try{
@@ -6000,7 +6078,7 @@ function gpRefIconImgHtml(iconVal){
 // https:-URLs sind für <img src> gleichwertig).
 const GPREF_ICON_SIZE = 48;
 function gpRefIconFileHtml(){
-  return `<input type="file" accept="image/*" class="gpref-icon-file" title="Icon-Bild wählen" onchange="gpHandleIconUpload(this)">`;
+  return `<input type="file" accept="image/*" class="gpref-icon-file" title="${t('tt.iconpick')}" onchange="gpHandleIconUpload(this)">`;
 }
 function gpHandleIconUpload(fileInput){
   const file = fileInput.files && fileInput.files[0];
@@ -6062,10 +6140,10 @@ function gpRefRowHtml(e, fields){
       ${gpRefIconImgHtml(iconVal)}
       <input type="hidden" class="gpref-field" data-field="icon" value="${iconVal.replace(/"/g,'&quot;')}">
       ${gpRefIconFileHtml()}
-      <button type="button" class="action small" onclick="gpClearIconField(this)" title="Icon entfernen" aria-label="Icon entfernen">✕</button>
+      <button type="button" class="action small" onclick="gpClearIconField(this)" title="${t('tt.iconremove')}" aria-label="${t('tt.iconremove')}">✕</button>
     </div></td>
     ${fields.map(f=>`<td>${gpRefFieldHtml(e, f)}</td>`).join('')}
-    <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="Entfernen" aria-label="Entfernen">✕</button></td>
+    <td><button type="button" class="action danger small" onclick="this.closest('tr').remove()" title="${t('tt.remove')}" aria-label="${t('tt.remove')}">✕</button></td>
   </tr>`;
 }
 function gpRefListEditorHtml(listId, entries, fields){
@@ -6505,7 +6583,7 @@ function renderGpPlanBoard(){
       const doppelt = istDoppelt(row);
       return `<tr>
         <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
-        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?'Dieser Spieler/Handle ist mehrfach in diesem Plan eingetragen':''}"></td>
+        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?t('tt.doppelthandle'):''}"></td>
         ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
@@ -6519,8 +6597,8 @@ function renderGpPlanBoard(){
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
         <td>
-          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="Bestes eigenes Setup (höchster Dmg-Buff aus Artefakt/Mount/Gefährte/Gefährten-Verstärkung) auswählen" aria-label="Bestes eigenes Setup auswählen">🏆</button>
-          <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})" title="Zeile entfernen" aria-label="Zeile entfernen">✕</button>
+          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="${t('tt.bestsetup')}" aria-label="Bestes eigenes Setup auswählen">🏆</button>
+          <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})" title="${t('tt.removerow')}" aria-label="${t('tt.removerow')}">✕</button>
         </td>
       </tr>`;
     }).join('');
@@ -6530,8 +6608,8 @@ function renderGpPlanBoard(){
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> Dungeon (5)</label>
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> Trial (10, 2 Untergruppen A/B)</label>
         <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
-        <span class="muted" style="font-size:0.78rem;" title="Grobe Orientierung (Summe aus Artefakt-, Mount-, Gefährten- und Gefährten-Verstärkungs-Dmg-Buffs aller Zeilen), keine exakte Stapel-Mechanik">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
-        <button type="button" class="action small" style="margin-left:auto;" onclick="gpResetAusruestung(${gi})" title="Setzt Artefakt/Mount/Mount-Bonus/Gefährte/Gefährten-Bonus aller Zeilen dieser Gruppe auf '–' zurück">Ausrüstung zurücksetzen</button>
+        <span class="muted" style="font-size:0.78rem;" title="${t('tt.dmgorientation')}">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
+        <button type="button" class="action small" style="margin-left:auto;" onclick="gpResetAusruestung(${gi})" title="${t('tt.resetrow')}">Ausrüstung zurücksetzen</button>
         <button type="button" class="action danger small" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
       </div>
       ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
@@ -6543,7 +6621,7 @@ function renderGpPlanBoard(){
         <button type="button" class="action small" onclick="gpAddRow(${gi},'DPS')">+ DPS</button>
         <button type="button" class="action small" onclick="gpAddRow(${gi},'Heiler')">+ Heiler</button>
         <button type="button" class="action small" onclick="gpAddRow(${gi},'Tank')">+ Tank</button>
-        <button type="button" class="action gold small" style="margin-left:auto;" onclick="gpOptimizeGroup(${gi})" title="Wendet für jede Zeile mit zugewiesenem Charakter dessen bestes eigenes Setup an">🏆 Alle Zeilen optimieren</button>
+        <button type="button" class="action gold small" style="margin-left:auto;" onclick="gpOptimizeGroup(${gi})" title="${t('tt.applybestrow')}">🏆 Alle Zeilen optimieren</button>
       </div>
     </div>`;
   }).join('');
@@ -6556,7 +6634,7 @@ function renderGpPlanBoard(){
     ${gpPlanAnsichtModus ? gpPlanAnsichtHtml() : groupsHtml}
     ${gpPlanAnsichtModus ? '' : `<div class="btnrow" style="margin:14px 0;">
       <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>
-      ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="Wendet für jede besetzte Zeile in ALLEN Gruppen dieses Plans das beste eigene Setup an">🏆 Alle Gruppen optimieren</button>` : ''}
+      ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="${t('tt.applybestall')}">🏆 Alle Gruppen optimieren</button>` : ''}
       <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">Plan speichern</button>
     </div>`}`;
 }
@@ -6599,7 +6677,7 @@ function gpPlanAnsichtHtml(){
       <td><span class="typ-badge ${row.rolle==='DPS'?'typ-dps':(row.rolle==='Heiler'?'typ-heal':'typ-tank')}">${row.rolle}</span></td>
       <td>${escapeHtml(gpRowSpielerText(row) || '–')}</td>
       ${g.modus==='trial' ? `<td>${escapeHtml(row.party||'–')}</td>` : ''}
-      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ' style="color:var(--off);font-weight:600;" title="Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen"' : ''}>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[0],row.artefakt)||'–')}</td>
+      <td${row.artefakt && artefaktZaehlungAnsicht[row.artefakt]>1 ? ` style="color:var(--off);font-weight:600;" title="${t('tt.artefaktdup')}"` : ''}>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[0],row.artefakt)}${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[0],row.artefakt)||'–')}</td>
       <td>${gpDmgBadgeHtml(GP_BESITZ_KATEGORIEN[1],row.mount)}${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[1],row.mount)||'–')}</td>
       <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[2],row.mountBonus)||'–')}</td>
       <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[3],row.gefaehrte)||'–')}</td>

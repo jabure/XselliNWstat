@@ -332,6 +332,43 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.42.0: Formel-Erklärungen und Button-Tooltips auf Englisch
+  übersetzt - "allgemeine Beschreibungen", zweiter Baustein.**
+  - ~35 neue Übersetzungsschlüssel im `TRANSLATIONS`-Wörterbuch: die
+    Formel-Texte unter den Schaden-/Heilung-/Tank-Tabellen (inkl. Bullet-
+    Liste bei Tank), die Chart-Überschriften ("Schadenszugewinn pro
+    Prozent" usw.), die Gegner-Werte-Hinweistexte, der Bonus-Waffenschaden-
+    Hinweis, der Vergleichs-Hinweis, sowie ~19 statische Button-Tooltips
+    (Icon entfernen, Nach oben/unten verschieben, Bestes-Setup-Buttons,
+    Zurücksetzen-Buttons usw.) plus der "Aktiv"/"Aus"-Umschalter-Button
+    samt seinen beiden Tooltip-Varianten.
+  - **Zwei Syntaxfehler beim Bauen selbst gefangen** (Smoke-Test schlug
+    beim ersten Durchlauf sofort fehl): zwei Ersetzungen hatten `${t(...)}`
+    versehentlich in normale (einfache) Anführungszeichen-Strings statt
+    Template-Literals (Backticks) eingesetzt - der Versionshinweis-Link
+    ("Was ist neu?") und die Artefakt-Duplikat-Markierung in der Nur-
+    Ansicht. Beide auf Backticks bzw. String-Verkettung umgestellt.
+  - **Dritter, echter Bug gefunden und behoben (vorbestehend, nicht durch
+    diese Session verursacht, aber erstmals ausgelöst)**: Gäste ohne Login
+    wurden von der Schadensberechnung-Seite automatisch zurück zum Rechner
+    geworfen, sobald `updateAccountLabel()`/`updateAdminTabVisibility()`
+    lief (z.B. nach einem Sprachwechsel) - `hasRole('user')` liefert für
+    Gäste immer `false` (früher `return false` bei `!isLoggedIn`), obwohl
+    `PAGE_MIN_ROLE.uebersicht = 'user'` ausdrücklich "für alle, auch Gäste"
+    bedeuten soll. Der Redirect-Check in `updateAdminTabVisibility()`
+    berücksichtigte diese Ausnahme (anders als die Tab-Sichtbarkeits-Schleife
+    direkt darüber) nicht. Fix: "user"-Seiten von der Redirect-Prüfung
+    ausgenommen, analog zur bestehenden Ausnahme bei der Tab-Sichtbarkeit.
+    **Praktische Auswirkung des Fixes**: Gäste bleiben jetzt zuverlässiger
+    auf der Schadensberechnung-Seite, auch wenn im Hintergrund
+    Konto-bezogene Funktionen laufen - unabhängig vom Sprachumschalter.
+  - Manuell mit jsdom verifiziert: DE→EN→DE-Wechsel zeigt alle Formel-Texte,
+    Chart-Überschriften und Tooltips korrekt in beiden Sprachen, 0 JS-Fehler.
+  - Alle 256 Smoke-Tests grün (zweimal gegengeprüft).
+  - **Noch offen**: Seiten-Einleitungstexte/Formeln/Tooltips der
+    Gruppenplaner- und Insignienrechner-Seiten, Presets-/Formeln-Admin-
+    Hilfetexte, sowie alle übrigen Hilfetexte, die noch nicht in dieser oder
+    der letzten Runde drankamen.
 - **Seit v0.41.0: Seiten-Einleitungstexte (oben unter dem Titel) auf Englisch
   übersetzt - erster Baustein der "allgemeinen Beschreibungen".**
   - `APP_INFO.stats/gruppenplaner/insignien` haben jetzt je ein `subtitleEn`-
