@@ -332,6 +332,34 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.49.0: Ausrüstungs-/Gefährten-/Reittier-/Buff-Food-Slotnamen und
+  Preset-Namen auf der Rechner-Seite übersetzt (weitere von Xselli per
+  Screenshot gemeldete Lücke).**
+  - **Neue Helper-Funktionen**: `slotLabel(src)` (deckt alle 14
+    `EQUIPMENT_SLOTS` per `EQUIPMENT_SLOT_KEY`-Mapping ab, plus die
+    generierten "Gefährte N"/"Reittier Gruppen-Buff N"-Slots per Regex)
+    und `presetDisplayName(name)` (übersetzt die eingebauten Presets "5er
+    Standard"/"10er Standard"/"Manuell" - eigene, vom Nutzer angelegte
+    Presets bleiben als Freitext unübersetzt). Wie überall: der deutsche
+    String bleibt intern die ID (data-src-Attribute, Preset-Schlüssel,
+    `sourceInputs`), nur die Anzeige wird übersetzt.
+  - Angewendet in: Tabellenköpfe von `renderManualTable` (Ausrüstung) und
+    den Gefährten-/Reittier-"Manuell Werte"-Tabellen, Slot-Karten-Labels in
+    `renderPresetSlots`/`renderReittierSlots`, alle "X: aus Preset laden"-
+    Beschriftungen (Gefährten/Reittier/Buff Food), alle Preset-Buttons
+    (5er/10er Standard/Manuell) samt der zugehörigen Kategorie-Badges
+    (`catBadgeText` nutzt jetzt durchgängig `presetDisplayName`), "Manuell
+    Werte"-Buttons (4 Stellen).
+  - `FOOD_SLOTS` bekam ein `labelKey`-Feld (Event-Essen→Event Food,
+    Festungsessen→Stronghold Food, Trank→Potion usw.).
+  - Weitere Kleinigkeiten: "Anzahl Raptor (je X% Kraft)"-Label + die
+    berechnete "Kraft +X%"-Anzeige (nutzt jetzt `statLabel('kraft')`),
+    "Bestes Buff Food wählen"-Button, "Suche bestes Buff Food …"-
+    Statusmeldung, "Manuell"-Accordion-Kopf im Buff-Food-Bereich, sowie
+    die "übersteht den Tod"/"übersteht den Tod nicht"-Badges.
+  - Manuell mit jsdom verifiziert: alle 14 Ausrüstungs-Spaltenköpfe, "Companion
+    1"/"Companion 2"-Slot-Labels, "Manual"-Badges bei Gefährten/Reittier -
+    alle korrekt englisch, 0 JS-Fehler. Alle 256 Smoke-Tests grün.
 - **Seit v0.48.0: Von Xselli per Screenshot gemeldete Übersetzungslücken
   auf der Rechner-/Schadensberechnung-Seite behoben.**
   - `SOURCE_CATEGORIES`-Akkordeon-Header (Ausrüstung/Gefährten/Buff Food/

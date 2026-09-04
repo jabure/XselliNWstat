@@ -711,6 +711,32 @@
 <script>
 /* ---------- Datenmodell ---------- */
 const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Kampfverzauberung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
+const EQUIPMENT_SLOT_KEY = {
+  'Kopf':'slot.kopf', 'Rüstung':'slot.ruestung', 'Arme':'slot.arme', 'Waffen':'slot.waffen', 'Fuß':'slot.fuss',
+  'Hals-Hüfte Set':'slot.halshuefte', 'Ring 1':'slot.ring1', 'Ring 2':'slot.ring2', 'Hemd':'slot.hemd', 'Hose':'slot.hose',
+  'Kampfverzauberung':'slot.kampfverzauberung', 'Gefährten Bonus (Lila)':'slot.gefaehrtenbonuslila', 'Segen':'slot.segen',
+  'Sonstige / Benutzerdefiniert':'slot.sonstiges',
+};
+// Anzeigename für einen Quellen-Slot (Ausrüstungsteil, oder generierter "Gefährte N"/
+// "Reittier Gruppen-Buff N"-Slot) - der deutsche String bleibt überall die interne ID
+// (data-src-Attribute, sourceInputs-Schlüssel usw.), das hier ist rein für die Anzeige.
+function slotLabel(src){
+  if(EQUIPMENT_SLOT_KEY[src]) return t(EQUIPMENT_SLOT_KEY[src]);
+  const gef = src.match(/^Gefährte (\d+)$/);
+  if(gef) return `${t('slot.gefaehrte')} ${gef[1]}`;
+  const reit = src.match(/^Reittier Gruppen-Buff (\d+)$/);
+  if(reit) return `${t('slot.reittiergruppenbuff')} ${reit[1]}`;
+  return src;
+}
+// Anzeigename für die eingebauten Presets ("5er Standard"/"10er Standard"/"Manuell") -
+// eigene, vom Nutzer angelegte Presets sind nicht in der Liste und bleiben als Freitext
+// unübersetzt (das ist ihr Name, keine feste UI-Kategorie).
+function presetDisplayName(name){
+  if(name === '5er Standard') return t('preset.5er');
+  if(name === '10er Standard') return t('preset.10er');
+  if(name === 'Manuell') return t('label.manuell');
+  return name;
+}
 
 // Aus deiner Excel importiert: "Presets" Tab (Gefährten AJ3:DC27, Reittiere AJ51:DC75) und
 // "Buff food Sammlung" Tab (Blöcke bei Zeile 2/31/60/90/120). Werte pro Stat: {werte, prozent}.
@@ -1086,6 +1112,38 @@ const TRANSLATIONS = {
     'badge.bufffoodactive': 'Buff Food aktiv',
     'badge.noneselected': 'keins ausgewählt',
     'badge.utilityactive': 'Utility aktiv',
+    'slot.kopf': 'Kopf',
+    'slot.ruestung': 'Rüstung',
+    'slot.arme': 'Arme',
+    'slot.waffen': 'Waffen',
+    'slot.fuss': 'Fuß',
+    'slot.halshuefte': 'Hals-Hüfte Set',
+    'slot.ring1': 'Ring 1',
+    'slot.ring2': 'Ring 2',
+    'slot.hemd': 'Hemd',
+    'slot.hose': 'Hose',
+    'slot.kampfverzauberung': 'Kampfverzauberung',
+    'slot.gefaehrtenbonuslila': 'Gefährten Bonus (Lila)',
+    'slot.segen': 'Segen',
+    'slot.sonstiges': 'Sonstige / Benutzerdefiniert',
+    'slot.gefaehrte': 'Gefährte',
+    'slot.reittiergruppenbuff': 'Reittier Gruppen-Buff',
+    'food.eventessen': 'Event-Essen',
+    'food.festungsessen': 'Festungsessen',
+    'food.elixier': 'Elixier',
+    'food.trank': 'Trank',
+    'food.guertelitem': 'Gürtel Item',
+    'food.utility1': 'Utility 1',
+    'food.utility2': 'Utility 2',
+    'preset.5er': '5er Standard',
+    'preset.10er': '10er Standard',
+    'label.aus.preset.laden': ': aus Preset laden',
+    'label.raptoranzahl': 'Anzahl Raptor (je {pct}% Kraft)',
+    'btn.bestfood': 'Bestes Buff Food wählen',
+    'msg.searchfood': 'Suche bestes Buff Food …',
+    'label.manuell': 'Manuell',
+    'food.survives': 'übersteht den Tod',
+    'food.survivesnot': 'übersteht den Tod nicht',
     'ins.quali.gruen': 'grün',
     'ins.quali.blau': 'Blau',
     'ins.quali.episch': 'episch',
@@ -1427,6 +1485,38 @@ const TRANSLATIONS = {
     'badge.bufffoodactive': 'Buff Food active',
     'badge.noneselected': 'none selected',
     'badge.utilityactive': 'Utility active',
+    'slot.kopf': 'Head',
+    'slot.ruestung': 'Armor',
+    'slot.arme': 'Arms',
+    'slot.waffen': 'Weapons',
+    'slot.fuss': 'Feet',
+    'slot.halshuefte': 'Neck-Waist Set',
+    'slot.ring1': 'Ring 1',
+    'slot.ring2': 'Ring 2',
+    'slot.hemd': 'Shirt',
+    'slot.hose': 'Pants',
+    'slot.kampfverzauberung': 'Weapon Enchantment',
+    'slot.gefaehrtenbonuslila': 'Companion Bonus (Purple)',
+    'slot.segen': 'Blessing',
+    'slot.sonstiges': 'Other / Custom',
+    'slot.gefaehrte': 'Companion',
+    'slot.reittiergruppenbuff': 'Mount Group Buff',
+    'food.eventessen': 'Event Food',
+    'food.festungsessen': 'Stronghold Food',
+    'food.elixier': 'Elixir',
+    'food.trank': 'Potion',
+    'food.guertelitem': 'Belt Item',
+    'food.utility1': 'Utility 1',
+    'food.utility2': 'Utility 2',
+    'preset.5er': '5-player Standard',
+    'preset.10er': '10-player Standard',
+    'label.aus.preset.laden': ': load from preset',
+    'label.raptoranzahl': 'Number of Raptors (each gives {pct}% Power)',
+    'btn.bestfood': 'Choose best Buff Food',
+    'msg.searchfood': 'Searching for best Buff Food …',
+    'label.manuell': 'Manual',
+    'food.survives': 'survives death',
+    'food.survivesnot': 'does not survive death',
     'ins.quali.gruen': 'Green',
     'ins.quali.blau': 'Blue',
     'ins.quali.episch': 'Epic',
@@ -1657,13 +1747,13 @@ const DEFAULT_REITTIER_PRESETS = {
 // beiden Plätzen wählbar. "key" bleibt aus Kompatibilitätsgründen unverändert (bestehende
 // Charakter-Speicherstände referenzieren diese Bezeichner); "label" ist der Anzeigename.
 const FOOD_SLOTS = [
-  { key:'Buff Food – Event-Food', category:'Event-Essen', label:'Event-Essen' },
-  { key:'Buff Food – Hauptgericht', category:'Festungsessen', label:'Festungsessen' },
-  { key:'Buff Food – Elixier', category:'Elixier', label:'Elixier' },
-  { key:'Buff Food – Sonderbuff', category:'Trank', label:'Trank' },
-  { key:'Buff Food – Gürtel Item', category:'Gürtel Item', label:'Gürtel Item' },
-  { key:'Buff Food – Utility 1', category:'Utility', label:'Utility 1' },
-  { key:'Buff Food – Utility 2', category:'Utility', label:'Utility 2' },
+  { key:'Buff Food – Event-Food', category:'Event-Essen', label:'Event-Essen', labelKey:'food.eventessen' },
+  { key:'Buff Food – Hauptgericht', category:'Festungsessen', label:'Festungsessen', labelKey:'food.festungsessen' },
+  { key:'Buff Food – Elixier', category:'Elixier', label:'Elixier', labelKey:'food.elixier' },
+  { key:'Buff Food – Sonderbuff', category:'Trank', label:'Trank', labelKey:'food.trank' },
+  { key:'Buff Food – Gürtel Item', category:'Gürtel Item', label:'Gürtel Item', labelKey:'food.guertelitem' },
+  { key:'Buff Food – Utility 1', category:'Utility', label:'Utility 1', labelKey:'food.utility1' },
+  { key:'Buff Food – Utility 2', category:'Utility', label:'Utility 2', labelKey:'food.utility2' },
 ];
 function foodSlotItems(fs){ return Object.keys(foodDb[fs.category] || {}); }
 // Anzeigename für Gefährten/Reittiere/Buff-Food: der deutsche Name ist immer
@@ -2899,7 +2989,7 @@ function updateStatGroups(results){
 
 function renderManualTable(cat){
   const totalCols = 1 + cat.sources.length*2;
-  const headRow1 = `<th></th>` + cat.sources.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow1 = `<th></th>` + cat.sources.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${slotLabel(src)}</th>`).join('');
   const headRow2 = `<th>${t('th.stat')}</th>` + cat.sources.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
@@ -2952,9 +3042,9 @@ function slugSrc(src){ return src.replace(/[^a-zA-Z0-9]/g,'_'); }
 function renderRaptorControl(){
   const options = [0,1,2,3,4].map(n=>`<option value="${n}" ${n===raptorCount?'selected':''}>${n}</option>`).join('');
   return `<div class="slot-card" style="max-width:240px;margin-bottom:14px;">
-    <label>Anzahl Raptor (je ${RAPTOR_KRAFT_PROZENT_PRO_STUECK}% Kraft)</label>
+    <label>${t('label.raptoranzahl').replace('{pct}', RAPTOR_KRAFT_PROZENT_PRO_STUECK)}</label>
     <select onchange="setRaptorCount(this.value)">${options}</select>
-    <div class="slot-summary computed">${raptorCount>0 ? `Kraft +${formatWerte(raptorCount*RAPTOR_KRAFT_PROZENT_PRO_STUECK)}%` : '–'}</div>
+    <div class="slot-summary computed">${raptorCount>0 ? `${statLabel('kraft')} +${formatWerte(raptorCount*RAPTOR_KRAFT_PROZENT_PRO_STUECK)}%` : '–'}</div>
   </div>`;
 }
 function setRaptorCount(val){
@@ -2967,14 +3057,14 @@ function setRaptorCount(val){
 
 function renderPresetSlots(cat, names, db, presets){
   const presetBtns = presets ? Object.keys(presets).map(p=>
-    `<button type="button" class="action" onclick="applyCatPreset('${cat.id}','${p.replace(/'/g,"\\'")}')">${p}</button>`
+    `<button type="button" class="action" onclick="applyCatPreset('${cat.id}','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`
   ).join('') : '';
-  const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>`;
+  const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">${t('badge.manualvalues')}</button>`;
   const slotCards = cat.sources.map(src=>{
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="slot-card">
-      <label>${src}</label>
+      <label>${slotLabel(src)}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(src)}">${summarizeContrib(sel, db)}</div>
     </div>`;
@@ -2994,13 +3084,13 @@ function renderGefaehrtenWerteTable(){
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(companionDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
+      <label style="font-size:0.75rem;">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
     </div>`;
   }).join('');
 
   const totalCols = 1 + slots.length*2;
-  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${slotLabel(src)}</th>`).join('');
   const headRow2 = `<th>${t('th.stat')}</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
@@ -3028,10 +3118,10 @@ function renderGefaehrtenWerteTable(){
   }).join('');
 
   return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">
-      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','5er Standard')">5er Standard</button>
-      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','10er Standard')">10er Standard</button>
-      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','Manuell')">Manuell</button>
-      <button type="button" class="action gold" onclick="setGefaehrtenMode('werte')">Manuell Werte</button>
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','5er Standard')">${t('preset.5er')}</button>
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','10er Standard')">${t('preset.10er')}</button>
+      <button type="button" class="action" onclick="applyCatPreset('gefaehrten','Manuell')">${t('label.manuell')}</button>
+      <button type="button" class="action gold" onclick="setGefaehrtenMode('werte')">${t('badge.manualvalues')}</button>
     </div>
     ${renderRaptorControl()}
     <p class="helptext" style="margin-top:0;">${t('gp.gefaehrtepreset.intro2')}</p>
@@ -3054,14 +3144,14 @@ function renderReittierSlots(cat){
   const names = Object.keys(mountDb);
 
   const presetBtns = Object.keys(reittierPresets).map(p=>
-    `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`
+    `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`
   ).join('');
-  const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">Manuell Werte</button>`;
+  const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">${t('badge.manualvalues')}</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
     return `<div class="slot-card">
-      <label>${src}</label>
+      <label>${slotLabel(src)}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(src)}">${summarizeContrib(sel, mountDb)}</div>
     </div>`;
@@ -3082,13 +3172,13 @@ function renderReittierWerteTable(){
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${src}: aus Preset laden</label>
+      <label style="font-size:0.75rem;">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
     </div>`;
   }).join('');
 
   const totalCols = 1 + slots.length*2;
-  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${src}</th>`).join('');
+  const headRow1 = `<th></th>` + slots.map((src,i)=>`<th colspan="2" class="${i>0?'slot-sep':''}">${slotLabel(src)}</th>`).join('');
   const headRow2 = `<th>${t('th.stat')}</th>` + slots.map((src,i)=>`<th class="${i>0?'slot-sep':''}">${t('th.werte')}</th><th>%</th>`).join('');
   const theadHtml = `<thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>`;
 
@@ -3116,8 +3206,8 @@ function renderReittierWerteTable(){
   }).join('');
 
   return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">
-      ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${p}</button>`).join('')}
-      <button type="button" class="action gold" onclick="setReittierMode('werte')">Manuell Werte</button>
+      ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`).join('')}
+      <button type="button" class="action gold" onclick="setReittierMode('werte')">${t('badge.manualvalues')}</button>
     </div>
     <p class="helptext" style="margin-top:0;">${t('gp.reittierpreset.intro')}</p>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
@@ -3152,7 +3242,7 @@ function foodDeathBadge(name, db){
   if(!name || name==='Leer' || !db[name]) return '';
   const persists = !!db[name]._persistsDeath;
   const cls = persists ? 'delta-ok' : 'delta-toomuch';
-  const text = persists ? '&#10003; übersteht den Tod' : '&#10007; übersteht den Tod nicht';
+  const text = persists ? '&#10003; ' + t('food.survives') : '&#10007; ' + t('food.survivesnot');
   return `<div style="font-size:0.72rem; margin-top:4px;"><span class="${cls}">${text}</span></div>`;
 }
 function renderFoodWerteTable(cat){
@@ -3162,7 +3252,7 @@ function renderFoodWerteTable(cat){
     const db = foodDb[fs.category] || {};
     const options = ['Leer', ...items].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${fs.label}: aus Preset laden</label>
+      <label style="font-size:0.75rem;">${t(fs.labelKey)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, db)}</div>
       <div id="death-badge-${slugSrc(fs.key)}">${foodDeathBadge(sel, db)}</div>
@@ -3170,13 +3260,13 @@ function renderFoodWerteTable(cat){
   }).join('');
   return `<p class="helptext" style="margin-top:0;">${t('gp.food.intro')}</p>
     <div class="btnrow" style="margin:0 0 12px 0;">
-      <button type="button" class="action gold" title="${t('tt.optimizeall')}" onclick="optimizeBuffFood()">Bestes Buff Food wählen</button>
+      <button type="button" class="action gold" title="${t('tt.optimizeall')}" onclick="optimizeBuffFood()">${t('btn.bestfood')}</button>
       <span class="helptext" style="margin:0;align-self:center;">${t('gp.food.optimizehint')}</span>
     </div>
     <div class="slot-grid" style="margin-bottom:14px;">${loaderCards}</div>
     <div class="accordion" id="acc-admin-food-manuell">
       <button type="button" onclick="toggleAdminAccordion('food-manuell')">
-        <span>Manuell</span><span class="chevron">&#9656;</span>
+        <span>${t('label.manuell')}</span><span class="chevron">&#9656;</span>
       </button>
       <div class="body">${renderManualTable(cat)}</div>
     </div>`;
@@ -3194,7 +3284,7 @@ function renderFoodWerteTable(cat){
    größte Fortschritt Richtung Caps, dann die Trefferpunkte.
    Die beiden Utility-Slots bleiben grundsätzlich unangetastet. */
 function optimizeBuffFood(){
-  document.getElementById('saveStatus').textContent = 'Suche bestes Buff Food …';
+  document.getElementById('saveStatus').textContent = t('msg.searchfood');
   setTimeout(runBuffFoodOptimierung, 30); // erst die Meldung zeichnen lassen, dann rechnen
 }
 function runBuffFoodOptimierung(){
@@ -3313,8 +3403,8 @@ function renderBadgesHtml(cat){
   return catBadgeText(cat).map(b=>`<span class="cat-badge">${b}</span>`).join(' ');
 }
 function catBadgeText(cat){
-  if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? t('badge.manualvalues') : (gefaehrtenActivePreset==='Manuell' ? t('badge.manual') : gefaehrtenActivePreset)];
-  if(cat.kind === 'reittier') return [reittierMode==='werte' ? t('badge.manualvalues') : (reittierActivePreset==='Manuell' ? t('badge.manual') : reittierActivePreset)];
+  if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? t('badge.manualvalues') : presetDisplayName(gefaehrtenActivePreset)];
+  if(cat.kind === 'reittier') return [reittierMode==='werte' ? t('badge.manualvalues') : presetDisplayName(reittierActivePreset)];
   if(cat.kind === 'bufffood'){
     const badges = [];
     const anyActive = FOOD_SLOTS.some(fs => sourceHasValue(fs.key));
