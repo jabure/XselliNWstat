@@ -332,6 +332,19 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.50.0: Charakter-Vergleich-Karopf/Buttons/Dropdowns übersetzt
+  (weitere von Xselli per Screenshot gemeldete Lücke).**
+  - Akkordeon-Header "Charakter-Vergleich", "Aktuellen Stand einfrieren
+    (Vorher/Nachher)"-Button, "Charakter A"/"Charakter B"-Labels,
+    "– wählen –"-Platzhalter und "Aktuell geladen"-Option in beiden
+    Dropdowns.
+  - Der eingefrorene Snapshot-Name ("Eingefroren HH:MM") nutzt jetzt auch
+    das passende Uhrzeit-Format (`en-US` mit AM/PM statt `de-DE` 24h, wenn
+    Englisch aktiv ist), plus die zugehörige "Stand eingefroren..."-
+    Statusmeldung.
+  - Manuell mit jsdom verifiziert (Header, Buttons, Labels, beide Dropdown-
+    Optionslisten vor und nach dem Einfrieren korrekt englisch inkl.
+    AM/PM-Zeit), 0 JS-Fehler. Alle 256 Smoke-Tests grün.
 - **Seit v0.49.0: Ausrüstungs-/Gefährten-/Reittier-/Buff-Food-Slotnamen und
   Preset-Namen auf der Rechner-Seite übersetzt (weitere von Xselli per
   Screenshot gemeldete Lücke).**

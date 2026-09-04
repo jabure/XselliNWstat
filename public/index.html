@@ -1144,6 +1144,14 @@ const TRANSLATIONS = {
     'label.manuell': 'Manuell',
     'food.survives': 'übersteht den Tod',
     'food.survivesnot': 'übersteht den Tod nicht',
+    'vgl.heading': 'Charakter-Vergleich',
+    'btn.freezesnapshot': 'Aktuellen Stand einfrieren (Vorher/Nachher)',
+    'vgl.charA': 'Charakter A',
+    'vgl.charB': 'Charakter B',
+    'vgl.currentlyloaded': 'Aktuell geladen',
+    'label.choose': '– wählen –',
+    'vgl.frozen': 'Eingefroren',
+    'msg.snapshotfrozen': 'Stand eingefroren - ändere jetzt Werte/Ausrüstung und beobachte den Unterschied im Vergleich.',
     'ins.quali.gruen': 'grün',
     'ins.quali.blau': 'Blau',
     'ins.quali.episch': 'episch',
@@ -1517,6 +1525,14 @@ const TRANSLATIONS = {
     'label.manuell': 'Manual',
     'food.survives': 'survives death',
     'food.survivesnot': 'does not survive death',
+    'vgl.heading': 'Character Comparison',
+    'btn.freezesnapshot': 'Freeze current state (before/after)',
+    'vgl.charA': 'Character A',
+    'vgl.charB': 'Character B',
+    'vgl.currentlyloaded': 'Currently loaded',
+    'label.choose': '– select –',
+    'vgl.frozen': 'Frozen',
+    'msg.snapshotfrozen': 'State frozen - now change values/equipment and watch the difference in the comparison.',
     'ins.quali.gruen': 'Green',
     'ins.quali.blau': 'Blue',
     'ins.quali.episch': 'Epic',
@@ -3688,10 +3704,10 @@ let vergleichOptionNames = [];  // Zuordnung Dropdown-Index -> Charaktername (ve
 // Speicher, überlebt kein Neuladen). Tiefe Kopie, damit spätere Eingaben ihn nicht verändern.
 let vergleichSnapshot = null; // { bundle, label }
 function freezeVergleichSnapshot(){
-  const zeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  const zeit = new Date().toLocaleTimeString(currentLang==='en'?'en-US':'de-DE', {hour:'2-digit', minute:'2-digit'});
   vergleichSnapshot = {
     bundle: JSON.parse(JSON.stringify(getCharDataBundle())),
-    label: `Eingefroren ${zeit}` + (currentChar ? ` (${currentChar})` : ''),
+    label: `${t('vgl.frozen')} ${zeit}` + (currentChar ? ` (${currentChar})` : ''),
   };
   // Typischer Ablauf: A = eingefrorener Stand, B = live weiterbearbeiteter Stand
   vergleichAuswahl.a = '__snapshot__';
@@ -3699,7 +3715,7 @@ function freezeVergleichSnapshot(){
   renderUebersicht();
   const acc = document.getElementById('acc-dmg-vergleich');
   if(acc) acc.classList.add('open');
-  document.getElementById('saveStatus').textContent = 'Stand eingefroren - ändere jetzt Werte/Ausrüstung und beobachte den Unterschied im Vergleich.';
+  document.getElementById('saveStatus').textContent = t('msg.snapshotfrozen');
   setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
 }
 // Welche Bereiche verglichen werden (ankreuzbar). Wird beim ersten Vergleich anhand
@@ -3986,8 +4002,8 @@ function renderVergleichSection(){
     const selHtml = which => {
       const sel = vergleichAuswahl[which];
       const opts = [
-        `<option value="" ${sel===''?'selected':''}>&ndash; wählen &ndash;</option>`,
-        `<option value="__current__" ${sel==='__current__'?'selected':''}>Aktuell geladen${currentChar ? ' ('+escapeHtml(currentChar)+')' : ''}</option>`,
+        `<option value="" ${sel===''?'selected':''}>${t('label.choose')}</option>`,
+        `<option value="__current__" ${sel==='__current__'?'selected':''}>${t('vgl.currentlyloaded')}${currentChar ? ' ('+escapeHtml(currentChar)+')' : ''}</option>`,
         ...(vergleichSnapshot ? [`<option value="__snapshot__" ${sel==='__snapshot__'?'selected':''}>${escapeHtml(vergleichSnapshot.label)}</option>`] : []),
         ...names.map((n,i)=>`<option value="c${i}" ${sel===n?'selected':''}>${escapeHtml(n)}</option>`),
       ].join('');
@@ -4165,11 +4181,11 @@ function renderVergleichSection(){
     }
     inner = `<p class="helptext" style="margin-top:0;">${t('vgl.intro')}</p>
       <div class="btnrow" style="margin:0 0 12px 0;">
-        <button type="button" class="action" onclick="freezeVergleichSnapshot()">Aktuellen Stand einfrieren (Vorher/Nachher)</button>
+        <button type="button" class="action" onclick="freezeVergleichSnapshot()">${t('btn.freezesnapshot')}</button>
       </div>
       <div class="grunddaten-grid" style="max-width:620px;">
-        <div><label>Charakter A</label>${selHtml('a')}</div>
-        <div><label>Charakter B</label>${selHtml('b')}</div>
+        <div><label>${t('vgl.charA')}</label>${selHtml('a')}</div>
+        <div><label>${t('vgl.charB')}</label>${selHtml('b')}</div>
       </div>
       ${bodyHtml}
       ${!isLoggedIn ? `<p class="helptext" style="margin-top:8px;">${t('vgl.guesthint')}</p>` : ''}
@@ -4177,7 +4193,7 @@ function renderVergleichSection(){
   }
   return `<div class="accordion" id="acc-dmg-vergleich" style="margin-top:16px;">
     <button type="button" onclick="toggleDmgAccordion('vergleich')">
-      <span><span class="dot" style="background:var(--gold)"></span>Charakter-Vergleich</span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--gold)"></span>${t('vgl.heading')}</span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">${inner}${renderAlleCharsSection()}</div>
   </div>`;
