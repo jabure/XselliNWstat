@@ -332,6 +332,45 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.47.0: Gruppenplaner (Charaktere/Planung/Board) und
+  Insignienrechner vollständig auf Englisch übersetzt - fünfter Baustein
+  der "allgemeinen Beschreibungen", auf Nutzerhinweis hin geprüft.**
+  - **Gruppenplaner - Meine Charaktere**: Bearbeiten/Umbenennen/Löschen-
+    Buttons, Umbenennen-Prompt, Löschen-Bestätigung, Statusmeldungen,
+    Klassen-Dropdown im Charakter-Editor (neue `gpKlasseLabel()`-Funktion,
+    nutzt dieselben `klasse.*`-Keys wie der Statrechner), Ingame-Handle-
+    Label, Rollen-Checkboxen, Speichern-Button.
+  - **Gruppenplaner - Planung (Liste)**: Öffnen/Umbenennen/Duplizieren/
+    Löschen, alle Prompts/Bestätigungen, "zuletzt geändert".
+  - **Gruppenplaner - Board**: Rollen-Dropdown, Dungeon/Trial-Radios,
+    "Ausrüstung anzeigen"-Checkbox, alle Tabellenköpfe, Zeilen-/Gruppen-
+    Buttons, kompletter Nur-Ansicht-Modus, Rollen-Überbelegungs-Warnungen,
+    sämtliche Alerts/Confirms/Statusmeldungen.
+  - **Insignienrechner**: komplette Seite inkl. aller 6 Qualitätsstufen
+    (grün→Green, Blau→Blue, episch→Epic, legendär→Legendary, mystisch→
+    Mythic, celestisch→Celestial, per Web-Recherche verifiziert - neue
+    `insQualiLabel()`-Funktion, deutscher Wert bleibt interne ID), alle
+    Feld-Labels, Tabellenkopf, Fazit-Text, Statusmeldungen.
+  - **Globaler Fix**: das häufige `'Fehler: ' + e.message`-mmuster (16
+    Stellen) über einen gemeinsamen `generic.error`-Schlüssel auf einen
+    Schlag erledigt.
+  - **Zwei echte, bereits live gewesene Bugs gefunden und behoben** (seit
+    v0.43.0 unbemerkt live): die "Meine Gruppenplaner-Charaktere"- und
+    "Aufstellungs-Pläne"-Überschriften sowie der Tooltip des
+    "Beispielcharakter laden"-Buttons standen in **statischem HTML** (vor
+    dem `<script>`-Tag), wo `${t('...')}` nur als wörtlicher Text
+    erscheint statt ausgewertet zu werden - Smoke-Tests fangen das nicht
+    ab, weil kein Syntaxfehler entsteht, nur falscher sichtbarer Text.
+    Fix: auf `data-i18n`-Attribute umgestellt (Muster wie bei den Seiten-
+    Tabs). Für das Tooltip-`title`-Attribut (das `data-i18n` nicht abdeckt)
+    neues `data-i18n-title`-Attribut + Unterstützung in `applyLangUI()`
+    ergänzt. **Danach automatisiert über alle 7 Hauptbereiche geprüft**
+    (Rechner, Schadensberechnung, Gruppenplaner ×3, Insignienrechner,
+    Konto-Modal) - keine weiteren Stellen dieser Art gefunden, 0 JS-Fehler.
+  - Bewusst weiterhin deutsch (zu technisch/nischig): Referenzlisten-
+    Tabellen-Feldbeschriftungen selbst (Name/Buff %/Bevorzugt für usw.) und
+    die tiefen Optimierungsregeln-Erklärungstexte.
+  - Alle 256 Smoke-Tests grün (zweimal gegengeprüft).
 - **Seit v0.46.0: Restliche fehlende Übersetzungen auf Rechner- und
   Schadensberechnung-Seite nachgezogen (auf Nutzerhinweis hin geprüft).**
   - **Klassen** (alle 9, offizielle Neverwinter-Begriffe recherchiert):

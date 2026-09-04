@@ -425,7 +425,7 @@
   <div class="legend" style="align-items:center;">
     <div class="legend-item"><span class="legend-swatch editable"></span><span data-i18n="legend.editable">Selbst eintragen</span></div>
     <div class="legend-item"><span class="legend-swatch computed"></span><span data-i18n="legend.computed">Wird automatisch berechnet</span></div>
-    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="${t('tt.filldemo')}" onclick="confirmAction('demo')" data-i18n="btn.filldemo">Beispielcharakter laden</button>
+    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="Füllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gefüllt aussieht" data-i18n-title="tt.filldemo" onclick="confirmAction('demo')" data-i18n="btn.filldemo">Beispielcharakter laden</button>
   </div>
 
   <div class="rechner-grid">
@@ -658,23 +658,23 @@
 
   <div id="gpPageCharaktere">
     <div class="card">
-      <h2><span class="dot" style="background:var(--gold)"></span>${t('gp.charheading')}</h2>
-      <p class="helptext">${t('gp.charintro')}</p>
+      <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="gp.charheading">Meine Gruppenplaner-Charaktere</span></h2>
+      <p class="helptext" data-i18n="gp.charintro">Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gefährten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.</p>
       <div id="gpCharList"></div>
       <div class="btnrow" style="margin-top:12px;">
         <input type="text" id="gpNewCharName" placeholder="Charaktername eingeben…" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
         <input type="text" id="gpNewCharHandle" placeholder="@Ingame-Handle (optional)" style="max-width:220px;" onkeydown="if(event.key==='Enter')gpCreateCharacter()">
-        <button type="button" class="action gold" onclick="gpCreateCharacter()">${t('btn.createchar')}</button>
+        <button type="button" class="action gold" onclick="gpCreateCharacter()" data-i18n="btn.createchar">Charakter anlegen</button>
       </div>
-      <p class="helptext" style="margin-top:6px;">${t('gp.namehint')}</p>
+      <p class="helptext" style="margin-top:6px;" data-i18n="gp.namehint">Der Name wird automatisch um deinen Accountnamen ergänzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben. Der Ingame-Handle ist unabhängig davon frei editierbar (auch später im Charakter-Editor) und wird bei der Gruppenplanung angezeigt und für die Mehrfachbelegungs-Prüfung verwendet.</p>
     </div>
     <div id="gpCharEditor"></div>
   </div>
 
   <div id="gpPagePlanung" style="display:none;">
     <div class="card">
-      <h2><span class="dot" style="background:var(--gold)"></span>${t('gp.planheading')}</h2>
-      <p class="helptext">${t('gp.planintro')}</p>
+      <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="gp.planheading">Aufstellungs-Pläne</span></h2>
+      <p class="helptext" data-i18n="gp.planintro">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar für alle mit Moderator-Rolle oder höher.</p>
       <div id="gpPlanList"></div>
       <div class="btnrow" style="margin-top:12px;">
         <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans…" style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
@@ -1041,6 +1041,97 @@ const TRANSLATIONS = {
     'gp.ref.gefaehrten': 'Gefährten',
     'gp.ref.gefverstaerkung': 'Gefährten-Verstärkung',
     'gp.of': 'von',
+    'generic.error': 'Fehler: ',
+    'gp.klasse.none': 'Keine',
+    'btn.edit': 'Bearbeiten',
+    'prompt.newcharname': 'Neuer Charaktername:',
+    'confirm.deletechar': 'wirklich löschen?',
+    'msg.charrenamed': 'Charakter zu "{name}" umbenannt.',
+    'btn.save': 'Speichern',
+    'label.gprollen': 'Rollen, die dieser Charakter spielen kann',
+    'label.ingamehandle': 'Ingame-Handle (@...)',
+    'gp.lastchanged': 'zuletzt geändert:',
+    'btn.open': 'Öffnen',
+    'btn.duplicate': 'Duplizieren',
+    'confirm.deleteplan': 'Plan "{name}" wirklich löschen?',
+    'prompt.newplanname': 'Neuer Name für den Plan:',
+    'prompt.copyname': 'Name für die Kopie:',
+    'gp.copysuffix': ' (Kopie)',
+    'msg.namesaved': '"{name}" gespeichert.',
+    'alert.chooseimage': 'Bitte eine Bilddatei wählen.',
+    'alert.imagereaderror': 'Bild konnte nicht gelesen werden.',
+    'msg.refsaved': 'Referenzlisten gespeichert (für alle).',
+    'btn.saverefs': 'Referenzlisten speichern (für alle)',
+    'btn.newentry': '+ Neuer Eintrag',
+    'th.icon': 'Icon',
+    'confirm.trialtodungeon': 'Von Trial (10) auf Dungeon (5) umstellen entfernt die hinteren 5 Plätze - fortfahren?',
+    'alert.rolemismatch': '{name} ist nicht als {rolle} markiert (siehe Rollen-Haken im Charakter-Editor) und passt nicht auf diesen Platz.',
+    'gp.warn.tanks': '⚠ {count} Tanks{suffix} (erwartet: 1)',
+    'gp.warn.heiler': '⚠ {count} Heiler{suffix} (erwartet: 1)',
+    'gp.inpartya': ' in Party A',
+    'gp.inpartyb': ' in Party B',
+    'gp.trialshort': 'Trial, 10',
+    'gp.dungeonshort': 'Dungeon, 5',
+    'gp.noonelisted': 'Noch niemand eingetragen.',
+    'confirm.resetequip': 'Artefakt/Mount/Mount-Bonus/Gefährte/Gefährten-Bonus für ALLE Zeilen in "{name}" auf "–" zurücksetzen?',
+    'ins.quali.gruen': 'grün',
+    'ins.quali.blau': 'Blau',
+    'ins.quali.episch': 'episch',
+    'ins.quali.legendaer': 'legendär',
+    'ins.quali.mystisch': 'mystisch',
+    'ins.quali.celestisch': 'celestisch',
+    'ins.startquali': 'Start-Qualität (die hast du)',
+    'ins.zielquali': 'Ziel-Qualität (die willst du)',
+    'ins.menge': 'Menge (Start-Insignien, die du hochstufst)',
+    'ins.pulvervorhanden': 'Insignien-Pulver, das du schon hast',
+    'ins.schonvorhanden': 'davon schon vorhanden',
+    'ins.pulverfehlt': 'Pulver fehlt noch',
+    'ins.genugvorhanden': 'genug vorhanden',
+    'ins.startkostenlabel': 'Kosten der {qual}-Insignie(n) selbst mit in "Gesamt" einrechnen',
+    'th.qualitaet': 'Qualität',
+    'th.preisstueck': 'Preis/Stück (AH)',
+    'th.benoetigt': 'Benötigt',
+    'th.gesamt': 'Gesamt',
+    'btn.savepreise': 'Preise speichern (für alle)',
+    'ins.kettentext': 'Pulver benötigt ({start}→{ziel}, {menge}×)',
+    'ins.kostenstartlabel': 'Kosten {menge}× {start}-Insignie(n)',
+    'ins.deckentext': 'Fehlendes Pulver decken durch Verwerten von (reine Pulver-Kosten{startzusatz}):',
+    'ins.startzusatz': ', "Gesamt" inklusive der {start}-Insignie(n) selbst',
+    'ins.guenstigste': 'günstigste',
+    'ins.beidegleich': 'Beide Wege kosten praktisch dasselbe.',
+    'ins.hochstufenbesser': '<strong class="delta-ok">Hochstufen (mit {quelle} als Pulver-Quelle) ist günstiger</strong> - du sparst <strong>{diff}</strong> AD gegenüber dem Direktkauf.',
+    'ins.direktbesser': '<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>{diff}</strong> AD gegenüber dem Hochstufen.',
+    'msg.insigniepreisegespeichert': 'Insignien-Preise gespeichert (für alle).',
+    'tt.itemnotowned': 'Der zugewiesene Charakter besitzt dieses Item laut Checkliste nicht',
+    'gp.notavailable': ' (nicht vorhanden)',
+    'gp.enterorchoosename': 'Name eingeben oder wählen',
+    'alert.needplayer': 'Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.',
+    'msg.bestsetupgroup': 'Bestes Gesamt-Setup für {count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.',
+    'msg.bestsetupplan': 'Bestes Gesamt-Setup für {count} Zeile(n) in allen Gruppen übernommen - bitte Plan speichern, falls es passt.',
+    'msg.nooccupiedgroup': 'Keine besetzte Zeile (Charakter oder freier Name) in dieser Gruppe gefunden.',
+    'msg.nooccupiedplan': 'Keine besetzte Zeile (Charakter oder freier Name) in diesem Plan gefunden.',
+    'confirm.removegroup': 'Diese Gruppe wirklich entfernen?',
+    'msg.plansaved': 'Plan "{name}" gespeichert.',
+    'gp.dungeon5': 'Dungeon (5)',
+    'gp.trial10': 'Trial (10, 2 Untergruppen A/B)',
+    'gp.showequip': 'Weapon/Ausrüstung anzeigen',
+    'btn.removegroup': 'Gruppe entfernen',
+    'th.rolle': 'Rolle',
+    'th.spieler': 'Spieler',
+    'th.party': 'Party',
+    'th.weapon': 'Weapon',
+    'th.ausruestung': 'Ausrüstung',
+    'th.artefakt': 'Artefakt',
+    'th.mount': 'Mount',
+    'th.mountbonus': 'Mount-Bonus',
+    'th.gefaehrte': 'Gefährte',
+    'th.gefaehrtenbonus': 'Gefährten-Bonus',
+    'btn.optimizerow': '🏆 Alle Zeilen optimieren',
+    'btn.backtoedit': 'Zurück zur Bearbeitung',
+    'btn.viewonly': 'Nur-Ansicht (zum Teilen/Screenshotten)',
+    'btn.newgroup': '+ Neue Gruppe',
+    'btn.optimizeplan': '🏆 Alle Gruppen optimieren',
+    'btn.saveplan': 'Plan speichern',
 
     'klasse.choose': '– wählen –',
     'klasse.choosefirst': '– erst Klasse wählen –',
@@ -1279,6 +1370,97 @@ const TRANSLATIONS = {
     'gp.ref.gefaehrten': 'Companions',
     'gp.ref.gefverstaerkung': 'Companion Reinforcement',
     'gp.of': 'of',
+    'generic.error': 'Error: ',
+    'gp.klasse.none': 'None',
+    'btn.edit': 'Edit',
+    'prompt.newcharname': 'New character name:',
+    'confirm.deletechar': 'really delete?',
+    'msg.charrenamed': 'Character renamed to "{name}".',
+    'btn.save': 'Save',
+    'label.gprollen': 'Roles this character can play',
+    'label.ingamehandle': 'In-game handle (@...)',
+    'gp.lastchanged': 'last changed:',
+    'btn.open': 'Open',
+    'btn.duplicate': 'Duplicate',
+    'confirm.deleteplan': 'Really delete plan "{name}"?',
+    'prompt.newplanname': 'New name for the plan:',
+    'prompt.copyname': 'Name for the copy:',
+    'gp.copysuffix': ' (Copy)',
+    'msg.namesaved': '"{name}" saved.',
+    'alert.chooseimage': 'Please choose an image file.',
+    'alert.imagereaderror': 'Could not read image.',
+    'msg.refsaved': 'Reference lists saved (for everyone).',
+    'btn.saverefs': 'Save reference lists (for everyone)',
+    'btn.newentry': '+ New entry',
+    'th.icon': 'Icon',
+    'confirm.trialtodungeon': 'Switching from Trial (10) to Dungeon (5) removes the back 5 slots - continue?',
+    'alert.rolemismatch': '{name} is not marked as {rolle} (see role checkboxes in the character editor) and does not fit this slot.',
+    'gp.warn.tanks': '⚠ {count} tanks{suffix} (expected: 1)',
+    'gp.warn.heiler': '⚠ {count} healers{suffix} (expected: 1)',
+    'gp.inpartya': ' in party A',
+    'gp.inpartyb': ' in party B',
+    'gp.trialshort': 'Trial, 10',
+    'gp.dungeonshort': 'Dungeon, 5',
+    'gp.noonelisted': 'No one entered yet.',
+    'confirm.resetequip': 'Reset artifact/mount/mount bonus/companion/companion bonus for ALL rows in "{name}" back to "–"?',
+    'ins.quali.gruen': 'Green',
+    'ins.quali.blau': 'Blue',
+    'ins.quali.episch': 'Epic',
+    'ins.quali.legendaer': 'Legendary',
+    'ins.quali.mystisch': 'Mythic',
+    'ins.quali.celestisch': 'Celestial',
+    'ins.startquali': 'Starting quality (what you have)',
+    'ins.zielquali': 'Target quality (what you want)',
+    'ins.menge': 'Amount (starting insignias you upgrade)',
+    'ins.pulvervorhanden': 'Insignia powder you already have',
+    'ins.schonvorhanden': 'already covered',
+    'ins.pulverfehlt': 'Powder still missing',
+    'ins.genugvorhanden': 'enough available',
+    'ins.startkostenlabel': 'Include the cost of the {qual} insignia(s) themselves in "Total"',
+    'th.qualitaet': 'Quality',
+    'th.preisstueck': 'Price/each (AH)',
+    'th.benoetigt': 'Needed',
+    'th.gesamt': 'Total',
+    'btn.savepreise': 'Save prices (for everyone)',
+    'ins.kettentext': 'Powder needed ({start}→{ziel}, {menge}×)',
+    'ins.kostenstartlabel': 'Cost of {menge}× {start} insignia(s)',
+    'ins.deckentext': 'Cover missing powder by salvaging (pure powder cost{startzusatz}):',
+    'ins.startzusatz': ', "Total" including the {start} insignia(s) themselves',
+    'ins.guenstigste': 'cheapest',
+    'ins.beidegleich': 'Both paths cost practically the same.',
+    'ins.hochstufenbesser': '<strong class="delta-ok">Upgrading (using {quelle} as the powder source) is cheaper</strong> - you save <strong>{diff}</strong> AD compared to buying directly.',
+    'ins.direktbesser': '<strong class="delta-toomuch">Buying directly is cheaper</strong> - you save <strong>{diff}</strong> AD compared to upgrading.',
+    'msg.insigniepreisegespeichert': 'Insignia prices saved (for everyone).',
+    'tt.itemnotowned': 'The assigned character does not own this item per the checklist',
+    'gp.notavailable': ' (not owned)',
+    'gp.enterorchoosename': 'Enter or choose a name',
+    'alert.needplayer': 'Please enter a player (character or free name) in this row first.',
+    'msg.bestsetupgroup': 'Best overall setup applied for {count} row(s) - please save the plan if it fits.',
+    'msg.bestsetupplan': 'Best overall setup applied for {count} row(s) across all groups - please save the plan if it fits.',
+    'msg.nooccupiedgroup': 'No occupied row (character or free name) found in this group.',
+    'msg.nooccupiedplan': 'No occupied row (character or free name) found in this plan.',
+    'confirm.removegroup': 'Really remove this group?',
+    'msg.plansaved': 'Plan "{name}" saved.',
+    'gp.dungeon5': 'Dungeon (5)',
+    'gp.trial10': 'Trial (10, 2 subgroups A/B)',
+    'gp.showequip': 'Show weapon/equipment',
+    'btn.removegroup': 'Remove group',
+    'th.rolle': 'Role',
+    'th.spieler': 'Player',
+    'th.party': 'Party',
+    'th.weapon': 'Weapon',
+    'th.ausruestung': 'Equipment',
+    'th.artefakt': 'Artifact',
+    'th.mount': 'Mount',
+    'th.mountbonus': 'Mount Bonus',
+    'th.gefaehrte': 'Companion',
+    'th.gefaehrtenbonus': 'Companion Bonus',
+    'btn.optimizerow': '🏆 Optimize all rows',
+    'btn.backtoedit': 'Back to editing',
+    'btn.viewonly': 'View only (for sharing/screenshots)',
+    'btn.newgroup': '+ New group',
+    'btn.optimizeplan': '🏆 Optimize all groups',
+    'btn.saveplan': 'Save plan',
 
     'klasse.choose': '– select –',
     'klasse.choosefirst': '– choose a class first –',
@@ -1405,6 +1587,7 @@ function reRenderCurrentView(){
 function applyLangUI(){
   document.documentElement.lang = currentLang === 'en' ? 'en' : 'de';
   document.querySelectorAll('[data-i18n]').forEach(el=>{ el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title = t(el.dataset.i18nTitle); });
   const btnDe = document.getElementById('langBtnDe'), btnEn = document.getElementById('langBtnEn');
   if(btnDe) btnDe.classList.toggle('active', currentLang==='de');
   if(btnEn) btnEn.classList.toggle('active', currentLang==='en');
@@ -4692,7 +4875,7 @@ async function adminCopyChar(ui, ci){
     document.getElementById('saveStatus').textContent = `Kopiert als "${res.name}" – über die Charakterauswahl oben rechts abrufbar.`;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
   }
 }
 function confirmResetPassword(ui){
@@ -4715,7 +4898,7 @@ async function setUserRole(username, role){
     document.getElementById('saveStatus').textContent = `${username}: Rolle auf "${role}" gesetzt.`;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
   }
   renderUserOverview();
 }
@@ -5194,7 +5377,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
       document.getElementById('saveStatus').textContent = `Passwort von "${pendingAdminUser}" zurückgesetzt auf: ${res.password}`;
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
     }catch(e){
-      document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+      document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
     }
     pendingAdminUser = null;
     closeModal();
@@ -5207,7 +5390,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
       document.getElementById('saveStatus').textContent = `Account "${pendingAdminUser}" gelöscht.`;
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 3000);
     }catch(e){
-      document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message;
+      document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
     }
     pendingAdminUser = null;
     closeModal();
@@ -5518,6 +5701,8 @@ function showApp(name){
    editierbar - siehe DEFAULT_INSIGNIE_PREISE weiter oben für die Begründung,
    warum das zwei verschiedene Zahlen sind. */
 const INSIGNIE_QUALITAETEN = ['grün','Blau','episch','legendär','mystisch','celestisch'];
+const INS_QUALI_KEY = { 'grün':'ins.quali.gruen','Blau':'ins.quali.blau','episch':'ins.quali.episch','legendär':'ins.quali.legendaer','mystisch':'ins.quali.mystisch','celestisch':'ins.quali.celestisch' };
+function insQualiLabel(q){ return t(INS_QUALI_KEY[q]||q); }
 // Pulver-Kosten, um EINE Insignie dieser Qualität eine Stufe hochzustufen (feste
 // Spielmechanik, nicht editierbar). Keine Stufe über celestisch vorhanden, daher
 // nur 5 Werte (grün..mystisch) - der Index entspricht INSIGNIE_QUALITAETEN.
@@ -5532,7 +5717,7 @@ let insignieMitStartkosten = false;
 
 function renderInsignien(){
   const el = document.getElementById('insignienContent');
-  const optionsHtml = sel => INSIGNIE_QUALITAETEN.map(q=>`<option value="${q}" ${sel===q?'selected':''}>${q}</option>`).join('');
+  const optionsHtml = sel => INSIGNIE_QUALITAETEN.map(q=>`<option value="${q}" ${sel===q?'selected':''}>${insQualiLabel(q)}</option>`).join('');
   const startIdx = INSIGNIE_QUALITAETEN.indexOf(insignieStart);
   const zielIdx = INSIGNIE_QUALITAETEN.indexOf(insignieZiel);
 
@@ -5550,21 +5735,21 @@ function renderInsignien(){
     linksHtml = `
       <div class="ins-stat-row">
         <div class="ins-stat"><span class="lbl" id="insKettenText"></span><span class="val computed" id="insPulverBenoetigt"></span></div>
-        <div class="ins-stat"><span class="lbl">davon schon vorhanden</span><span class="val" id="insPulverVorhandenAnzeige"></span></div>
-        <div class="ins-stat"><span class="lbl">Pulver fehlt noch</span><span class="val" id="insPulverFehlend"></span></div>
+        <div class="ins-stat"><span class="lbl">${t('ins.schonvorhanden')}</span><span class="val" id="insPulverVorhandenAnzeige"></span></div>
+        <div class="ins-stat"><span class="lbl">${t('ins.pulverfehlt')}</span><span class="val" id="insPulverFehlend"></span></div>
         <div class="ins-stat"><span class="lbl" id="insKostenStartLabel"></span><span class="val" id="insKostenStart"></span></div>
       </div>`;
     const rowsHtml = INSIGNIE_QUALITAETEN.map(q => `<tr id="insRow-${q}">
-      <td class="statname" id="insLabel-${q}">${q}</td>
+      <td class="statname" id="insLabel-${q}">${insQualiLabel(q)}</td>
       <td style="text-align:right;"><input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${q}" data-field="ah" value="${formatWerte((insigniePreise[q]||{}).ah)}"></td>
       <td style="text-align:right;" id="insBenoetigt-${q}"></td>
       <td style="text-align:right;" class="computed" id="insKosten-${q}"></td>
     </tr>`).join('');
     rechtsHtml = `
       <p class="helptext" style="margin:0 0 4px 0;" id="insDeckenText"></p>
-      <label class="slot-check" style="display:block;margin:0 0 8px 0;"><input type="checkbox" id="insMitStartkosten" ${insignieMitStartkosten?'checked':''}> Kosten der ${insignieStart}-Insignie(n) selbst mit in "Gesamt" einrechnen</label>
+      <label class="slot-check" style="display:block;margin:0 0 8px 0;"><input type="checkbox" id="insMitStartkosten" ${insignieMitStartkosten?'checked':''}> ${t('ins.startkostenlabel').replace('{qual}', insQualiLabel(insignieStart))}</label>
       <div class="wide-table-scroll"><table>
-        <thead><tr><th>Qualität</th><th style="text-align:right;">Preis/Stück (AH)</th><th style="text-align:right;">Benötigt</th><th style="text-align:right;">Gesamt</th></tr></thead>
+        <thead><tr><th>${t('th.qualitaet')}</th><th style="text-align:right;">${t('th.preisstueck')}</th><th style="text-align:right;">${t('th.benoetigt')}</th><th style="text-align:right;">${t('th.gesamt')}</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
       <p style="margin-top:10px;"><span id="insFazitText"></span> <span class="muted">(Direktkauf ${insignieZiel}: <input type="text" inputmode="decimal" class="num-in werte-in" style="width:100px;" data-insprice="${insignieZiel}" data-field="direkt" value="${formatWerte((insigniePreise[insignieZiel]||{}).direkt)}"> AD)</span></p>`;
@@ -5575,16 +5760,16 @@ function renderInsignien(){
     <h2><span class="dot" style="background:var(--gold)"></span>${t('app.insignien')}</h2>
     <p class="helptext">${t('ins.intro')}</p>
     <div class="grunddaten-grid">
-      <div><label>Start-Qualität (die hast du)</label><select id="insStart">${optionsHtml(insignieStart)}</select></div>
-      <div><label>Ziel-Qualität (die willst du)</label><select id="insZiel">${optionsHtml(insignieZiel)}</select></div>
-      <div><label>Menge (Start-Insignien, die du hochstufst)</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
-      <div><label>Insignien-Pulver, das du schon hast</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insPulver" value="${formatWerte(insigniePulverVorhanden)}"></div>
+      <div><label>${t('ins.startquali')}</label><select id="insStart">${optionsHtml(insignieStart)}</select></div>
+      <div><label>${t('ins.zielquali')}</label><select id="insZiel">${optionsHtml(insignieZiel)}</select></div>
+      <div><label>${t('ins.menge')}</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insMenge" value="${formatWerte(insignieMenge)}"></div>
+      <div><label>${t('ins.pulvervorhanden')}</label><input type="text" inputmode="decimal" class="num-in werte-in" id="insPulver" value="${formatWerte(insigniePulverVorhanden)}"></div>
     </div>
     <div class="ins-layout" style="margin-top:10px;">
       <div class="ins-col-left">${linksHtml}</div>
       <div class="ins-col-right">${rechtsHtml}</div>
     </div>
-    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">Preise speichern (für alle)</button></div>
+    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">${t('btn.savepreise')}</button></div>
   </div>`;
 
   // Start/Ziel-Auswahl ändert die STRUKTUR (Fehlermeldung <-> Tabelle) -> volles Neu-Rendern ist hier ok.
@@ -5638,18 +5823,18 @@ function updateInsignienErgebnis(){
     return { q, i, benoetigt, gesamt };
   });
 
-  document.getElementById('insKettenText').textContent = `Pulver benötigt (${insignieStart}→${insignieZiel}, ${formatWerte(insignieMenge)}×)`;
+  document.getElementById('insKettenText').textContent = t('ins.kettentext').replace('{start}', insQualiLabel(insignieStart)).replace('{ziel}', insQualiLabel(insignieZiel)).replace('{menge}', formatWerte(insignieMenge));
   document.getElementById('insPulverBenoetigt').textContent = formatWerte(pulverBenoetigt);
   document.getElementById('insPulverVorhandenAnzeige').textContent = formatWerte(Math.min(insigniePulverVorhanden, pulverBenoetigt));
   const fehlendCell = document.getElementById('insPulverFehlend');
-  fehlendCell.textContent = pulverFehlend>0 ? formatWerte(pulverFehlend) : 'genug vorhanden';
+  fehlendCell.textContent = pulverFehlend>0 ? formatWerte(pulverFehlend) : t('ins.genugvorhanden');
   fehlendCell.className = 'val ' + (pulverFehlend>0?'delta-toolittle':'delta-ok');
-  document.getElementById('insKostenStartLabel').textContent = `Kosten ${formatWerte(insignieMenge)}× ${insignieStart}-Insignie(n)`;
+  document.getElementById('insKostenStartLabel').textContent = t('ins.kostenstartlabel').replace('{menge}', formatWerte(insignieMenge)).replace('{start}', insQualiLabel(insignieStart));
   document.getElementById('insKostenStart').textContent = formatWerte(kostenStartInsignien);
-  document.getElementById('insDeckenText').textContent = `Fehlendes Pulver decken durch Verwerten von (reine Pulver-Kosten${insignieMitStartkosten ? `, "Gesamt" inklusive der ${insignieStart}-Insignie(n) selbst` : ''}):`;
+  document.getElementById('insDeckenText').textContent = t('ins.deckentext').replace('{startzusatz}', insignieMitStartkosten ? t('ins.startzusatz').replace('{start}', insQualiLabel(insignieStart)) : '');
 
   rows.forEach(r=>{
-    document.getElementById('insLabel-'+r.q).innerHTML = `${r.q}${r.i===bestIdx?' <span class="muted" style="font-size:0.72rem;">(günstigste)</span>':''}`;
+    document.getElementById('insLabel-'+r.q).innerHTML = `${insQualiLabel(r.q)}${r.i===bestIdx?` <span class="muted" style="font-size:0.72rem;">(${t('ins.guenstigste')})</span>`:''}`;
     document.getElementById('insBenoetigt-'+r.q).textContent = formatWerte(r.benoetigt);
     document.getElementById('insKosten-'+r.q).textContent = formatWerte(r.gesamt);
     document.getElementById('insRow-'+r.q).className = r.i===bestIdx ? 'best-row' : '';
@@ -5658,10 +5843,10 @@ function updateInsignienErgebnis(){
   const diff = kostenDirekt - bestGesamt;
   const guenstiger = Math.abs(diff) < 0.5 ? null : (diff > 0 ? 'hochstufen' : 'direkt');
   const fazit = guenstiger === null
-    ? `Beide Wege kosten praktisch dasselbe.`
+    ? t('ins.beidegleich')
     : (guenstiger === 'hochstufen'
-      ? `<strong class="delta-ok">Hochstufen (mit ${rows[bestIdx].q} als Pulver-Quelle) ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> AD gegenüber dem Direktkauf.`
-      : `<strong class="delta-toomuch">Direktkauf ist günstiger</strong> - du sparst <strong>${formatWerte(Math.abs(diff))}</strong> AD gegenüber dem Hochstufen.`);
+      ? t('ins.hochstufenbesser').replace('{quelle}', insQualiLabel(rows[bestIdx].q)).replace('{diff}', formatWerte(Math.abs(diff)))
+      : t('ins.direktbesser').replace('{diff}', formatWerte(Math.abs(diff))));
   // Direktkaufpreis ist Teil des einmalig gebauten Grundgerüsts (siehe renderInsignien) -
   // hier wird NUR der Fazit-Text aktualisiert, das Eingabefeld bleibt unangetastet
   // (sonst würde Tippen darin sofort wieder den Fokus verlieren).
@@ -5672,8 +5857,8 @@ async function saveInsigniePreise(){
   try{
     const r = await apiSetPresets({ rev: sharedRev, insigniePreise });
     if(r && r.rev !== undefined) sharedRev = r.rev;
-    document.getElementById('saveStatus').textContent = 'Insignien-Preise gespeichert (für alle).';
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+    document.getElementById('saveStatus').textContent = t('msg.insigniepreisegespeichert');
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 
 /* ================================================================
@@ -5756,9 +5941,9 @@ function renderGpCharList(){
         <span class="muted">${escapeHtml(c.data.klasse||'')}</span>
         ${gpOwnedIconsHtml(c.data)}
       </span>
-      <button type="button" class="action small" onclick="gpEditCharacterByIndex(${i})">Bearbeiten</button>
-      <button type="button" class="action small" onclick="gpRenameCharacterByIndex(${i})">Umbenennen</button>
-      <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">Löschen</button>
+      <button type="button" class="action small" onclick="gpEditCharacterByIndex(${i})">${t('btn.edit')}</button>
+      <button type="button" class="action small" onclick="gpRenameCharacterByIndex(${i})">${t('btn.rename')}</button>
+      <button type="button" class="action danger small" onclick="gpDeleteCharacterByIndex(${i})">${t('btn.delete')}</button>
     </div>`;
     }).join('') : `<p class="helptext">${t('gp.nocharsyet')}</p>`;
   renderGpCharEditor();
@@ -5777,7 +5962,7 @@ function gpDeleteCharacterByIndex(i){ gpDeleteCharacter(gpMyCharsOrder[i]); }
 async function gpRenameCharacterByIndex(i){
   const name = gpMyCharsOrder[i];
   const kurzname = name.includes('@') ? name.split('@')[0] : name;
-  const neu = prompt('Neuer Charaktername:', kurzname);
+  const neu = prompt(t('prompt.newcharname'), kurzname);
   if(!neu || !neu.trim() || neu.trim() === kurzname) return;
   const newName = `${neu.trim()}@${currentUser}`;
   try{
@@ -5786,8 +5971,8 @@ async function gpRenameCharacterByIndex(i){
     await ensureGpCharactersLoaded(true);
     await ensureGpPlansLoaded(true); // charKeys könnten sich in Plänen geändert haben - Liste neu laden
     renderGpCharList();
-    document.getElementById('saveStatus').textContent = `Charakter zu "${neu.trim()}" umbenannt.`;
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+    document.getElementById('saveStatus').textContent = t('msg.charrenamed').replace('{name}', neu.trim());
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 // Seit v0.19.0 (Nutzerwunsch): der gespeicherte Name ist immer
 // "Charname@Accountname" - macht gleichnamige Charaktere verschiedener Konten
@@ -5809,18 +5994,20 @@ async function gpCreateCharacter(){
     await ensureGpCharactersLoaded(true);
     gpEditingCharName = name;
     renderGpCharList();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 async function gpDeleteCharacter(name){
-  if(!confirm(`"${name}" wirklich löschen?`)) return;
+  if(!confirm(`"${name}" ${t('confirm.deletechar')}`)) return;
   try{
     await apiGpDeleteCharacter(name);
     if(gpEditingCharName === name) gpEditingCharName = null;
     await ensureGpCharactersLoaded(true);
     renderGpCharList();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 const GP_KLASSEN = ['Kämpfer','Waldläufer','Schurke','Barbar','Paladin','Kleriker','Hexenmeister','Magier','Barde','-'];
+const GP_KLASSE_KEY = { 'Kämpfer':'klasse.kaempfer','Waldläufer':'klasse.waldlaeufer','Schurke':'klasse.schurke','Barbar':'klasse.barbar','Paladin':'klasse.paladin','Kleriker':'klasse.kleriker','Hexenmeister':'klasse.hexenmeister','Magier':'klasse.magier','Barde':'klasse.barde' };
+function gpKlasseLabel(k){ return k==='-' ? t('gp.klasse.none') : t(GP_KLASSE_KEY[k]||k); }
 // Rein dekoratives Emoji-Icon pro Klasse, für die kompakte "Meine Charaktere"-Liste
 // (Nutzerwunsch "übersichtlicher") - keine Spielmechanik, nur schnellere optische
 // Wiedererkennung.
@@ -6246,7 +6433,7 @@ function gpOptimizeRow(gi, ri){
   const g = currentGpPlanData.groups[gi];
   const row = g.rows[ri];
   if(!row.charKey && !row.freierName){
-    alert('Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.');
+    alert(t('alert.needplayer'));
     return;
   }
   const belegt = gpBelegteWerte(gi, ri);
@@ -6275,8 +6462,8 @@ function gpOptimizeGroup(gi){
   });
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = besetzteRis.length
-    ? `Bestes Gesamt-Setup für ${besetzteRis.length} Zeile(n) übernommen - bitte Plan speichern, falls es passt.`
-    : 'Keine besetzte Zeile (Charakter oder freier Name) in dieser Gruppe gefunden.';
+    ? t('msg.bestsetupgroup').replace('{count}', besetzteRis.length)
+    : t('msg.nooccupiedgroup');
 }
 // Seit v0.29.0 (Nutzerwunsch "in der geöffneten Gruppe einen Button um
 // Ausrüstung zurückzusetzen"): setzt Artefakt/Mount/Mount-Bonus/Gefährte/
@@ -6284,7 +6471,7 @@ function gpOptimizeGroup(gi){
 // Spieler-Zuweisung bleiben unangetastet).
 function gpResetAusruestung(gi){
   const g = currentGpPlanData.groups[gi];
-  if(!confirm(`Artefakt/Mount/Mount-Bonus/Gefährte/Gefährten-Bonus für ALLE Zeilen in "${g.name}" auf "–" zurücksetzen?`)) return;
+  if(!confirm(t('confirm.resetequip').replace('{name}', g.name))) return;
   g.rows.forEach(row => { GP_BESITZ_KATEGORIEN.forEach(kat => { row[kat.rowField] = ''; }); });
   renderGpPlanBoard();
 }
@@ -6313,7 +6500,7 @@ function renderGpCharEditor(){
   const d = rec.data || {};
   const rollen = d.rollen || {};
   const besitz = d.besitz || {};
-  const klasseOptions = GP_KLASSEN.map(k=>`<option value="${k}" ${d.klasse===k?'selected':''}>${k}</option>`).join('');
+  const klasseOptions = GP_KLASSEN.map(k=>`<option value="${k}" ${d.klasse===k?'selected':''}>${gpKlasseLabel(k)}</option>`).join('');
   const rolleChk = (key,label) => `<label class="slot-check"><input type="checkbox" data-gprolle="${key}" ${rollen[key]?'checked':''}> ${label}</label>`;
   // Seit v0.19.0 (Nutzerwunsch "übersichtlicher"): Besitz-Checkliste als kompaktes
   // Chip-Grid statt einer Checkbox pro Zeile - inkl. Icon aus der Referenzliste.
@@ -6352,17 +6539,17 @@ function renderGpCharEditor(){
   el.innerHTML = `<div class="card">
     <h2>${t('gp.editchar')} ${escapeHtml(gpEditingCharName)}</h2>
     <div class="grunddaten-grid" style="max-width:500px;">
-      <div><label>Klasse</label><select id="gpEditKlasse">${klasseOptions}</select></div>
-      <div><label for="gpEditHandle">Ingame-Handle (@...)</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
+      <div><label>${t('label.klasse')}</label><select id="gpEditKlasse">${klasseOptions}</select></div>
+      <div><label for="gpEditHandle">${t('label.ingamehandle')}</label><input type="text" id="gpEditHandle" placeholder="z. B. xsellize84" value="${escapeHtml(d.handle||'')}"></div>
     </div>
-    <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">Rollen, die dieser Charakter spielen kann</label>
-      ${rolleChk('dps','DPS')} ${rolleChk('heal','Heiler')} ${rolleChk('tank','Tank')}
+    <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">${t('label.gprollen')}</label>
+      ${rolleChk('dps','DPS')} ${rolleChk('heal',t('role.heiler'))} ${rolleChk('tank','Tank')}
     </div>
     <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gpbesitz')}</h3>
     ${kategorien}
     <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gplieblinge')} <span class="muted" style="font-weight:400;">${t('h.gpliebIingesub')}</span></h3>
     <div class="besitz-grid">${lieblingsChips}</div>
-    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">Speichern</button></div>
+    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">${t('btn.save')}</button></div>
   </div>`;
 }
 async function gpSaveCharEditor(){
@@ -6383,9 +6570,9 @@ async function gpSaveCharEditor(){
   try{
     await apiGpSaveCharacter(name, { klasse, handle, rollen, besitz, lieblingsartefakte });
     await ensureGpCharactersLoaded(true);
-    document.getElementById('saveStatus').textContent = `"${name}" gespeichert.`;
+    document.getElementById('saveStatus').textContent = t('msg.namesaved').replace('{name}', name);
     renderGpCharList();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 
 /* ---------- Unterseite "Referenzlisten" (Moderator pflegt die Stammdaten) ---------- */
@@ -6418,7 +6605,7 @@ function gpHandleIconUpload(fileInput){
   const file = fileInput.files && fileInput.files[0];
   if(!file) return;
   if(!file.type || !file.type.startsWith('image/')){
-    alert('Bitte eine Bilddatei wählen.'); fileInput.value = ''; return;
+    alert(t('alert.chooseimage')); fileInput.value = ''; return;
   }
   const cell = fileInput.closest('.gpref-icon-cell');
   const hidden = cell.querySelector('input[data-field="icon"]');
@@ -6438,7 +6625,7 @@ function gpHandleIconUpload(fileInput){
       preview.classList.remove('empty');
       fileInput.value = '';
     };
-    img.onerror = () => { alert('Bild konnte nicht gelesen werden.'); fileInput.value = ''; };
+    img.onerror = () => { alert(t('alert.imagereaderror')); fileInput.value = ''; };
     img.src = reader.result;
   };
   reader.readAsDataURL(file);
@@ -6481,11 +6668,11 @@ function gpRefRowHtml(e, fields){
   </tr>`;
 }
 function gpRefListEditorHtml(listId, entries, fields){
-  const headCells = `<th style="width:78px;">Icon</th>` + fields.map(f=>`<th${f.numeric?' style="text-align:right;"':''}>${f.label}</th>`).join('') + `<th></th>`;
+  const headCells = `<th style="width:78px;">${t('th.icon')}</th>` + fields.map(f=>`<th${f.numeric?' style="text-align:right;"':''}>${f.label}</th>`).join('') + `<th></th>`;
   const rows = entries.map(e => gpRefRowHtml(e, fields)).join('');
   return `<div style="overflow-x:auto;"><table class="gpref-table" id="${listId}"><thead><tr>${headCells}</tr></thead><tbody>${rows}</tbody></table></div>
   <div class="btnrow" style="margin-top:8px;">
-    <button type="button" class="action small" onclick="gpAddRefRow('${listId}', ${JSON.stringify(fields).replace(/"/g,'&quot;')})">+ Neuer Eintrag</button>
+    <button type="button" class="action small" onclick="gpAddRefRow('${listId}', ${JSON.stringify(fields).replace(/"/g,'&quot;')})">${t('btn.newentry')}</button>
   </div>`;
 }
 function gpAddRefRow(listId, fields){
@@ -6552,7 +6739,7 @@ const GP_REF_SPECS = [
 // Klartext-Zusammenfassung ALLER Optimierer-Regeln (auch der nicht
 // editierbaren, rein zur Dokumentation).
 function gpOptimizerRegelnHtml(){
-  const rollen = [['dps','DPS'],['heal','Heiler'],['tank','Tank']];
+  const rollen = [['dps','DPS'],['heal',t('role.heiler')],['tank','Tank']];
   const checkboxZeilen = GP_BESITZ_KATEGORIEN.filter(k => k.rollenKonfigurierbar).map(kat => {
     const regel = gpOptimizerRegeln[kat.key] || DEFAULT_GP_OPTIMIZER_REGELN[kat.key];
     const boxen = rollen.map(([flag,label]) => `<label class="slot-check"><input type="checkbox" data-gpregel="${kat.key}" data-gpregelrolle="${flag}" ${regel[flag]?'checked':''}> ${label}</label>`).join(' ');
@@ -6598,7 +6785,7 @@ function renderGpReferenz(){
     <h2><span class="dot" style="background:var(--gold)"></span>${t(spec.titleKey)}</h2>
     ${gpRefListEditorHtml('gpref-'+spec.key, spec.get(), spec.fields)}
   </div>`).join('');
-  el.innerHTML = sections + gpOptimizerRegelnHtml() + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">Referenzlisten speichern (für alle)</button></div>`;
+  el.innerHTML = sections + gpOptimizerRegelnHtml() + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">${t('btn.saverefs')}</button></div>`;
 }
 async function gpSaveReferenzlisten(){
   const patch = { rev: sharedRev };
@@ -6610,8 +6797,8 @@ async function gpSaveReferenzlisten(){
     gpArtefakte = patch.gpArtefakte; gpMounts = patch.gpMounts; gpMountBonus = patch.gpMountBonus;
     gpGefaehrten = patch.gpGefaehrten; gpGefaehrtenVerstaerkung = patch.gpGefaehrtenVerstaerkung;
     gpOptimizerRegeln = patch.gpOptimizerRegeln;
-    document.getElementById('saveStatus').textContent = 'Referenzlisten gespeichert (für alle).';
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+    document.getElementById('saveStatus').textContent = t('msg.refsaved');
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 
 /* ---------- Unterseite "Planung" (das eigentliche Board) ---------- */
@@ -6619,11 +6806,11 @@ function renderGpPlanList(){
   const el = document.getElementById('gpPlanList');
   if(gpPlans === null){ el.innerHTML = `<p class="helptext">${t('generic.loading')}</p>`; return; }
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
-      <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(zuletzt geändert: ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
-      <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">Öffnen</button>
-      <button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">Umbenennen</button>
-      <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">Duplizieren</button>
-      <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">Löschen</button>
+      <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(${t('gp.lastchanged')} ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
+      <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">${t('btn.open')}</button>
+      <button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">${t('btn.rename')}</button>
+      <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">${t('btn.duplicate')}</button>
+      <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">${t('btn.delete')}</button>
     </div>`).join('') : `<p class="helptext">${t('gp.noplansyet')}</p>`;
   document.getElementById('gpPlanBoard').innerHTML = '';
 }
@@ -6637,21 +6824,21 @@ async function gpCreatePlan(){
     await ensureGpPlansLoaded(true);
     renderGpPlanList();
     gpOpenPlan(name);
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 async function gpDeletePlan(name){
-  if(!confirm(`Plan "${name}" wirklich löschen?`)) return;
+  if(!confirm(t('confirm.deleteplan').replace('{name}', name))) return;
   try{
     await apiGpDeletePlan(name);
     if(currentGpPlanName === name){ currentGpPlanName = null; currentGpPlanData = null; }
     await ensureGpPlansLoaded(true);
     renderGpPlanList();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 // Plan umbenennen: der Server-Endpunkt (apiGpRenamePlan) existierte schon, war aber
 // bisher an keinen Knopf angebunden - man musste löschen und neu anlegen.
 async function gpRenamePlanPrompt(name){
-  const neu = prompt('Neuer Name für den Plan:', name);
+  const neu = prompt(t('prompt.newplanname'), name);
   if(!neu || !neu.trim() || neu.trim() === name) return;
   try{
     await apiGpRenamePlan(name, neu.trim());
@@ -6659,13 +6846,13 @@ async function gpRenamePlanPrompt(name){
     await ensureGpPlansLoaded(true);
     renderGpPlanList();
     if(currentGpPlanData) renderGpPlanBoard();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 // Plan duplizieren: praktisch für wiederkehrende Termine mit ähnlicher Besetzung -
 // legt eine komplette Kopie unter neuem Namen an, das Original bleibt unverändert.
 async function gpDuplicatePlan(name){
-  const vorschlag = `${name} (Kopie)`;
-  const neu = prompt('Name für die Kopie:', vorschlag);
+  const vorschlag = `${name}${t('gp.copysuffix')}`;
+  const neu = prompt(t('prompt.copyname'), vorschlag);
   if(!neu || !neu.trim()) return;
   try{
     const res = await apiGpGetPlan(name);
@@ -6674,7 +6861,7 @@ async function gpDuplicatePlan(name){
     await ensureGpPlansLoaded(true);
     renderGpPlanList();
     document.getElementById('saveStatus').textContent = `Plan als "${neu.trim()}" dupliziert.`;
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 async function gpOpenPlan(name){
   try{
@@ -6684,7 +6871,7 @@ async function gpOpenPlan(name){
     currentGpPlanRev = res.data && res.data.rev ? res.data.rev : 0;
     gpPlanAnsichtModus = false;
     renderGpPlanBoard();
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 function gpNewSlot(){ return { charKey:'', freierName:'', party:'', weapon:'', ausruestung:'', artefakt:'', mount:'', mountBonus:'', gefaehrte:'', gefaehrtenBonus:'' }; }
 function gpAddGroup(){
@@ -6693,7 +6880,7 @@ function gpAddGroup(){
   renderGpPlanBoard();
 }
 function gpRemoveGroup(gi){
-  if(!confirm('Diese Gruppe wirklich entfernen?')) return;
+  if(!confirm(t('confirm.removegroup'))) return;
   currentGpPlanData.groups.splice(gi,1);
   renderGpPlanBoard();
 }
@@ -6716,7 +6903,7 @@ function gpSetGroupModus(gi, modus){
   if(modus === 'trial' && g.rows.length === 5){
     g.rows = g.rows.concat(g.rows.map(r => ({ ...gpNewSlot(), rolle: r.rolle })));
   } else if(modus === 'dungeon' && g.rows.length === 10){
-    if(!confirm('Von Trial (10) auf Dungeon (5) umstellen entfernt die hinteren 5 Plätze - fortfahren?')) return;
+    if(!confirm(t('confirm.trialtodungeon'))) return;
     g.rows = g.rows.slice(0, 5);
   }
   g.modus = modus;
@@ -6778,7 +6965,7 @@ function gpResolveRowSpieler(gi, ri, val){
   if(key){
     const rec = gpFindChar(key);
     if(gpRolleMismatch(rec, row.rolle)){
-      alert(`${gpDisplayName(rec)} ist nicht als ${row.rolle} markiert (siehe Rollen-Haken im Charakter-Editor) und passt nicht auf diesen Platz.`);
+      alert(t('alert.rolemismatch').replace('{name}', gpDisplayName(rec)).replace('{rolle}', row.rolle==='Heiler'?t('role.heiler'):row.rolle));
       renderGpPlanBoard(); // Feld auf den bisherigen (gespeicherten) Wert zurücksetzen
       return;
     }
@@ -6829,12 +7016,12 @@ function gpRoleWarnings(g){
   const warnungenFuer = (suffix, rows) => {
     const c = countRoles(rows);
     const out = [];
-    if(c.Tank > 1) out.push(`⚠ ${c.Tank} Tanks${suffix} (erwartet: 1)`);
-    if(c.Heiler > 1) out.push(`⚠ ${c.Heiler} Heiler${suffix} (erwartet: 1)`);
+    if(c.Tank > 1) out.push(t('gp.warn.tanks').replace('{count}', c.Tank).replace('{suffix}', suffix));
+    if(c.Heiler > 1) out.push(t('gp.warn.heiler').replace('{count}', c.Heiler).replace('{suffix}', suffix));
     return out;
   };
   if(g.modus === 'trial'){
-    return [...warnungenFuer(' in Party A', g.rows.filter(r=>r.party==='A')), ...warnungenFuer(' in Party B', g.rows.filter(r=>r.party==='B'))];
+    return [...warnungenFuer(t('gp.inpartya'), g.rows.filter(r=>r.party==='A')), ...warnungenFuer(t('gp.inpartyb'), g.rows.filter(r=>r.party==='B'))];
   }
   return warnungenFuer('', g.rows);
 }
@@ -6850,7 +7037,7 @@ function renderGpPlanBoard(){
   });
   const gpCharDatalistHtml = '<datalist id="gpCharDatalist">' +
     (gpCharacters||[]).map(c => `<option value="${escapeHtml(gpDisplayName(c))}">`).join('') + '</datalist>';
-  const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r}</option>`).join('');
+  const rolleOptionsHtml = sel => ['DPS','Heiler','Tank'].map(r=>`<option value="${r}" ${sel===r?'selected':''}>${r==='Heiler'?t('role.heiler'):r}</option>`).join('');
 
   // Doppelte Spieler-Zuweisungen über den GANZEN Plan hinweg erkennen (nicht nur
   // innerhalb einer Gruppe) - z. B. versehentlich denselben Charakter in zwei
@@ -6905,10 +7092,10 @@ function renderGpPlanBoard(){
         const nichtVorhanden = gpFieldNichtVorhanden(row, kat);
         const opts = ['<option value="">–</option>', ...alleNamen.map(n=>{
           const fehlt = n === val && nichtVorhanden;
-          return `<option value="${escapeHtml(n)}" ${val===n?'selected':''}${fehlt?' style="color:var(--off);"':''}>${escapeHtml(gpOptionLabel(kat,n))}${fehlt?' (nicht vorhanden)':''}</option>`;
+          return `<option value="${escapeHtml(n)}" ${val===n?'selected':''}${fehlt?' style="color:var(--off);"':''}>${escapeHtml(gpOptionLabel(kat,n))}${fehlt?escapeHtml(t('gp.notavailable')):''}</option>`;
         })].join('');
         const warnung = extraHighlight || nichtVorhanden;
-        const titel = nichtVorhanden ? 'Der zugewiesene Charakter besitzt dieses Item laut Checkliste nicht' : (extraHighlight ? 'Dieses Artefakt ist mehrfach in dieser Gruppe eingetragen' : '');
+        const titel = nichtVorhanden ? t('tt.itemnotowned') : (extraHighlight ? t('tt.artefaktdup') : '');
         const iconHtml = gpFieldIconHtml(kat, val);
         const selectCls = iconHtml ? ' class="gp-has-icon"' : '';
         const hl = warnung ? ' style="border-color:var(--off);box-shadow:0 0 0 1px var(--off);"' : '';
@@ -6917,7 +7104,7 @@ function renderGpPlanBoard(){
       const doppelt = istDoppelt(row);
       return `<tr>
         <td><select class="typ-select typ-select-${row.rolle==='DPS'?'dps':(row.rolle==='Heiler'?'heal':'tank')}" onchange="gpUpdateRowRolle(${gi},${ri},this.value)">${rolleOptionsHtml(row.rolle)}</select></td>
-        <td><input type="text" list="gpCharDatalist" placeholder="Name eingeben oder wählen" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?t('tt.doppelthandle'):''}"></td>
+        <td><input type="text" list="gpCharDatalist" placeholder="${escapeHtml(t('gp.enterorchoosename'))}" value="${escapeHtml(gpRowSpielerText(row))}" onchange="gpResolveRowSpieler(${gi},${ri},this.value)" style="width:100%;${doppelt?'border-color:var(--off);box-shadow:0 0 0 1px var(--off);':''}" title="${doppelt?t('tt.doppelthandle'):''}"></td>
         ${g.modus==='trial' ? `<td><select onchange="gpUpdateRowField(${gi},${ri},'party',this.value)">
             <option value="" ${!row.party?'selected':''}>–</option>
             <option value="A" ${row.party==='A'?'selected':''}>A</option>
@@ -6931,7 +7118,7 @@ function renderGpPlanBoard(){
         <td>${selectFor(GP_BESITZ_KATEGORIEN[3],'gefaehrte')}</td>
         <td>${selectFor(GP_BESITZ_KATEGORIEN[4],'gefaehrtenBonus')}</td>
         <td>
-          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="${t('tt.bestsetup')}" aria-label="Bestes eigenes Setup auswählen">🏆</button>
+          <button type="button" class="action small" onclick="gpOptimizeRow(${gi},${ri})" title="${t('tt.bestsetup')}" aria-label="${t('tt.bestsetup')}">🏆</button>
           <button type="button" class="action danger small" onclick="gpRemoveRow(${gi},${ri})" title="${t('tt.removerow')}" aria-label="${t('tt.removerow')}">✕</button>
         </td>
       </tr>`;
@@ -6939,23 +7126,23 @@ function renderGpPlanBoard(){
     return `<div class="card">
       <div class="entry-head">
         <input type="text" class="entry-name" value="${escapeHtml(g.name)}" oninput="gpUpdateGroupName(${gi},this.value)" style="max-width:260px;">
-        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> Dungeon (5)</label>
-        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> Trial (10, 2 Untergruppen A/B)</label>
-        <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> Weapon/Ausrüstung anzeigen</label>
+        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> ${t('gp.dungeon5')}</label>
+        <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> ${t('gp.trial10')}</label>
+        <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> ${t('gp.showequip')}</label>
         <span class="muted" style="font-size:0.78rem;" title="${t('tt.dmgorientation')}">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
-        <button type="button" class="action small" style="margin-left:auto;" onclick="gpResetAusruestung(${gi})" title="${t('tt.resetrow')}">Ausrüstung zurücksetzen</button>
-        <button type="button" class="action danger small" onclick="gpRemoveGroup(${gi})">Gruppe entfernen</button>
+        <button type="button" class="action small" style="margin-left:auto;" onclick="gpResetAusruestung(${gi})" title="${t('tt.resetrow')}">${t('btn.resetausruestung')}</button>
+        <button type="button" class="action danger small" onclick="gpRemoveGroup(${gi})">${t('btn.removegroup')}</button>
       </div>
       ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
-        <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}${g.showAusruestung?'<th>Weapon</th><th>Ausrüstung</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th><th></th></tr></thead>
+        <thead><tr><th>${t('th.rolle')}</th><th>${t('th.spieler')}</th>${g.modus==='trial'?`<th>${t('th.party')}</th>`:''}${g.showAusruestung?`<th>${t('th.weapon')}</th><th>${t('th.ausruestung')}</th>`:''}<th>${t('th.artefakt')}</th><th>${t('th.mount')}</th><th>${t('th.mountbonus')}</th><th>${t('th.gefaehrte')}</th><th>${t('th.gefaehrtenbonus')}</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
       <div class="btnrow" style="margin-top:10px;">
         <button type="button" class="action small" onclick="gpAddRow(${gi},'DPS')">+ DPS</button>
-        <button type="button" class="action small" onclick="gpAddRow(${gi},'Heiler')">+ Heiler</button>
+        <button type="button" class="action small" onclick="gpAddRow(${gi},'Heiler')">+ ${t('role.heiler')}</button>
         <button type="button" class="action small" onclick="gpAddRow(${gi},'Tank')">+ Tank</button>
-        <button type="button" class="action gold small" style="margin-left:auto;" onclick="gpOptimizeGroup(${gi})" title="${t('tt.applybestrow')}">🏆 Alle Zeilen optimieren</button>
+        <button type="button" class="action gold small" style="margin-left:auto;" onclick="gpOptimizeGroup(${gi})" title="${t('tt.applybestrow')}">${t('btn.optimizerow')}</button>
       </div>
     </div>`;
   }).join('');
@@ -6963,13 +7150,13 @@ function renderGpPlanBoard(){
   el.innerHTML = `${gpCharDatalistHtml}
     <div class="entry-head" style="margin-top:20px;">
       <h2 style="margin:0;">${escapeHtml(currentGpPlanName)}</h2>
-      <button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? 'Zurück zur Bearbeitung' : 'Nur-Ansicht (zum Teilen/Screenshotten)'}</button>
+      <button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? t('btn.backtoedit') : t('btn.viewonly')}</button>
     </div>
     ${gpPlanAnsichtModus ? gpPlanAnsichtHtml() : groupsHtml}
     ${gpPlanAnsichtModus ? '' : `<div class="btnrow" style="margin:14px 0;">
-      <button type="button" class="action" onclick="gpAddGroup()">+ Neue Gruppe</button>
-      ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="${t('tt.applybestall')}">🏆 Alle Gruppen optimieren</button>` : ''}
-      <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">Plan speichern</button>
+      <button type="button" class="action" onclick="gpAddGroup()">${t('btn.newgroup')}</button>
+      ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="${t('tt.applybestall')}">${t('btn.optimizeplan')}</button>` : ''}
+      <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">${t('btn.saveplan')}</button>
     </div>`}`;
 }
 // Seit v0.28.0 (Nutzerwunsch "im gesamten [Plan] soll nichts doppelt sein"):
@@ -6997,8 +7184,8 @@ function gpOptimizePlan(){
   currentGpPlanData.groups.forEach(g => g.rows.forEach(row => { if(row.charKey || row.freierName) count++; }));
   renderGpPlanBoard();
   document.getElementById('saveStatus').textContent = count
-    ? `Bestes Gesamt-Setup für ${count} Zeile(n) in allen Gruppen übernommen - bitte Plan speichern, falls es passt.`
-    : 'Keine besetzte Zeile (Charakter oder freier Name) in diesem Plan gefunden.';
+    ? t('msg.bestsetupplan').replace('{count}', count)
+    : t('msg.nooccupiedplan');
 }
 function gpToggleAnsicht(){ gpPlanAnsichtModus = !gpPlanAnsichtModus; renderGpPlanBoard(); }
 // Schlichte Nur-Lese-Darstellung ohne Dropdowns/Buttons - zum Screenshotten und
@@ -7018,13 +7205,13 @@ function gpPlanAnsichtHtml(){
       <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[4],row.gefaehrtenBonus)||'–')}</td>
     </tr>`).join('');
     return `<div class="card">
-      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?'Trial, 10':'Dungeon, 5'})</span>
+      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?t('gp.trialshort'):t('gp.dungeonshort')})</span>
         <span class="muted" style="font-weight:400;font-size:0.78rem;margin-left:8px;">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
       </h3>
       ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
-        <thead><tr><th>Rolle</th><th>Spieler</th>${g.modus==='trial'?'<th>Party</th>':''}<th>Artefakt</th><th>Mount</th><th>Mount-Bonus</th><th>Gefährte</th><th>Gefährten-Bonus</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="8" class="muted">Noch niemand eingetragen.</td></tr>'}</tbody>
+        <thead><tr><th>${t('th.rolle')}</th><th>${t('th.spieler')}</th>${g.modus==='trial'?`<th>${t('th.party')}</th>`:''}<th>${t('th.artefakt')}</th><th>${t('th.mount')}</th><th>${t('th.mountbonus')}</th><th>${t('th.gefaehrte')}</th><th>${t('th.gefaehrtenbonus')}</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="8" class="muted">${t('gp.noonelisted')}</td></tr>`}</tbody>
       </table></div>
     </div>`;
   }).join('');
@@ -7040,8 +7227,8 @@ async function gpSaveCurrentPlan(){
     // anzeigen, sonst wirkt es nach dem Speichern so, als hätte sich der
     // offene Plan geschlossen (Nutzerbeschwerde).
     renderGpPlanBoard();
-    document.getElementById('saveStatus').textContent = `Plan "${currentGpPlanName}" gespeichert.`;
-  }catch(e){ document.getElementById('saveStatus').textContent = 'Fehler: ' + e.message; }
+    document.getElementById('saveStatus').textContent = t('msg.plansaved').replace('{name}', currentGpPlanName);
+  }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
 
 init();
