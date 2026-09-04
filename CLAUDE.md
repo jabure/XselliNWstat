@@ -332,6 +332,27 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.51.0: Gruppenplaner-Referenzlisten sortieren sich beim Anzeigen
+  automatisch absteigend nach ihrem Dmg-Buff-Feld (Nutzerwunsch, siehe
+  Screenshot der Mounts-Liste - "Star Angler" mit 8,29 % stand am Ende statt
+  einsortiert).**
+  - Neues `sortKey`-Feld an `GP_REF_SPECS`: `'buff'` für Artefakte/Gefährten/
+    Gefährten-Verstärkung, `'dmgBonus'` für Mounts, kein `sortKey` für
+    Mount-Ausrüstungsbonus (hat kein Zahlenfeld, bleibt in der bisherigen
+    Reihenfolge).
+  - Neue Funktion `gpSortedForDisplay(spec)`: sortiert eine **Kopie** der
+    Liste, Original-Array bleibt unverändert. Leere/nicht-numerische Werte
+    fallen ans Ende statt die Sortierung zu stören.
+  - `renderGpReferenz()` nutzt diese sortierte Kopie für die Tabellen-
+    Anzeige. Da `gpCollectRefList` beim Speichern aus der aktuell
+    angezeigten (sortierten) Tabellen-Reihenfolge liest, übernimmt die
+    gespeicherte Reihenfolge die neue Sortierung automatisch mit -
+    zusätzlich rendert `gpSaveReferenzlisten()` die Seite nach erfolgreichem
+    Speichern neu, damit die aktualisierte Sortierung sofort sichtbar ist,
+    ohne dass man die Seite verlassen und neu öffnen muss.
+  - Mit jsdom exakt mit den Screenshot-Werten nachgestellt und verifiziert:
+    "Star Angler" (8,29 %) landet jetzt korrekt auf Platz 3 statt am Ende.
+    0 JS-Fehler, alle 256 Smoke-Tests grün.
 - **Seit v0.50.0: Charakter-Vergleich-Karopf/Buttons/Dropdowns übersetzt
   (weitere von Xselli per Screenshot gemeldete Lücke).**
   - Akkordeon-Header "Charakter-Vergleich", "Aktuellen Stand einfrieren

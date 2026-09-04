@@ -6848,8 +6848,8 @@ const GP_REF_SPECS = [
   // Optimierer stellt VOR der sonstigen Bestwert-Suche sicher, dass
   // mindestens ein markierter Eintrag pro 5er-Segment vergeben ist, sofern
   // irgendjemand im Segment ihn besitzt (s. gpPflicht/gpErzwingePflichtItems).
-  { key:'gpArtefakte', title:'Artefakte', titleKey:'gp.ref.artefakte', get:()=>gpArtefakte, fields:[{key:'name',label:'Name',flex:3},{key:'nameEn',label:'Name (EN)',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpMounts', title:'Mounts', titleKey:'gp.ref.mounts', get:()=>gpMounts, fields:[{key:'name',label:'Name',flex:2},{key:'nameEn',label:'Name (EN)',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpArtefakte', title:'Artefakte', titleKey:'gp.ref.artefakte', get:()=>gpArtefakte, sortKey:'buff', fields:[{key:'name',label:'Name',flex:3},{key:'nameEn',label:'Name (EN)',flex:3},{key:'buff',label:'Buff %',flex:1,numeric:true},{key:'rolle',label:'Bevorzugt für',flex:1,select:['','DPS','Heiler','Tank']},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpMounts', title:'Mounts', titleKey:'gp.ref.mounts', get:()=>gpMounts, sortKey:'dmgBonus', fields:[{key:'name',label:'Name',flex:2},{key:'nameEn',label:'Name (EN)',flex:2},{key:'faehigkeit',label:'Fähigkeit',flex:2},{key:'dmgBonus',label:'Dmg Bonus %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
   { key:'gpMountBonus', title:'Mount-Ausrüstungsbonus', titleKey:'gp.ref.mountbonus', get:()=>gpMountBonus, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:3},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true}] },
   // Seit v0.21.0: Gefährten/Gefährten-Verstärkung haben jetzt auch ein
   // optionales numerisches "buff"-Feld (wie Artefakte/Mounts) - Voraussetzung
@@ -6860,8 +6860,8 @@ const GP_REF_SPECS = [
   // Seit v0.23.0: zusätzliches "schaden"-Feld (eigener Schaden des Gefährten,
   // getrennt vom Support-Dmg-Buff "buff") - der Optimierer bevorzugt dieses
   // Feld bei DPS-Zeilen (dpsDmgKey), Supports bleiben weiter beim Dmg-Buff.
-  { key:'gpGefaehrten', title:'Gefährten', titleKey:'gp.ref.gefaehrten', get:()=>gpGefaehrten, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
-  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', titleKey:'gp.ref.gefverstaerkung', get:()=>gpGefaehrtenVerstaerkung, fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrten', title:'Gefährten', titleKey:'gp.ref.gefaehrten', get:()=>gpGefaehrten, sortKey:'buff', fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff % (Support)',flex:1,numeric:true},{key:'schaden',label:'Schaden (DPS)',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
+  { key:'gpGefaehrtenVerstaerkung', title:'Gefährten-Verstärkung', titleKey:'gp.ref.gefverstaerkung', get:()=>gpGefaehrtenVerstaerkung, sortKey:'buff', fields:[{key:'name',label:'Name',flex:1},{key:'nameEn',label:'Name (EN)',flex:1},{key:'beschreibung',label:'Beschreibung',flex:2},{key:'buff',label:'Dmg Buff %',flex:1,numeric:true},{key:'mehrfachErlaubt',label:'Mehrfachvergabe erlaubt',flex:1,checkbox:true},{key:'pflichtProGruppe',label:'Pflicht: 1x pro 5er-Gruppe',flex:1,checkbox:true}] },
 ];
 // Seit v0.28.0 (Nutzerwunsch "schreibe alle Optimierungsregeln in die
 // Referenzliste, damit ich sie nachträglich bearbeiten kann"): editierbare
@@ -6909,11 +6909,28 @@ function gpCollectOptimizerRegeln(){
   if(toleranzInput) regeln.toleranz = parsePct(toleranzInput.value);
   return regeln;
 }
+// Sortiert eine Referenzliste zur Anzeige nach ihrem Dmg-Buff-Feld (spec.sortKey)
+// absteigend - höchster Wert zuerst, damit man auf einen Blick sieht, was sich am
+// meisten lohnt (Nutzerwunsch). Kategorien ohne sortKey (Mount-Ausrüstungsbonus)
+// bleiben in der bisherigen Reihenfolge. Leere/nicht-numerische Werte fallen ans
+// Ende, statt die Sortierung zu stören. Sortiert nur eine KOPIE für die Anzeige -
+// die beim Speichern zurückgeschriebene Reihenfolge übernimmt diese neue Sortierung
+// dann mit (gpCollectRefList liest ja aus dem gerade angezeigten, sortierten DOM).
+function gpSortedForDisplay(spec){
+  const list = spec.get();
+  if(!spec.sortKey) return list;
+  return [...list].sort((a,b)=>{
+    const av = a[spec.sortKey], bv = b[spec.sortKey];
+    const an = (av !== undefined && av !== '' && !isNaN(av)) ? Number(av) : -Infinity;
+    const bn = (bv !== undefined && bv !== '' && !isNaN(bv)) ? Number(bv) : -Infinity;
+    return bn - an;
+  });
+}
 function renderGpReferenz(){
   const el = document.getElementById('gpPageReferenz');
   const sections = GP_REF_SPECS.map(spec => `<div class="card">
     <h2><span class="dot" style="background:var(--gold)"></span>${t(spec.titleKey)}</h2>
-    ${gpRefListEditorHtml('gpref-'+spec.key, spec.get(), spec.fields)}
+    ${gpRefListEditorHtml('gpref-'+spec.key, gpSortedForDisplay(spec), spec.fields)}
   </div>`).join('');
   el.innerHTML = sections + gpOptimizerRegelnHtml() + `<div class="btnrow"><button type="button" class="action gold" onclick="gpSaveReferenzlisten()">${t('btn.saverefs')}</button></div>`;
 }
@@ -6927,6 +6944,7 @@ async function gpSaveReferenzlisten(){
     gpArtefakte = patch.gpArtefakte; gpMounts = patch.gpMounts; gpMountBonus = patch.gpMountBonus;
     gpGefaehrten = patch.gpGefaehrten; gpGefaehrtenVerstaerkung = patch.gpGefaehrtenVerstaerkung;
     gpOptimizerRegeln = patch.gpOptimizerRegeln;
+    renderGpReferenz(); // neu rendern, damit die Dmg-Buff-Sortierung sofort mit den frisch gespeicherten Werten sichtbar wird
     document.getElementById('saveStatus').textContent = t('msg.refsaved');
   }catch(e){ document.getElementById('saveStatus').textContent = t('generic.error') + e.message; }
 }
