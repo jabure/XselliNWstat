@@ -332,6 +332,28 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.48.0: Von Xselli per Screenshot gemeldete Übersetzungslücken
+  auf der Rechner-/Schadensberechnung-Seite behoben.**
+  - `SOURCE_CATEGORIES`-Akkordeon-Header (Ausrüstung/Gefährten/Buff Food/
+    Reittier Buffs) hatten noch kein `labelKey` - neues Feld ergänzt,
+    analog zu `GP_REF_SPECS`/`GP_BESITZ_KATEGORIEN`.
+  - Badge-Texte neben den Kategorie-Headern (`catBadgeText()`): "Manuell
+    Werte", "Buff Food aktiv", "keins ausgewählt", "Utility aktiv" sowie
+    der interne Marker-Wert "Manuell" (`gefaehrtenActivePreset`/
+    `reittierActivePreset`, wenn kein Preset aktiv ist - eigentliche
+    Preset-Namen bleiben als Nutzerdaten unübersetzt).
+  - Die drei Ergebnis-Zeilen unter den Schaden-/Heilung-/Tank-Tabellen
+    ("Gesamtschaden der Fähigkeit:", "Heilung der Fähigkeit: ... ×
+    Multiplikator", "Effektive Trefferpunkte (eHP):") sowie die jeweils
+    folgende "Veränderter Wert (alle "Aktiv"-Stats...)"-Zeile (3×, gleicher
+    Text, jetzt ein gemeinsamer `result.veraendertwert`-Schlüssel mit
+    `{pct}`-Platzhalter).
+  - Die X-Achsen-Beschriftung "Aktueller Stat-Wert (%)" in den drei
+    Zugewinn-Charts (`buildImpactChart`'s `xAxisLabel`).
+  - Manuell mit jsdom verifiziert (Kategorie-Header zeigen "Equipment",
+    "Companions Manual", "Buff Food none selected", "Mount Buffs Manual";
+    Ergebniszeilen und Chart-Achse korrekt englisch), 0 JS-Fehler. Alle
+    256 Smoke-Tests grün.
 - **Seit v0.47.0: Gruppenplaner (Charaktere/Planung/Board) und
   Insignienrechner vollständig auf Englisch übersetzt - fünfter Baustein
   der "allgemeinen Beschreibungen", auf Nutzerhinweis hin geprüft.**

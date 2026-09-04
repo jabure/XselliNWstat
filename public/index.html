@@ -1074,6 +1074,18 @@ const TRANSLATIONS = {
     'gp.dungeonshort': 'Dungeon, 5',
     'gp.noonelisted': 'Noch niemand eingetragen.',
     'confirm.resetequip': 'Artefakt/Mount/Mount-Bonus/Gefährte/Gefährten-Bonus für ALLE Zeilen in "{name}" auf "–" zurücksetzen?',
+    'result.veraendertwert': 'Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +{pct} %):',
+    'result.multiplikator': 'Multiplikator',
+    'chart.xaxis': 'Aktueller Stat-Wert (%)',
+    'cat.ausruestung': 'Ausrüstung',
+    'cat.gefaehrten': 'Gefährten',
+    'cat.bufffood': 'Buff Food',
+    'cat.reittier': 'Reittier Buffs',
+    'badge.manualvalues': 'Manuell Werte',
+    'badge.manual': 'Manuell',
+    'badge.bufffoodactive': 'Buff Food aktiv',
+    'badge.noneselected': 'keins ausgewählt',
+    'badge.utilityactive': 'Utility aktiv',
     'ins.quali.gruen': 'grün',
     'ins.quali.blau': 'Blau',
     'ins.quali.episch': 'episch',
@@ -1403,6 +1415,18 @@ const TRANSLATIONS = {
     'gp.dungeonshort': 'Dungeon, 5',
     'gp.noonelisted': 'No one entered yet.',
     'confirm.resetequip': 'Reset artifact/mount/mount bonus/companion/companion bonus for ALL rows in "{name}" back to "–"?',
+    'result.veraendertwert': 'Changed value (all "Active" stats get +{pct}% at once):',
+    'result.multiplikator': 'Multiplier',
+    'chart.xaxis': 'Current stat value (%)',
+    'cat.ausruestung': 'Equipment',
+    'cat.gefaehrten': 'Companions',
+    'cat.bufffood': 'Buff Food',
+    'cat.reittier': 'Mount Buffs',
+    'badge.manualvalues': 'Manual Values',
+    'badge.manual': 'Manual',
+    'badge.bufffoodactive': 'Buff Food active',
+    'badge.noneselected': 'none selected',
+    'badge.utilityactive': 'Utility active',
     'ins.quali.gruen': 'Green',
     'ins.quali.blau': 'Blue',
     'ins.quali.episch': 'Epic',
@@ -1656,10 +1680,10 @@ let gefaehrtenPresets = JSON.parse(JSON.stringify(DEFAULT_GEFAEHRTEN_PRESETS));
 let reittierPresets = JSON.parse(JSON.stringify(DEFAULT_REITTIER_PRESETS));
 
 const SOURCE_CATEGORIES = [
-  { id:'ausruestung', label:'Ausrüstung', kind:'manual', sources: EQUIPMENT_SLOTS },
-  { id:'gefaehrten', label:'Gefährten', kind:'gefaehrten', sources: GEFAEHRTEN_SLOTS },
-  { id:'bufffood', label:'Buff Food', kind:'bufffood', sources: FOOD_SLOTS.map(f=>f.key) },
-  { id:'reittier', label:'Reittier Buffs', kind:'reittier', sources: REITTIER_GRUPPE_SLOTS },
+  { id:'ausruestung', label:'Ausrüstung', labelKey:'cat.ausruestung', kind:'manual', sources: EQUIPMENT_SLOTS },
+  { id:'gefaehrten', label:'Gefährten', labelKey:'cat.gefaehrten', kind:'gefaehrten', sources: GEFAEHRTEN_SLOTS },
+  { id:'bufffood', label:'Buff Food', labelKey:'cat.bufffood', kind:'bufffood', sources: FOOD_SLOTS.map(f=>f.key) },
+  { id:'reittier', label:'Reittier Buffs', labelKey:'cat.reittier', kind:'reittier', sources: REITTIER_GRUPPE_SLOTS },
 ];
 const ALL_SOURCES = [...SOURCE_CATEGORIES.flatMap(c => c.sources), RAPTOR_SOURCE_KEY];
 
@@ -3289,14 +3313,14 @@ function renderBadgesHtml(cat){
   return catBadgeText(cat).map(b=>`<span class="cat-badge">${b}</span>`).join(' ');
 }
 function catBadgeText(cat){
-  if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? 'Manuell Werte' : gefaehrtenActivePreset];
-  if(cat.kind === 'reittier') return [reittierMode==='werte' ? 'Manuell Werte' : reittierActivePreset];
+  if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? t('badge.manualvalues') : (gefaehrtenActivePreset==='Manuell' ? t('badge.manual') : gefaehrtenActivePreset)];
+  if(cat.kind === 'reittier') return [reittierMode==='werte' ? t('badge.manualvalues') : (reittierActivePreset==='Manuell' ? t('badge.manual') : reittierActivePreset)];
   if(cat.kind === 'bufffood'){
     const badges = [];
     const anyActive = FOOD_SLOTS.some(fs => sourceHasValue(fs.key));
-    badges.push(anyActive ? 'Buff Food aktiv' : 'keins ausgewählt');
+    badges.push(anyActive ? t('badge.bufffoodactive') : t('badge.noneselected'));
     const utilityActive = FOOD_SLOTS.some(fs => fs.key.includes('Utility') && sourceHasValue(fs.key));
-    if(utilityActive) badges.push('Utility aktiv');
+    if(utilityActive) badges.push(t('badge.utilityactive'));
     return badges;
   }
   return [];
@@ -3321,7 +3345,7 @@ function renderSourceAccordions(){
     }
     return `<div class="accordion" id="acc-cat-${cat.id}">
       <button onclick="toggleCatAccordion('${cat.id}')" type="button">
-        <span>${cat.label} <span class="cat-badges" id="catbadges-${cat.id}">${renderBadgesHtml(cat)}</span></span>
+        <span>${t(cat.labelKey)} <span class="cat-badges" id="catbadges-${cat.id}">${renderBadgesHtml(cat)}</span></span>
         <span class="chevron">&#9656;</span>
       </button>
       <div class="body">${bodyHtml}</div>
@@ -4393,7 +4417,7 @@ function renderUebersicht(){
       ? `<p class="helptext" style="margin-top:6px;">${pairHints.join('<br>')}</p>`
       : '';
 
-    const xAxisLabel = 'Aktueller Stat-Wert (%)';
+    const xAxisLabel = t('chart.xaxis');
     const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" role="button" tabindex="0" aria-pressed="false" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
       <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
       <span style="font-size:0.83rem;color:var(--text);">${s.label}</span>
@@ -4516,8 +4540,8 @@ function renderUebersicht(){
       </table>
       </div>
       <p class="helptext" style="margin-top:10px;">${t('help.dmgactive')}</p>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Gesamtschaden der Fähigkeit: <strong>${formatWerte(totalDmg)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.gesamtschaden')}: <strong>${formatWerte(totalDmg)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
       <p class="helptext">${t('help.dmgformula')}</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.dmgchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.dmgchart.sub')}</p>
@@ -4536,8 +4560,8 @@ function renderUebersicht(){
         <tbody>${healRows}</tbody>
       </table>
       </div>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Heilung der Fähigkeit: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; Multiplikator × ${fmt(healMult)}</span></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.heilungfaehigkeit')}: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; ${t('result.multiplikator')} × ${fmt(healMult)}</span></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
       <p class="helptext">${t('help.healformula')}</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.healchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.healchart.sub')}</p>
@@ -4556,8 +4580,8 @@ function renderUebersicht(){
         <tbody>${tankRows}</tbody>
       </table>
       </div>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">Effektive Trefferpunkte (eHP): <strong>${formatWerte(ehp)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">Veränderter Wert (alle "Aktiv"-Stats bekommen gleichzeitig +${fmt(P.deltaPct)} %): <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.ehp')}: <strong>${formatWerte(ehp)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
       <p class="helptext">${t('help.tankformula')}</p>
       <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.tankchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.tankchart.sub')}</p>
