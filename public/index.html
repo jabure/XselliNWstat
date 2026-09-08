@@ -674,11 +674,11 @@
   <div id="gpPagePlanung" style="display:none;">
     <div class="card">
       <h2><span class="dot" style="background:var(--gold)"></span><span data-i18n="gp.planheading">Aufstellungs-Pläne</span></h2>
-      <p class="helptext" data-i18n="gp.planintro">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar für alle mit Moderator-Rolle oder höher.</p>
+      <p class="helptext" data-i18n="gp.planintro">Mehrere Pläne möglich (z. B. je ein Plan pro Trial-Termin). Für alle sichtbar, bearbeitbar ab Moderator-Rolle.</p>
       <div id="gpPlanList"></div>
-      <div class="btnrow" style="margin-top:12px;">
+      <div class="btnrow" style="margin-top:12px;" id="gpNewPlanRow">
         <input type="text" id="gpNewPlanName" placeholder="Name des neuen Plans…" style="max-width:260px;" onkeydown="if(event.key==='Enter')gpCreatePlan()">
-        <button type="button" class="action gold" onclick="gpCreatePlan()">Plan anlegen</button>
+        <button type="button" class="action gold" onclick="gpCreatePlan()" data-i18n="btn.createplan">Plan anlegen</button>
       </div>
     </div>
     <div id="gpPlanBoard"></div>
@@ -985,7 +985,7 @@ const TRANSLATIONS = {
     'gp.charintro': 'Komplett getrennt von deinen Stats-Charakteren: hier geht es nur darum, welche Klasse/Rolle du spielen kannst und welche Artefakte, Mounts und Gef\u00e4hrten du <strong>besitzt</strong> - das brauchen die Officer, um die Gruppen zusammenzustellen.',
     'gp.namehint': 'Der Name wird automatisch um deinen Accountnamen erg\u00e4nzt (z. B. "Grim@Xselli"), damit gleichnamige Charaktere verschiedener Accounts eindeutig bleiben. Der Ingame-Handle ist unabh\u00e4ngig davon frei editierbar (auch sp\u00e4ter im Charakter-Editor) und wird bei der Gruppenplanung angezeigt und f\u00fcr die Mehrfachbelegungs-Pr\u00fcfung verwendet.',
     'gp.planheading': 'Aufstellungs-Pl\u00e4ne',
-    'gp.planintro': 'Mehrere Pl\u00e4ne m\u00f6glich (z. B. je ein Plan pro Trial-Termin). Sichtbar/bearbeitbar f\u00fcr alle mit Moderator-Rolle oder h\u00f6her.',
+    'gp.planintro': 'Mehrere Pl\u00e4ne m\u00f6glich (z. B. je ein Plan pro Trial-Termin). F\u00fcr alle sichtbar, bearbeitbar ab Moderator-Rolle.',
     'gp.nocharsyet': 'Noch keine eigenen Gruppenplaner-Charaktere angelegt.',
     'gp.noplansyet': 'Noch keine Pl\u00e4ne angelegt.',
     'ins.qualityerror': 'Die Ziel-Qualit\u00e4t muss h\u00f6her sein als die Start-Qualit\u00e4t.',
@@ -1152,6 +1152,8 @@ const TRANSLATIONS = {
     'vgl.currentlyloaded': 'Aktuell geladen',
     'label.choose': '– wählen –',
     'vgl.frozen': 'Eingefroren',
+    'gp.readonlyhint': 'Nur-Ansicht - Bearbeiten erfordert Moderator-Rolle',
+    'btn.createplan': 'Plan anlegen',
     'msg.snapshotfrozen': 'Stand eingefroren - ändere jetzt Werte/Ausrüstung und beobachte den Unterschied im Vergleich.',
     'ins.quali.gruen': 'grün',
     'ins.quali.blau': 'Blau',
@@ -1367,7 +1369,7 @@ const TRANSLATIONS = {
     'gp.charintro': 'Completely separate from your stat-calculator characters: this is only about which class/role you can play and which artifacts, mounts, and companions you <strong>own</strong> - the officers need that to put groups together.',
     'gp.namehint': 'The name automatically gets your account name appended (e.g. "Grim@Xselli"), so characters with the same name on different accounts stay unique. The in-game handle is freely editable independently of that (also later in the character editor) and is shown during group planning and used for the duplicate-assignment check.',
     'gp.planheading': 'Lineup Plans',
-    'gp.planintro': 'Multiple plans are possible (e.g. one plan per trial run). Visible/editable for everyone with moderator role or higher.',
+    'gp.planintro': 'Multiple plans are possible (e.g. one plan per trial run). Visible for everyone, editable from moderator role up.',
     'gp.nocharsyet': 'No group planner characters yet.',
     'gp.noplansyet': 'No plans yet.',
     'ins.qualityerror': 'The target quality must be higher than the starting quality.',
@@ -1534,6 +1536,8 @@ const TRANSLATIONS = {
     'vgl.currentlyloaded': 'Currently loaded',
     'label.choose': '– select –',
     'vgl.frozen': 'Frozen',
+    'gp.readonlyhint': 'View only - editing requires moderator role',
+    'btn.createplan': 'Create Plan',
     'msg.snapshotfrozen': 'State frozen - now change values/equipment and watch the difference in the comparison.',
     'ins.quali.gruen': 'Green',
     'ins.quali.blau': 'Blue',
@@ -1980,6 +1984,7 @@ function updateAccountLabel(){
   const gdName = document.getElementById('grunddatenCharName');
   if(gdName) gdName.textContent = currentChar ? `– ${currentChar}` : '';
   updateAdminTabVisibility();
+  updateGpTabVisibility();
   updateAppSwitcherVisibility();
 }
 function setAccountMsg(msg, ok){
@@ -4896,6 +4901,21 @@ function updateAdminTabVisibility(){
 }
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
+// Referenzlisten-Tab bleibt Moderator+ vorbehalten (Artefakte/Mounts/etc. sind
+// geteilte Konfigurationsdaten, kein Nutzerinhalt) - Meine Charaktere/Planung
+// sind seit v0.53.0 für alle da (siehe GP_MIN_ROLE oben).
+const GP_PAGE_MIN_ROLE = { charaktere:'user', planung:'user', referenz:'moderator' };
+function updateGpTabVisibility(){
+  ['charaktere','planung','referenz'].forEach(p=>{
+    if(GP_PAGE_MIN_ROLE[p]==='user') return;
+    const tab = document.getElementById('gptab-'+p);
+    if(tab) tab.style.display = hasRole(GP_PAGE_MIN_ROLE[p]) ? '' : 'none';
+  });
+  if(currentApp==='gruppenplaner' && GP_PAGE_MIN_ROLE[currentGpPage]!=='user' && !hasRole(GP_PAGE_MIN_ROLE[currentGpPage])){
+    showGpPage('charaktere');
+  }
+}
+
 function showPage(name){
   const openNow = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
   if(openNow === 'presets' && name !== 'presets' && presetsDirty){
@@ -5770,12 +5790,24 @@ let loginExpiredHint = false, guestRestoredHint = false;
 /* ================================================================
    APP-UMSCHALTER: Statrechner / Gruppenplaner / Insignienrechner
    ================================================================
-   Drei komplett unabhängige Werkzeuge in derselben Seite. Gruppenplaner und
-   Insignienrechner sind, solange sie sich in der Planungsphase befinden,
-   nur für Rolle >= GP_MIN_ROLE sichtbar (Server gated dieselbe Rolle bei
-   jedem /api/gp/*-Aufruf sowie beim Speichern der neuen Presets-Schlüssel -
-   das Verstecken hier ist zusätzlich, kein Ersatz für die Server-Prüfung). */
-const GP_MIN_ROLE = 'moderator';
+   Drei komplett unabhängige Werkzeuge in derselben Seite.
+   Seit v0.53.0 (Nutzerwunsch "Gruppenplaner für alle öffnen, Pläne
+   bearbeitbar nur für Moderatoren"): Gruppenplaner-APP selbst ist jetzt für
+   jeden eingeloggten Account sichtbar (GP_MIN_ROLE='user') - Bearbeiten von
+   Plänen und die Referenzlisten bleiben weiterhin Moderator+ (dafür sorgen
+   renderGpPlanBoard/renderGpPlanList/updateGpTabVisibility unten). Der
+   Insignienrechner ist unverändert komplett auf Moderator+ beschränkt
+   (Server gated dieselbe Rolle bei jedem entsprechenden Aufruf - das
+   Verstecken hier ist zusätzlich, kein Ersatz für die Server-Prüfung). */
+const GP_MIN_ROLE = 'user';
+/* Seit v0.54.0 (Nutzerwunsch): auch der Insignienrechner ist jetzt für alle da -
+   konsistent zur Gruppenplaner-Regelung heißt das "jeder eingeloggte Account"
+   (hasRole() liefert für Gäste ohne Login immer false, wie überall sonst bei
+   den beiden Zusatz-Tools). Nur das Schreiben der geteilten Standardpreise
+   (siehe "Preise speichern"-Button unten) bleibt Moderator+ (Server erzwingt
+   das bereits über requireRole('moderator') auf PUT /api/shared/presets -
+   unverändert, kein Server-Update nötig). */
+const INSIGNIEN_MIN_ROLE = 'user';
 // Titel + Untertitel je Bereich - wird bei jedem showApp() gesetzt, damit auf der
 // Gruppenplaner-/Insignienrechner-Seite nicht mehr der Statrechner-Erklärtext steht.
 const APP_INFO = {
@@ -5793,32 +5825,36 @@ const APP_INFO = {
     title: 'Gruppenplaner',
     titleKey: 'app.gruppenplaner',
     subtitle: `Verwalte eigene Charakter-Profile (Klasse, Rollen, Besitz-Checkliste für Artefakte/Mounts/Gefährten) und stelle Trial-/Dungeon-Gruppen zusammen - komplett getrennt von den Stats-Charakteren.<br>
-    Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
+    Eigene Charaktere und die Pläne ansehen kann jeder; Pläne bearbeiten und die Referenzlisten bleiben Moderatoren und höher vorbehalten.`,
     subtitleEn: `Manage your own character profiles (class, roles, an ownership checklist for artifacts/mounts/companions) and put together trial/dungeon groups - completely separate from your stat-calculator characters.<br>
-    Still in development, so for now it's only visible to moderators and above.`,
+    Anyone can manage their own characters and view the plans; editing plans and the reference lists remain limited to moderators and above.`,
   },
   insignien: {
     title: 'Insignienrechner',
     titleKey: 'app.insignien',
     subtitle: `Rechnet aus, wie viel Insignien-Pulver ein Upgrade von einer Start- auf eine Ziel-Qualität kostet, mit welcher Qualität sich dieses Pulver am günstigsten gewinnen lässt, und ob sich Hochstufen oder Direktkauf mehr lohnt.<br>
-    Befindet sich noch in der Planung und ist deshalb vorerst nur für Moderatoren und höher sichtbar.`,
+    Für alle nutzbar; die eingetragenen Preise als neuen Standard für alle speichern können Moderatoren und höher.`,
     subtitleEn: `Calculates how much insignia powder an upgrade from a starting to a target quality costs, which quality is cheapest to farm that powder from, and whether upgrading or buying directly is the better deal.<br>
-    Still in development, so for now it's only visible to moderators and above.`,
+    Usable by everyone; saving the entered prices as the new default for everyone requires moderator role or higher.`,
   },
 };
 function appSubtitle(info){ return (currentLang==='en' && info.subtitleEn) ? info.subtitleEn : info.subtitle; }
 function updateAppSwitcherVisibility(){
-  const show = hasRole(GP_MIN_ROLE);
+  const showGp = hasRole(GP_MIN_ROLE);
+  const showIns = hasRole(INSIGNIEN_MIN_ROLE);
   const sel = document.getElementById('appSelect');
   sel.innerHTML = `<option value="stats">${t('app.stats')}</option>` +
-    (show ? `<option value="gruppenplaner">${t('app.gruppenplaner')}</option><option value="insignien">${t('app.insignien')}</option>` : '');
+    (showGp ? `<option value="gruppenplaner">${t('app.gruppenplaner')}</option>` : '') +
+    (showIns ? `<option value="insignien">${t('app.insignien')}</option>` : '');
   // Falls die Rolle nach Ab-/Ummelden nicht mehr reicht, zurück zum Statrechner.
+  const show = currentApp==='gruppenplaner' ? showGp : (currentApp==='insignien' ? showIns : true);
   if(!show && currentApp !== 'stats') showApp('stats');
   else sel.value = currentApp;
 }
 function showApp(name){
-  if((name === 'gruppenplaner' || name === 'insignien') && !hasRole(GP_MIN_ROLE)){
-    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+GP_MIN_ROLE+'".';
+  const minRole = name==='gruppenplaner' ? GP_MIN_ROLE : (name==='insignien' ? INSIGNIEN_MIN_ROLE : null);
+  if(minRole && !hasRole(minRole)){
+    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+minRole+'".';
     document.getElementById('appSelect').value = currentApp;
     return;
   }
@@ -5917,7 +5953,7 @@ function renderInsignien(){
       <div class="ins-col-left">${linksHtml}</div>
       <div class="ins-col-right">${rechtsHtml}</div>
     </div>
-    <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">${t('btn.savepreise')}</button></div>
+    ${hasRole('moderator') ? `<div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="saveInsigniePreise()">${t('btn.savepreise')}</button></div>` : ''}
   </div>`;
 
   // Start/Ziel-Auswahl ändert die STRUKTUR (Fehlermeldung <-> Tabelle) -> volles Neu-Rendern ist hier ok.
@@ -6971,14 +7007,17 @@ async function gpSaveReferenzlisten(){
 function renderGpPlanList(){
   const el = document.getElementById('gpPlanList');
   if(gpPlans === null){ el.innerHTML = `<p class="helptext">${t('generic.loading')}</p>`; return; }
+  const canEdit = hasRole('moderator');
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
       <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(${t('gp.lastchanged')} ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
       <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">${t('btn.open')}</button>
-      <button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">${t('btn.rename')}</button>
+      ${canEdit ? `<button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">${t('btn.rename')}</button>
       <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">${t('btn.duplicate')}</button>
-      <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">${t('btn.delete')}</button>
+      <button type="button" class="action danger small" onclick="gpDeletePlan(gpPlans[${i}].name)">${t('btn.delete')}</button>` : ''}
     </div>`).join('') : `<p class="helptext">${t('gp.noplansyet')}</p>`;
   document.getElementById('gpPlanBoard').innerHTML = '';
+  const newPlanRow = document.getElementById('gpNewPlanRow');
+  if(newPlanRow) newPlanRow.style.display = canEdit ? '' : 'none';
 }
 async function gpCreatePlan(){
   const nameEl = document.getElementById('gpNewPlanName');
@@ -7194,6 +7233,11 @@ function gpRoleWarnings(g){
 function renderGpPlanBoard(){
   const el = document.getElementById('gpPlanBoard');
   if(!currentGpPlanName || !currentGpPlanData){ el.innerHTML = ''; return; }
+  // Bearbeiten (Zeilen zuweisen, Gruppen anlegen/entfernen, Plan speichern) bleibt
+  // Moderator+ vorbehalten (Server erzwingt das ohnehin bei jedem PUT/POST/DELETE
+  // auf /api/gp/plans/*) - alle anderen sehen automatisch die Nur-Ansicht, ohne
+  // Möglichkeit, in den Bearbeiten-Modus umzuschalten.
+  const canEdit = hasRole('moderator');
   // Rückwärtskompatibel: ältere Pläne kennen noch das boolesche Feld "trial"
   // statt "modus", und den alten Sonderwert charKey==="__frei__" statt eines
   // leeren charKey mit freierName - beim Anzeigen einmalig normalisieren.
@@ -7316,10 +7360,10 @@ function renderGpPlanBoard(){
   el.innerHTML = `${gpCharDatalistHtml}
     <div class="entry-head" style="margin-top:20px;">
       <h2 style="margin:0;">${escapeHtml(currentGpPlanName)}</h2>
-      <button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? t('btn.backtoedit') : t('btn.viewonly')}</button>
+      ${canEdit ? `<button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? t('btn.backtoedit') : t('btn.viewonly')}</button>` : `<span class="muted" style="margin-left:auto;font-size:0.8rem;">${t('gp.readonlyhint')}</span>`}
     </div>
-    ${gpPlanAnsichtModus ? gpPlanAnsichtHtml() : groupsHtml}
-    ${gpPlanAnsichtModus ? '' : `<div class="btnrow" style="margin:14px 0;">
+    ${(gpPlanAnsichtModus || !canEdit) ? gpPlanAnsichtHtml() : groupsHtml}
+    ${(gpPlanAnsichtModus || !canEdit) ? '' : `<div class="btnrow" style="margin:14px 0;">
       <button type="button" class="action" onclick="gpAddGroup()">${t('btn.newgroup')}</button>
       ${currentGpPlanData.groups.length > 1 ? `<button type="button" class="action gold" onclick="gpOptimizePlan()" title="${t('tt.applybestall')}">${t('btn.optimizeplan')}</button>` : ''}
       <button type="button" class="action gold" onclick="gpSaveCurrentPlan()">${t('btn.saveplan')}</button>

@@ -527,18 +527,22 @@ app.post('/api/transfers/:name/decline', authMiddleware, (req, res) => {
    Schreiben ist rollenabhängig: Presets ab Moderator, Formeln ab Coadmin. */
 /* ---------- Gruppenplaner ----------
    Bewusst komplett getrennt von den Stats-Charakteren: eigener Ordner, eigene
-   Whitelist, eigene Endpunkte unter /api/gp/*. Solange sich das Feature noch
-   in der Planungsphase befindet, ist es (wie der Insignienrechner) für alle
-   Endpunkte auf Rolle 'moderator' beschränkt - GP_MIN_ROLE ist bewusst eine
-   einzelne Konstante, damit das Freischalten für alle später ein Ein-Zeiler ist. */
-const GP_MIN_ROLE = 'moderator';
-const gpRoleGate = requireRole(GP_MIN_ROLE);
+   Whitelist, eigene Endpunkte unter /api/gp/*.
+   Seit v0.53.0 (Nutzerwunsch "meine Charaktere für alle öffnen, Pläne für
+   alle sichtbar aber nur für Moderatoren bearbeitbar"): zwei getrennte
+   Schranken statt der früheren einzelnen GP_MIN_ROLE.
+   - gpUserGate: Charaktere (komplett, sind eigene Kontodaten) + Pläne ANSEHEN
+     (Liste, einzelner Plan) - jeder eingeloggte Account.
+   - gpModGate: Pläne ANLEGEN/BEARBEITEN/LÖSCHEN/UMBENENNEN - weiterhin
+     Moderator+, damit nicht jeder an den gemeinsamen Aufstellungen rumpfuscht. */
+const gpUserGate = requireRole('user');
+const gpModGate = requireRole('moderator');
 
 // Eigene Gruppenplaner-Charaktere (Klasse/Rollen/Besitz-Checklisten) - EIN Konto
 // kann mehrere davon haben, genau wie bei den Stats-Charakteren, aber komplett
 // getrennt gespeichert. Für die Aufstellung braucht man die Charaktere ALLER
 // Benutzer (um sie in Slots zu ziehen), daher gibt es nur ein "alle anzeigen".
-app.get('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
+app.get('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const result = [];
   Object.keys(users).forEach(owner => {
@@ -550,7 +554,7 @@ app.get('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
   res.json(result);
 });
 
-app.post('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
+app.post('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
   const name = req.body && req.body.name && String(req.body.name).trim();
   if(!name) return res.status(400).json({ error: 'Name erforderlich' });
   const users = readJson(USERS_FILE, {});
@@ -566,7 +570,7 @@ app.post('/api/gp/characters', authMiddleware, gpRoleGate, (req, res) => {
 
 const GP_CHAR_ALLOWED_KEYS = ['klasse', 'handle', 'rollen', 'besitz', 'lieblingsartefakte'];
 const GP_CHAR_MAX_BYTES = 50000; // reine Checklisten - deutlich kleiner als Stats-Charaktere
-app.put('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
+app.put('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
   if(!user || !(user.gpCharacters || []).includes(req.params.name)){
@@ -581,7 +585,7 @@ app.put('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) => {
+app.delete('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
@@ -598,7 +602,7 @@ app.delete('/api/gp/characters/:name', authMiddleware, gpRoleGate, (req, res) =>
 // Gruppenplaner-Zuweisungen in ALLEN Plänen (nicht nur eigenen) werden
 // deshalb im selben Zug auf den neuen Key nachgezogen, sonst würde eine
 // bestehende Aufstellung den Charakter beim Umbenennen "verlieren".
-app.post('/api/gp/characters/:name/rename', authMiddleware, gpRoleGate, (req, res) => {
+app.post('/api/gp/characters/:name/rename', authMiddleware, gpUserGate, (req, res) => {
   const users = readJson(USERS_FILE, {});
   const user = users[req.username];
   if(!user || !(user.gpCharacters || []).includes(req.params.name)){
@@ -641,7 +645,7 @@ app.post('/api/gp/characters/:name/rename', authMiddleware, gpRoleGate, (req, re
 
 // Geteilte, benannte Aufstellungs-Pläne (z. B. "Trial Sonntag 20 Uhr"). Mehrere
 // Pläne gleichzeitig möglich; jeder Plan enthält beliebig viele Gruppen mit
-// DPS/Heiler/Tank-Slots. Bearbeiten ist Moderator-Sache (wie Presets).
+// DPS/Heiler/Tank-Slots. Ansehen: alle. Bearbeiten: Moderator+ (wie Presets).
 function readGpPlanList(){
   let files;
   try{ files = fs.readdirSync(GP_PLAN_DIR).filter(f => f.endsWith('.json')); }
@@ -653,7 +657,7 @@ function readGpPlanList(){
     return data.name || f.slice(0, -5);
   });
 }
-app.get('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
+app.get('/api/gp/plans', authMiddleware, gpUserGate, (req, res) => {
   const list = readGpPlanList().map(name => {
     let updatedAt = null;
     try{ updatedAt = fs.statSync(gpPlanFile(name)).mtime.toISOString(); }catch(e){ /* egal */ }
@@ -661,14 +665,14 @@ app.get('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
   });
   res.json(list);
 });
-app.post('/api/gp/plans', authMiddleware, gpRoleGate, (req, res) => {
+app.post('/api/gp/plans', authMiddleware, gpModGate, (req, res) => {
   const name = req.body && req.body.name && String(req.body.name).trim();
   if(!name) return res.status(400).json({ error: 'Name erforderlich' });
   if(fs.existsSync(gpPlanFile(name))) return res.status(409).json({ error: 'Diesen Plan gibt es schon' });
   writeJson(gpPlanFile(name), { name, groups: [], rev: 0 });
   res.status(201).json({ name });
 });
-app.get('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+app.get('/api/gp/plans/:name', authMiddleware, gpUserGate, (req, res) => {
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
   const data = readJson(gpPlanFile(req.params.name), { name: req.params.name, groups: [], rev: 0 });
   data.rev = data.rev || 0; // ältere Pläne von vor dem rev-Schutz hatten noch kein rev-Feld
@@ -679,7 +683,7 @@ const GP_PLAN_MAX_BYTES = 2000000; // ein Plan mit vielen Gruppen/Slots kann gr�
 // beim Laden bekommen hat, und hat inzwischen jemand anderes gespeichert, gibt es
 // einen 409 statt kommentarlosem Überschreiben ("letzter gewinnt") - mehrere
 // Moderatoren könnten sonst denselben Plan gleichzeitig bearbeiten.
-app.put('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+app.put('/api/gp/plans/:name', authMiddleware, gpModGate, (req, res) => {
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
   const current = readJson(gpPlanFile(req.params.name), { groups: [], rev: 0 });
   const currentRev = current.rev || 0;
@@ -694,11 +698,11 @@ app.put('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
   writeJson(gpPlanFile(req.params.name), clean);
   res.json({ ok: true, rev: clean.rev });
 });
-app.delete('/api/gp/plans/:name', authMiddleware, gpRoleGate, (req, res) => {
+app.delete('/api/gp/plans/:name', authMiddleware, gpModGate, (req, res) => {
   try{ fs.unlinkSync(gpPlanFile(req.params.name)); }catch(e){ /* gab's evtl. nicht */ }
   res.json({ ok: true });
 });
-app.post('/api/gp/plans/:name/rename', authMiddleware, gpRoleGate, (req, res) => {
+app.post('/api/gp/plans/:name/rename', authMiddleware, gpModGate, (req, res) => {
   const newName = req.body && req.body.newName && String(req.body.newName).trim();
   if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });

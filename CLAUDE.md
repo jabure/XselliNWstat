@@ -332,6 +332,62 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.54.0: Insignienrechner ebenfalls für alle geöffnet (Nutzerwunsch,
+  direkte Folge von v0.53.0).**
+  - `INSIGNIEN_MIN_ROLE` von `'moderator'` auf `'user'` gesetzt - konsistent
+    zur Gruppenplaner-Regelung heißt "für alle" hier "jeder eingeloggte
+    Account" (Gäste ohne Login sehen `hasRole()` weiterhin als `false`,
+    gleiches Verhalten wie überall sonst bei den beiden Zusatz-Tools).
+  - Einzige Ausnahme: der "Preise speichern (für alle)"-Button (schreibt die
+    geteilten Standardpreise über `PUT /api/shared/presets`) wird nur noch
+    bei Moderator+ angezeigt - der Server-Endpunkt war schon vorher darauf
+    beschränkt (`requireRole('moderator')`, unverändert), das war also
+    reine Client-Anpassung, kein Server-Update nötig. Der Rechner selbst
+    (Werte eintragen, Ergebnis sehen) bleibt für alle uneingeschränkt
+    nutzbar.
+  - Untertitel (DE+EN) entsprechend angepasst.
+  - Mit jsdom verifiziert (normaler `user`-Account): App-Dropdown zeigt jetzt
+    auch Insignienrechner, "Preise speichern"-Button fehlt, Rechner-Felder
+    sind vorhanden und nutzbar. 0 JS-Fehler. Alle 256 Smoke-Tests grün.
+- **Seit v0.53.0: Gruppenplaner-Zugriffsrechte neu geordnet (Nutzerwunsch
+  "Meine Charaktere für alle öffnen, Pläne sichtbar für alle aber nur
+  Moderatoren bearbeitbar"). Server-Kommentar hatte das bereits als
+  vorbereiteten nächsten Schritt angekündigt ("GP_MIN_ROLE ist bewusst eine
+  einzelne Konstante, damit das Freischalten für alle später ein Ein-Zeiler
+  ist") - wurde jetzt in zwei getrennte Schranken statt einer aufgelöst.**
+  - **Server (`server.js`)**: `GP_MIN_ROLE`/`gpRoleGate` durch zwei Gates
+    ersetzt: `gpUserGate` (Rolle `user` = jeder eingeloggte Account) für
+    alle `/api/gp/characters/*`-Endpunkte (komplett, sind eigene
+    Kontodaten) sowie `GET /api/gp/plans` und `GET /api/gp/plans/:name`
+    (Pläne ansehen). `gpModGate` (weiterhin `moderator`) für
+    `POST`/`PUT`/`DELETE`/`rename` auf `/api/gp/plans` (Pläne anlegen/
+    bearbeiten/löschen/umbenennen bleibt Moderator-Sache).
+  - **Client**: `GP_MIN_ROLE` auf `'user'` gesetzt (Gruppenplaner-App selbst
+    jetzt für alle sichtbar) - Insignienrechner bekam dafür eine eigene,
+    unveränderte `INSIGNIEN_MIN_ROLE='moderator'`-Konstante, damit er nicht
+    versehentlich mit freigeschaltet wird.
+  - Neue `GP_PAGE_MIN_ROLE`/`updateGpTabVisibility()`: "Referenzlisten"-Tab
+    bleibt Moderator+ vorbehalten (geteilte Konfigurationsdaten, kein
+    Nutzerinhalt), "Meine Charaktere"/"Planung" für alle - inkl. Redirect,
+    falls jemand ohne ausreichende Rolle gerade auf Referenzlisten war.
+  - **Board-Bearbeitung**: `renderGpPlanBoard()` erzwingt für Nicht-
+    Moderatoren jetzt immer die bereits vorhandene Nur-Lese-Darstellung
+    (`gpPlanAnsichtHtml()`, bisher nur der "Nur-Ansicht zum Teilen"-Toggle) -
+    kein Umschalt-Button, keine "+ Neue Gruppe"/"Optimieren"/"Speichern"-
+    Buttons, stattdessen ein "Nur-Ansicht"-Hinweis. Bewusst über den
+    bestehenden, bereits getesteten Read-Only-Renderer gelöst statt einzelne
+    Steuerelemente in der riesigen editierbaren Darstellung zu deaktivieren.
+  - **Plan-Liste**: Umbenennen/Duplizieren/Löschen-Buttons sowie die
+    "+ Neuer Plan"-Zeile nur noch für Moderator+, "Öffnen" bleibt für alle.
+  - Gruppenplaner-Untertitel (DE+EN) an das neue Modell angepasst.
+  - **Umfassend getestet** (Server-API direkt + jsdom-Frontend, als
+    einfacher `user`-Account): eigenen GP-Charakter anlegen → 201, Pläne
+    ansehen → 200, Plan bearbeiten (PUT) → 403, neuen Plan anlegen (POST) →
+    403; App-Dropdown zeigt Gruppenplaner aber nicht Insignienrechner;
+    Referenzlisten-Tab versteckt; "+ Neuer Plan"/Umbenennen-Buttons
+    versteckt; Board zeigt Nur-Ansicht ohne Bearbeiten-Steuerelemente. 0 JS-
+    Fehler. Alle 256 Smoke-Tests grün (zweimal gegengeprüft, bestehende
+    Moderator-Tests weiterhin unverändert grün).
 - **Seit v0.52.0: "Kampfverzauberung"-Ausrüstungsslot in "Schlagverzauberung"
   (Strike) und "Blockverzauberung" (Guard) aufgeteilt (Nutzerwunsch).**
   - `EQUIPMENT_SLOTS`: ein Eintrag wurde zu zwei (`Schlagverzauberung`,
