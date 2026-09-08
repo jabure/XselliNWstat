@@ -332,6 +332,26 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.52.0: "Kampfverzauberung"-Ausrüstungsslot in "Schlagverzauberung"
+  (Strike) und "Blockverzauberung" (Guard) aufgeteilt (Nutzerwunsch).**
+  - `EQUIPMENT_SLOTS`: ein Eintrag wurde zu zwei (`Schlagverzauberung`,
+    `Blockverzauberung`), mit eigenen Übersetzungsschlüsseln (Strike
+    Enchantment / Guard Enchantment - offizielle Neverwinter-Begriffe).
+  - **Datenmigration, damit niemand vorhandene Werte verliert**: an allen 3
+    Stellen, die schon die frühere "Verstärkung"→"Kampfverzauberung"-
+    Migration hatten, jetzt zusätzlich "Kampfverzauberung"→
+    "Schlagverzauberung" ergänzt (alter Einzelwert geht in Schlagverzauberung,
+    da sie die für jede Klasse übliche/universelle Verzauberung ist -
+    Blockverzauberung ist die seltenere Nebenhand-Verzauberung für Tank-
+    Builds mit Schild). Wichtig zu wissen: `computeAllForData()` summiert
+    nur über `ALL_SOURCES` (abgeleitet aus `EQUIPMENT_SLOTS`) - ohne diese
+    Migration wären bestehende "Kampfverzauberung"-Werte beim nächsten Laden
+    stillschweigend aus der Berechnung herausgefallen.
+  - Mit jsdom end-to-end verifiziert (Charakter mit altem Wert unter
+    "Kampfverzauberung" angelegt, geladen, geprüft dass er jetzt unter
+    "Schlagverzauberung"/"Strike Enchantment" korrekt angezeigt UND weiter
+    mitgerechnet wird), 0 JS-Fehler. Alle 256 Smoke-Tests grün (zweimal
+    gegengeprüft).
 - **Seit v0.51.0: Gruppenplaner-Referenzlisten sortieren sich beim Anzeigen
   automatisch absteigend nach ihrem Dmg-Buff-Feld (Nutzerwunsch, siehe
   Screenshot der Mounts-Liste - "Star Angler" mit 8,29 % stand am Ende statt

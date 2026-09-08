@@ -710,11 +710,11 @@
 
 <script>
 /* ---------- Datenmodell ---------- */
-const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Kampfverzauberung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
+const EQUIPMENT_SLOTS = ['Kopf','Rüstung','Arme','Waffen','Fuß','Hals-Hüfte Set','Ring 1','Ring 2','Hemd','Hose','Schlagverzauberung','Blockverzauberung','Gefährten Bonus (Lila)','Segen','Sonstige / Benutzerdefiniert'];
 const EQUIPMENT_SLOT_KEY = {
   'Kopf':'slot.kopf', 'Rüstung':'slot.ruestung', 'Arme':'slot.arme', 'Waffen':'slot.waffen', 'Fuß':'slot.fuss',
   'Hals-Hüfte Set':'slot.halshuefte', 'Ring 1':'slot.ring1', 'Ring 2':'slot.ring2', 'Hemd':'slot.hemd', 'Hose':'slot.hose',
-  'Kampfverzauberung':'slot.kampfverzauberung', 'Gefährten Bonus (Lila)':'slot.gefaehrtenbonuslila', 'Segen':'slot.segen',
+  'Schlagverzauberung':'slot.schlagverzauberung', 'Blockverzauberung':'slot.blockverzauberung', 'Gefährten Bonus (Lila)':'slot.gefaehrtenbonuslila', 'Segen':'slot.segen',
   'Sonstige / Benutzerdefiniert':'slot.sonstiges',
 };
 // Anzeigename für einen Quellen-Slot (Ausrüstungsteil, oder generierter "Gefährte N"/
@@ -1122,7 +1122,8 @@ const TRANSLATIONS = {
     'slot.ring2': 'Ring 2',
     'slot.hemd': 'Hemd',
     'slot.hose': 'Hose',
-    'slot.kampfverzauberung': 'Kampfverzauberung',
+    'slot.schlagverzauberung': 'Schlagverzauberung',
+    'slot.blockverzauberung': 'Blockverzauberung',
     'slot.gefaehrtenbonuslila': 'Gefährten Bonus (Lila)',
     'slot.segen': 'Segen',
     'slot.sonstiges': 'Sonstige / Benutzerdefiniert',
@@ -1503,7 +1504,8 @@ const TRANSLATIONS = {
     'slot.ring2': 'Ring 2',
     'slot.hemd': 'Shirt',
     'slot.hose': 'Pants',
-    'slot.kampfverzauberung': 'Weapon Enchantment',
+    'slot.schlagverzauberung': 'Strike Enchantment',
+    'slot.blockverzauberung': 'Guard Enchantment',
     'slot.gefaehrtenbonuslila': 'Companion Bonus (Purple)',
     'slot.segen': 'Blessing',
     'slot.sonstiges': 'Other / Custom',
@@ -1889,6 +1891,14 @@ function applyCharDataBundle(bundle){
   if(sourceInputs['Verstärkung'] && !sourceInputs['Kampfverzauberung']){
     sourceInputs['Kampfverzauberung'] = sourceInputs['Verstärkung'];
     delete sourceInputs['Verstärkung'];
+  }
+  // Migration: "Kampfverzauberung" wurde in "Schlagverzauberung" (Strike) und
+  // "Blockverzauberung" (Guard) aufgeteilt - alter Wert geht in Schlagverzauberung,
+  // da sie die für jede Klasse übliche/universelle Verzauberung ist (Blockverzauberung
+  // ist die seltenere zusätzliche Nebenhand-Verzauberung).
+  if(sourceInputs['Kampfverzauberung'] && !sourceInputs['Schlagverzauberung']){
+    sourceInputs['Schlagverzauberung'] = sourceInputs['Kampfverzauberung'];
+    delete sourceInputs['Kampfverzauberung'];
   }
   slotSelections = bundle.slotSelections || {};
   raptorCount = bundle.raptorCount || 0;
@@ -3747,10 +3757,14 @@ function setVergleichAuswahl(which, name){
   if(name && name !== '__current__' && !vergleichBundles[name]){
     apiGetCharacter(name).then(res=>{
       const data = res.data || {};
-      // Gleiche Migration wie beim normalen Laden: alte "Verstärkung"-Werte übernehmen.
+      // Gleiche Migration wie beim normalen Laden: alte "Verstärkung"-/"Kampfverzauberung"-Werte übernehmen.
       if(data.sourceInputs && data.sourceInputs['Verstärkung'] && !data.sourceInputs['Kampfverzauberung']){
         data.sourceInputs['Kampfverzauberung'] = data.sourceInputs['Verstärkung'];
         delete data.sourceInputs['Verstärkung'];
+      }
+      if(data.sourceInputs && data.sourceInputs['Kampfverzauberung'] && !data.sourceInputs['Schlagverzauberung']){
+        data.sourceInputs['Schlagverzauberung'] = data.sourceInputs['Kampfverzauberung'];
+        delete data.sourceInputs['Kampfverzauberung'];
       }
       vergleichBundles[name] = data;
       renderUebersicht();
@@ -3869,6 +3883,10 @@ async function loadAlleChars(){
       if(data.sourceInputs && data.sourceInputs['Verstärkung'] && !data.sourceInputs['Kampfverzauberung']){
         data.sourceInputs['Kampfverzauberung'] = data.sourceInputs['Verstärkung'];
         delete data.sourceInputs['Verstärkung'];
+      }
+      if(data.sourceInputs && data.sourceInputs['Kampfverzauberung'] && !data.sourceInputs['Schlagverzauberung']){
+        data.sourceInputs['Schlagverzauberung'] = data.sourceInputs['Kampfverzauberung'];
+        delete data.sourceInputs['Kampfverzauberung'];
       }
       result.push({ name: c.name, updatedAt: c.updatedAt || null, bundle: data });
     }
