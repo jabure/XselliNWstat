@@ -26,7 +26,28 @@
     --edit-border:#2f5b4c;
     --border-subtle:#23262f;
     --violet:#8a7ec9;
-    --radius:10px;
+    /* Radius-Skala (ersetzt die bisherige einzelne --radius) - klein für Inputs/
+       Buttons/Badges, mittel für die meisten Karten/Zeilen, groß für .card/Panels,
+       extra-groß für Modals. */
+    --radius-sm:4px;
+    --radius-md:8px;
+    --radius-lg:10px;
+    --radius-xl:20px;
+    --radius:var(--radius-lg); /* Alias für Altbestand, falls irgendwo noch direkt referenziert */
+    /* Typo-Skala - ersetzt die über die Zeit gewachsenen ~20 krummen font-size-Werte
+       durch 7 feste Stufen. Deckt vom kleinsten Meta-Text (2xs) bis zur Haupt-
+       überschrift (2xl) alles ab. */
+    --text-2xs:0.7rem;
+    --text-xs:0.75rem;
+    --text-sm:0.8rem;
+    --text-base:0.85rem;
+    --text-md:0.92rem;
+    --text-lg:1.05rem;
+    --text-2xl:1.7rem;
+    /* Dritte Text-Ebene zwischen --text (primär) und --text-dim (gedämpft) - für
+       Dinge wie Tabellen-Spaltenköpfe, die mehr Präsenz verdienen als reiner
+       Meta-Text, aber nicht so viel wie Inhalt. */
+    --text-secondary:#c8c5bc;
   }
   *{box-sizing:border-box;}
   body{
@@ -37,26 +58,26 @@
   }
   .wrap{max-width:none; margin:0;}
   h1{
-    font-size:1.7rem; margin:0 0 2px 0; font-weight:700;
+    font-size:var(--text-2xl); margin:0 0 2px 0; font-weight:700; text-wrap:balance;
     background:linear-gradient(90deg,var(--gold),#e8c878);
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  .subtitle{color:var(--text-dim); margin:0 0 4px 0; font-size:0.95rem;}
-  .version-tag{color:var(--text-dim); margin:0 0 24px 0; font-size:0.72rem; opacity:0.7;}
+  .subtitle{color:var(--text-dim); margin:0 0 4px 0; font-size:var(--text-md); text-wrap:pretty;}
+  .version-tag{color:var(--text-dim); margin:0 0 24px 0; font-size:var(--text-xs); opacity:0.7;}
   .card{
     background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
     padding:18px 20px; margin-bottom:18px;
   }
   .card h2{
-    margin:0 0 14px 0; font-size:1.05rem; font-weight:700; color:var(--text);
+    margin:0 0 14px 0; font-size:var(--text-lg); font-weight:700; color:var(--text);
     display:flex; align-items:center; gap:8px;
   }
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none;}
   .grunddaten-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;}
-  label{display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:4px;}
+  label{display:block; font-size:var(--text-sm); color:var(--text-dim); margin-bottom:4px;}
   input[type=number], input[type=text], input[type=password], select, textarea{
     width:100%; background:var(--edit-bg); border:1px solid var(--edit-border); border-left:3px solid var(--edit); color:var(--text);
-    border-radius:6px; padding:8px 10px; font-size:0.92rem; font-family:inherit;
+    border-radius:var(--radius-md); padding:8px 10px; font-size:var(--text-md); font-family:inherit;
     font-variant-numeric:tabular-nums;
   }
   select{border-left:3px solid var(--edit);}
@@ -80,18 +101,18 @@
   input::placeholder{color:#6b6f7a; opacity:1;}
   input::-webkit-input-placeholder{color:#6b6f7a; opacity:1;}
   input:focus, select:focus, textarea:focus{outline:2px solid var(--gold); outline-offset:1px;}
-  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:0.8rem; color:var(--text-dim);}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:2px 0 14px 0; font-size:var(--text-sm); color:var(--text-dim);}
   .legend-item{display:flex; align-items:center; gap:7px;}
-  .legend-swatch{width:14px; height:14px; border-radius:3px; flex:none;}
+  .legend-swatch{width:14px; height:14px; border-radius:var(--radius-sm); flex:none;}
   .legend-swatch.editable{background:var(--edit-bg); border:1px solid var(--edit-border); border-left:3px solid var(--edit);}
   .legend-swatch.computed{background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft);}
   .rings{display:flex; gap:24px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
   .ring-box{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px;}
-  .ring-label{font-size:0.8rem; color:var(--text-dim);}
-  .ring-val{font-size:1.1rem; font-weight:700;}
-  table{width:100%; border-collapse:collapse; font-size:0.88rem;}
+  .ring-label{font-size:var(--text-sm); color:var(--text-dim);}
+  .ring-val{font-size:var(--text-lg); font-weight:700;}
+  table{width:100%; border-collapse:collapse; font-size:var(--text-base); font-variant-numeric:tabular-nums;}
   th{
-    text-align:left; color:var(--text-dim); font-weight:600; font-size:0.76rem;
+    text-align:left; color:var(--text-secondary); font-weight:600; font-size:var(--text-sm);
     text-transform:uppercase; letter-spacing:0.04em; padding:6px 8px; border-bottom:1px solid var(--border);
   }
   td{padding:6px 8px; border-bottom:1px solid var(--border-subtle); vertical-align:middle;}
@@ -105,9 +126,9 @@
   .pct-wrap input{padding-right:20px;}
   .pct-suffix{
     position:absolute; right:8px; top:50%; transform:translateY(-50%);
-    color:var(--text-dim); font-size:0.82rem; pointer-events:none;
+    color:var(--text-dim); font-size:var(--text-base); pointer-events:none;
   }
-  .computed{color:var(--gold); font-weight:700; font-variant-numeric:tabular-nums; background:rgba(200,149,46,0.10); border-radius:4px; padding:4px 6px; display:inline-block;}
+  .computed{color:var(--gold); font-weight:700; font-variant-numeric:tabular-nums; background:rgba(200,149,46,0.10); border-radius:var(--radius-sm); padding:4px 6px; display:inline-block;}
   .computed-stack{display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; align-items:center;}
   .delta-pos{color:var(--sup); font-weight:600;}
   .delta-neg{color:var(--off); font-weight:600;}
@@ -115,7 +136,7 @@
   .delta-toolittle{color:var(--gold); font-weight:700;}
   .delta-toomuch{color:var(--off); font-weight:600;}
   .toggle-active-btn{
-    padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; cursor:pointer;
+    padding:2px 10px; border-radius:var(--radius-lg); font-size:var(--text-xs); font-weight:700; cursor:pointer;
     border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
   }
   .toggle-active-btn.on{color:#fff; background:var(--sup); border-color:var(--sup);}
@@ -123,10 +144,10 @@
   .chart-line{transition:stroke-width .15s ease, opacity .15s ease;}
   .chart-hit{cursor:pointer;}
   .muted{color:var(--text-dim);}
-  .accordion{border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;}
+  .accordion{border:1px solid var(--border); border-radius:var(--radius-md); margin-bottom:8px; overflow:hidden;}
   .accordion > button{
     width:100%; text-align:left; background:var(--panel-2); border:none; color:var(--text);
-    padding:12px 14px; font-size:0.92rem; font-weight:600; cursor:pointer;
+    padding:12px 14px; font-size:var(--text-md); font-weight:600; cursor:pointer;
     display:flex; justify-content:space-between; align-items:center;
   }
   .accordion > button:hover{background:#2a2e3a;}
@@ -137,7 +158,7 @@
   .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;}
   button.action{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    padding:9px 16px; border-radius:6px; cursor:pointer; font-size:0.88rem; font-weight:600;
+    padding:9px 16px; border-radius:var(--radius-md); cursor:pointer; font-size:var(--text-base); font-weight:600;
     touch-action:manipulation;
   }
   button.action:hover{border-color:var(--gold);}
@@ -147,32 +168,32 @@
   button.gold:hover{background:#e0aa3d;}
   .formula-row{margin-bottom:14px;}
   .formula-row label{color:var(--text);}
-  .formula-row textarea{min-height:44px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.85rem;}
-  .varlist{font-size:0.78rem; color:var(--text-dim); margin-top:4px;}
-  .toggle-admin{font-size:0.82rem; color:var(--gold); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0;}
-  .notice{background:#2a2418; border:1px solid var(--gold-soft); color:#e8c878; padding:10px 12px; border-radius:6px; font-size:0.85rem; margin-bottom:14px;}
+  .formula-row textarea{min-height:44px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:var(--text-base);}
+  .varlist{font-size:var(--text-sm); color:var(--text-dim); margin-top:4px;}
+  .toggle-admin{font-size:var(--text-base); color:var(--gold); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0;}
+  .notice{background:#2a2418; border:1px solid var(--gold-soft); color:#e8c878; padding:10px 12px; border-radius:var(--radius-md); font-size:var(--text-base); margin-bottom:14px;}
   .maxpr-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:16px;}
   .maxpr-item label{margin-bottom:2px;}
   .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:50;}
   #modalBg{z-index:60;}
   .modal-bg.show{display:flex;}
-  .modal{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:360px;}
+  .modal{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; max-width:360px;}
   .modal p{margin:0 0 16px 0;}
   .modal .btnrow{margin-top:0;}
   .save-status{
     position:fixed; right:16px; bottom:16px; z-index:100; display:none;
     background:var(--panel-2); border:1px solid var(--gold-soft); color:var(--text);
-    padding:10px 14px; border-radius:8px; font-size:0.85rem; line-height:1.4;
+    padding:10px 14px; border-radius:var(--radius-md); font-size:var(--text-base); line-height:1.4;
     box-shadow:0 6px 20px rgba(0,0,0,.45); max-width:min(440px, calc(100vw - 32px));
   }
   .save-status.show{display:block;}
   .group-tabs{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
   .group-tab{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
-    padding:7px 14px; border-radius:20px; cursor:pointer; font-size:0.85rem; font-weight:600;
+    padding:7px 14px; border-radius:var(--radius-xl); cursor:pointer; font-size:var(--text-base); font-weight:600;
   }
   .group-tab.active{color:#fff; border-color:transparent;}
-  .helptext{font-size:0.8rem; color:var(--text-dim); margin:-6px 0 14px 0;}
+  .helptext{font-size:var(--text-sm); color:var(--text-dim); margin:-6px 0 14px 0; text-wrap:pretty;}
   .wide-table-scroll{overflow-x:auto; padding-bottom:4px;}
   table.wide-table{width:max-content; min-width:100%;}
   table.wide-table th, table.wide-table td{white-space:nowrap;}
@@ -187,12 +208,12 @@
   }
   table.wide-table thead tr:first-child th{
     text-align:center; border-bottom:2px solid var(--gold-soft); color:var(--gold);
-    font-size:0.85rem; font-weight:700; text-transform:none; letter-spacing:0;
+    font-size:var(--text-base); font-weight:700; text-transform:none; letter-spacing:0;
     background:rgba(200,149,46,0.10); padding:8px 8px;
   }
   table.wide-table .slot-sep{border-left:2px solid var(--gold-soft);}
   .subgroup-header td{
-    background:var(--panel-2); cursor:pointer; font-weight:700; font-size:0.85rem;
+    background:var(--panel-2); cursor:pointer; font-weight:700; font-size:var(--text-base);
     padding:8px 10px; border-bottom:1px solid var(--border);
   }
   .subgroup-header .chevron{display:inline-block; margin-right:6px; transition:transform .15s ease;}
@@ -200,23 +221,23 @@
   .stat-subgroup .subgroup-row{display:none;}
   .stat-subgroup.open .subgroup-row{display:table-row;}
   .klassentyp-badge{
-    display:inline-block; padding:8px 12px; border-radius:6px; font-weight:700; font-size:0.92rem;
+    display:inline-block; padding:8px 12px; border-radius:var(--radius-md); font-weight:700; font-size:var(--text-md);
     background:var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--gold); color:var(--gold);
   }
   .slot-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px;}
-  .slot-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
+  .slot-card{background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-md); padding:10px 12px;}
   .slot-card label{color:var(--text); font-weight:600; margin-bottom:6px;}
-  .slot-summary{margin-top:8px; font-size:0.78rem; display:block; padding:6px 8px;}
+  .slot-summary{margin-top:8px; font-size:var(--text-sm); display:block; padding:6px 8px;}
   .page-nav{display:flex; gap:8px; margin-bottom:16px;}
   .page-tab{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
-    padding:9px 18px; border-radius:8px 8px 0 0; cursor:pointer; font-size:0.92rem; font-weight:700;
+    padding:9px 18px; border-radius:var(--radius-md) 8px 0 0; cursor:pointer; font-size:var(--text-md); font-weight:700;
   }
   .page-tab.active{color:var(--gold); border-color:var(--gold-soft); background:var(--panel);}
-  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex:none;}
+  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; flex:none;}
   .lang-btn{
     background:var(--panel-2); border:none; color:var(--text-dim); cursor:pointer;
-    padding:7px 12px; font-size:0.78rem; font-weight:700; touch-action:manipulation;
+    padding:7px 12px; font-size:var(--text-sm); font-weight:700; touch-action:manipulation;
   }
   .lang-btn.active{color:#1a1300; background:var(--gold);}
   .lang-btn:not(.active):hover{color:var(--text);}
@@ -225,7 +246,7 @@
      bei vielen Bereichen kompakt bleibt. */
   .app-select{
     background:var(--panel); border:1px solid var(--gold-soft); color:var(--gold);
-    padding:10px 16px; border-radius:10px; cursor:pointer; font-size:1rem; font-weight:700;
+    padding:10px 16px; border-radius:var(--radius-lg); cursor:pointer; font-size:var(--text-lg); font-weight:700;
     appearance:none; -webkit-appearance:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23c8952e'%3E%3Cpath d='M5.5 7.5l4.5 4.5 4.5-4.5z'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 12px center; padding-right:36px;
@@ -238,44 +259,44 @@
   .app-select:focus-visible{outline:2px solid var(--gold); outline-offset:1px;}
   /* Oberste Zeile: App-Auswahl links, Konto-Button rechts */
   .top-bar{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
-  .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
+  .entry-card{background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px; margin-bottom:10px;}
   .entry-head{display:flex; gap:8px; margin-bottom:10px; align-items:center;}
   .entry-head .entry-name{flex:1; font-weight:700;}
   .entry-head .entry-name-en{flex:1; color:var(--text-dim); font-style:italic;}
-  button.action.small{padding:5px 10px; font-size:0.78rem;}
-  button.action.danger.small{padding:5px 8px; font-size:0.78rem;}
+  button.action.small{padding:5px 10px; font-size:var(--text-sm);}
+  button.action.danger.small{padding:5px 8px; font-size:var(--text-sm);}
   .stat-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
   .stat-row select{max-width:220px;}
   .stat-row .num-in{width:100px; flex:none;}
   .slot-check-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);}
-  .slot-check{font-size:0.8rem; color:var(--text-dim); display:flex; align-items:center; gap:5px;}
+  .slot-check{font-size:var(--text-sm); color:var(--text-dim); display:flex; align-items:center; gap:5px;}
   .slot-check input{width:auto; border:none; padding:0;}
-  .preset-card{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;}
+  .preset-card{background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px; margin-bottom:10px;}
   .preset-slot{display:flex; flex-direction:column;}
-  .preset-slot label{font-size:0.72rem; margin-bottom:3px;}
+  .preset-slot label{font-size:var(--text-xs); margin-bottom:3px;}
   .user-toggle{
     flex:1; text-align:left; background:none; border:none; color:var(--text); cursor:pointer;
-    font-size:0.92rem; padding:0; display:flex; align-items:center; gap:4px;
+    font-size:var(--text-md); padding:0; display:flex; align-items:center; gap:4px;
   }
   .user-toggle .chevron{display:inline-block; transition:transform .15s ease;}
-  .user-chars{padding:8px 10px 4px 30px; font-size:0.85rem;}
+  .user-chars{padding:8px 10px 4px 30px; font-size:var(--text-base);}
   .user-char-item{padding:5px 0; color:var(--text-dim); border-bottom:1px solid var(--border-subtle); display:flex; gap:8px; align-items:center;}
   .user-char-item:last-child{border-bottom:none;}
   .cat-badges{display:inline-flex; gap:6px; flex-wrap:wrap;}
   .account-bar{display:flex; justify-content:flex-end; margin-bottom:6px;}
   .account-btn{
     background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    padding:7px 14px; border-radius:20px; cursor:pointer; font-size:0.85rem; font-weight:600; width:auto;
+    padding:7px 14px; border-radius:var(--radius-xl); cursor:pointer; font-size:var(--text-base); font-weight:600; width:auto;
   }
   .account-btn:hover{border-color:var(--gold);}
   .char-list{display:flex; flex-direction:column; gap:8px; margin:12px 0;}
-  .char-item{display:flex; gap:8px; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px;}
+  .char-item{display:flex; gap:8px; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-md); padding:8px 10px;}
   .char-item .action{text-align:left;}
   .char-item .action.small{flex:none;}
   .char-select{flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:8px 12px;}
   .char-select .char-name{font-weight:700;}
-  .char-select .char-info{font-size:0.74rem; opacity:0.75; font-weight:400;}
-  #accountModalBody h3{margin:0 0 10px 0; font-size:1rem;}
+  .char-select .char-info{font-size:var(--text-xs); opacity:0.75; font-weight:400;}
+  #accountModalBody h3{margin:0 0 10px 0; font-size:var(--text-lg);}
   #accountModalBody label{margin-top:10px;}
   .login-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .login-grid label{margin-top:0;}
@@ -286,15 +307,15 @@
     .rechner-grid{grid-template-columns:1fr;}
   }
   .cat-badge{
-    font-size:0.75rem; font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
-    border:1px solid var(--gold-soft); border-radius:12px; padding:2px 10px; margin-left:0;
+    font-size:var(--text-xs); font-weight:600; color:var(--gold); background:rgba(200,149,46,0.14);
+    border:1px solid var(--gold-soft); border-radius:var(--radius-lg); padding:2px 10px; margin-left:0;
   }
   /* Charakter-Vergleich: Balken für den direkten optischen Vergleich */
   .vgl-bar-row{display:flex; align-items:center; gap:10px; margin:3px 0;}
-  .vgl-bar-name{flex:0 0 150px; font-size:0.82rem; color:var(--text-dim); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .vgl-bar-track{flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:4px; height:16px; overflow:hidden;}
-  .vgl-bar{height:100%; border-radius:3px 0 0 3px;}
-  .vgl-bar-val{flex:0 0 auto; font-size:0.85rem; font-variant-numeric:tabular-nums; font-weight:600; min-width:80px;}
+  .vgl-bar-name{flex:0 0 150px; font-size:var(--text-base); color:var(--text-dim); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vgl-bar-track{flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-sm); height:16px; overflow:hidden;}
+  .vgl-bar{height:100%; border-radius:var(--radius-sm) 0 0 3px;}
+  .vgl-bar-val{flex:0 0 auto; font-size:var(--text-base); font-variant-numeric:tabular-nums; font-weight:600; min-width:80px;}
   @media (max-width:700px){ .vgl-bar-name{flex-basis:90px;} }
   /* Charakter-Übersicht (alle eigenen Charaktere nebeneinander) */
   .ovw-scroll{overflow-x:auto; padding-bottom:4px;}
@@ -303,17 +324,17 @@
   table.ovw thead th:first-child, table.ovw tbody td:first-child{
     position:sticky; left:0; background:var(--panel); z-index:2; box-shadow:2px 0 4px rgba(0,0,0,0.35);
   }
-  .typ-badge{display:inline-block; font-size:0.7rem; font-weight:700; border-radius:10px; padding:1px 8px; margin-left:6px;}
+  .typ-badge{display:inline-block; font-size:var(--text-2xs); font-weight:700; border-radius:var(--radius-lg); padding:1px 8px; margin-left:6px;}
   .typ-dps{background:rgba(201,96,63,0.18); color:var(--off); border:1px solid var(--off);}
   .typ-tank{background:rgba(63,127,166,0.18); color:var(--def); border:1px solid var(--def);}
   .typ-heal{background:rgba(74,155,110,0.18); color:var(--sup); border:1px solid var(--sup);}
   /* Gruppenplaner-Board: Rolle ist ein <select> (nachträglich änderbar), farblich
      passend zu den bisherigen typ-badge-Farben eingefärbt. */
-  .typ-select{font-weight:700; font-size:0.85rem; border-radius:10px; padding:2px 6px;}
+  .typ-select{font-weight:700; font-size:var(--text-base); border-radius:var(--radius-lg); padding:2px 6px;}
   .typ-select-dps{background:rgba(201,96,63,0.18); color:var(--off); border:1px solid var(--off);}
   .typ-select-tank{background:rgba(63,127,166,0.18); color:var(--def); border:1px solid var(--def);}
   .typ-select-heal{background:rgba(74,155,110,0.18); color:var(--sup); border:1px solid var(--sup);}
-  .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:4px; padding:2px 5px;}
+  .ovw .best{outline:1px solid var(--gold-soft); background:rgba(200,149,46,0.10); border-radius:var(--radius-sm); padding:2px 5px;}
   /* Insignienrechner: günstigste Pulver-Quelle hervorheben */
   tr.best-row td{background:rgba(200,149,46,0.10); box-shadow:inset 3px 0 0 var(--gold);}
   /* Insignienrechner: kompakte Kennzahlen-Kacheln statt einer über die volle Breite
@@ -321,11 +342,11 @@
      Zeile für riesige Lücken zwischen Label und Wert - siehe Bugmeldung). */
   .ins-stat-row{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
   .ins-stat{
-    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-md);
     padding:8px 12px; flex:1 1 150px; min-width:150px;
   }
-  .ins-stat .lbl{display:block; font-size:0.74rem; color:var(--text-dim); margin-bottom:2px;}
-  .ins-stat .val{display:block; font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums;}
+  .ins-stat .lbl{display:block; font-size:var(--text-xs); color:var(--text-dim); margin-bottom:2px;}
+  .ins-stat .val{display:block; font-size:var(--text-lg); font-weight:700; font-variant-numeric:tabular-nums;}
   .ins-table-narrow{max-width:640px;}
   /* Zweispaltiges Layout: links Kennzahlen-Kacheln, rechts Vergleichstabelle+Fazit -
      spart Höhe gegenüber dem vorherigen gestapelten Aufbau. Bricht auf schmalen
@@ -335,45 +356,45 @@
   /* Gruppenplaner-Referenzlisten: kompakte Tabelle statt einer Karte pro Eintrag
      (Nutzerwunsch "platzsparender") - eine Zeile pro Eintrag, inkl. optionalem
      Icon (Bild-URL) links. */
-  .gpref-table{width:100%; border-collapse:collapse; font-size:0.85rem;}
-  .gpref-table th{text-align:left; font-size:0.72rem; color:var(--text-dim); font-weight:600; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .gpref-table{width:100%; border-collapse:collapse; font-size:var(--text-base);}
+  .gpref-table th{text-align:left; font-size:var(--text-xs); color:var(--text-dim); font-weight:600; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap;}
   .gpref-table td{padding:3px 6px; vertical-align:middle;}
   .gpref-table tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
-  .gpref-table input[type="text"]{padding:5px 7px; font-size:0.83rem;}
+  .gpref-table input[type="text"]{padding:5px 7px; font-size:var(--text-base);}
   .gpref-icon-cell{display:flex; align-items:center; gap:4px;}
-  .gpref-icon-preview{width:22px; height:22px; border-radius:5px; object-fit:cover; background:var(--panel-2); border:1px solid var(--border); flex:none;}
+  .gpref-icon-preview{width:22px; height:22px; border-radius:var(--radius-md); object-fit:cover; background:var(--panel-2); border:1px solid var(--border); flex:none;}
   .gpref-icon-preview.empty{opacity:0.3;}
   .gpref-icon-cell input[type="file"]{
-    width:98px; flex:none; padding:2px; font-size:0.68rem; border:none; background:none;
+    width:98px; flex:none; padding:2px; font-size:var(--text-2xs); border:none; background:none;
   }
   .gpref-icon-cell input[type="file"]::file-selector-button{
-    font-size:0.68rem; padding:3px 6px; border-radius:5px; border:1px solid var(--border);
+    font-size:var(--text-2xs); padding:3px 6px; border-radius:var(--radius-md); border:1px solid var(--border);
     background:var(--panel-2); color:var(--text); cursor:pointer;
   }
   .gpref-icon-cell button.action.small{padding:3px 6px; flex:none;}
   /* Besitz-Checkliste im Charakter-Editor: kompaktes Chip-Grid statt einer
      Checkbox-Zeile pro Eintrag - zeigt außerdem das Icon aus der Referenzliste. */
   .besitz-grid{display:flex; flex-wrap:wrap; gap:6px; padding:8px 2px;}
-  .besitz-chip{display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border); border-radius:16px; padding:4px 10px 4px 5px; font-size:0.78rem; cursor:pointer;}
+  .besitz-chip{display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-xl); padding:4px 10px 4px 5px; font-size:var(--text-sm); cursor:pointer;}
   .besitz-chip.checked{border-color:var(--gold-soft); background:rgba(200,149,46,0.12);}
   .besitz-chip input{width:auto; margin:0; flex:none;}
-  .besitz-chip img{width:18px; height:18px; border-radius:4px; object-fit:cover; flex:none;}
-  .besitz-chip .muted{font-size:0.72rem;}
+  .besitz-chip img{width:18px; height:18px; border-radius:var(--radius-sm); object-fit:cover; flex:none;}
+  .besitz-chip .muted{font-size:var(--text-xs);}
   /* Kleine Icon-Reihe in der "Meine Charaktere"-Liste (zeigt die Icons der
      angekreuzten Besitz-Einträge, ohne die ganze Checkliste aufklappen zu müssen). */
   .besitz-icons{display:inline-flex; align-items:center; gap:3px;}
-  .besitz-icons img{width:18px; height:18px; border-radius:4px; object-fit:cover; border:1px solid var(--border);}
+  .besitz-icons img{width:18px; height:18px; border-radius:var(--radius-sm); object-fit:cover; border:1px solid var(--border);}
   /* Dmg-Buff-Badge im Gruppenplaner-Board: Icon + %-Wert direkt neben der
      Artefakt-/Mount-Auswahl einer Zeile (Nutzerwunsch). */
-  .dmgbuff-badge{display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--gold); background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft); border-radius:10px; padding:1px 7px; margin-left:5px; white-space:nowrap;}
-  .dmgbuff-badge img{width:16px; height:16px; border-radius:3px; object-fit:cover; flex:none;}
+  .dmgbuff-badge{display:inline-flex; align-items:center; gap:4px; font-size:var(--text-xs); color:var(--gold); background:rgba(200,149,46,0.12); border:1px solid var(--gold-soft); border-radius:var(--radius-lg); padding:1px 7px; margin-left:5px; white-space:nowrap;}
+  .dmgbuff-badge img{width:16px; height:16px; border-radius:var(--radius-sm); object-fit:cover; flex:none;}
   /* Seit v0.24.0: Icon liegt IM Auswahlfeld (links überlagert, größer) statt
      danebenzustehen (Nutzerwunsch). .gp-has-icon bekommt zusätzliches
      Innenpolster links, damit der Options-Text nicht unter dem Icon liegt. */
   .gp-select-icon-wrap{position:relative;}
   .gp-select-icon-wrap select{width:100%;}
   .gp-select-icon-wrap select.gp-has-icon{padding-left:42px;}
-  .gp-field-icon{position:absolute; left:8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:5px; object-fit:cover; pointer-events:none; z-index:1;}
+  .gp-field-icon{position:absolute; left:8px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:var(--radius-md); object-fit:cover; pointer-events:none; z-index:1;}
   .ins-col-left .ins-stat-row{flex-direction:column;}
   .ins-col-left .ins-stat{flex:1 1 auto;}
   .ovw-charbtn{background:none; border:none; color:var(--text); font:inherit; font-weight:700; cursor:pointer; padding:0;}
@@ -425,14 +446,14 @@
   <div class="legend" style="align-items:center;">
     <div class="legend-item"><span class="legend-swatch editable"></span><span data-i18n="legend.editable">Selbst eintragen</span></div>
     <div class="legend-item"><span class="legend-swatch computed"></span><span data-i18n="legend.computed">Wird automatisch berechnet</span></div>
-    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:0.8rem;" title="Füllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gefüllt aussieht" data-i18n-title="tt.filldemo" onclick="confirmAction('demo')" data-i18n="btn.filldemo">Beispielcharakter laden</button>
+    <button type="button" class="action" style="margin-left:auto;padding:6px 12px;font-size:var(--text-sm);" title="Füllt den Rechner mit realistischen Beispieldaten, um zu zeigen, wie das Tool gefüllt aussieht" data-i18n-title="tt.filldemo" onclick="confirmAction('demo')" data-i18n="btn.filldemo">Beispielcharakter laden</button>
   </div>
 
   <div class="rechner-grid">
     <!-- Links: Grunddaten + Stat-Gruppen -->
     <div class="rechner-col-left">
       <div class="card">
-        <h2><span data-i18n="h.grunddaten">Charakter-Grunddaten</span> <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:0.85rem;"></span></h2>
+        <h2><span data-i18n="h.grunddaten">Charakter-Grunddaten</span> <span id="grunddatenCharName" class="muted" style="font-weight:400; font-size:var(--text-base);"></span></h2>
         <div class="grunddaten-grid">
           <div>
             <label for="itemlevel" data-i18n="label.itemlevel">Gegenstandsstufe</label>
@@ -504,7 +525,7 @@
       <div id="companionEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('companionEditor')">+ Neuer Gefährte</button></div>
 
-      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;" data-i18n="h.gefpresets">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
+      <h3 style="font-size:var(--text-md);margin:20px 0 8px 0;" data-i18n="h.gefpresets">Gefährten-Gruppen-Presets (5er/10er Standard)</h3>
       <p class="helptext" data-i18n="static.gefaehrtepreset.intro">Wähle pro Slot per Dropdown, welcher Gefährte bei diesem Preset gesetzt wird.</p>
       <div id="gefaehrtenPresetEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('gefaehrtenPresetEditor','gefaehrten')">+ Preset hinzufügen</button></div>
@@ -520,7 +541,7 @@
       <div id="mountEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addEntryCard('mountEditor')">+ Neues Reittier</button></div>
 
-      <h3 style="font-size:0.9rem;margin:20px 0 8px 0;" data-i18n="h.reitpresets">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
+      <h3 style="font-size:var(--text-md);margin:20px 0 8px 0;" data-i18n="h.reitpresets">Reittier-Gruppen-Presets (5er/10er Standard)</h3>
       <div id="reittierPresetEditor"></div>
       <div class="btnrow"><button type="button" class="action" onclick="addPresetCard('reittierPresetEditor','reittier')">+ Preset hinzufügen</button></div>
     </div>
@@ -560,7 +581,7 @@
     <h2><span class="dot" style="background:var(--def)"></span>Formeln</h2>
     <div class="maxpr-grid" id="maxprGrid"></div>
 
-    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Formeln (Text, wird ausgewertet)</h3>
+    <h3 style="font-size:var(--text-md);margin:16px 0 8px 0;">Formeln (Text, wird ausgewertet)</h3>
     <div class="formula-row">
       <label>Totale Werte (E) &ndash; Variablen: H, sourcesWerte</label>
       <textarea id="f_eTotal"></textarea>
@@ -582,7 +603,7 @@
       <textarea id="f_delta"></textarea>
     </div>
 
-    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Schadensberechnung</h3>
+    <h3 style="font-size:var(--text-md);margin:16px 0 8px 0;">Schadensberechnung</h3>
     <p class="helptext">Alle Prozent-Variablen (kraft, zielgenauigkeit, kampfvorteil, kritwert, kritschaden, bonusschaden) sind bereits die gecappten, aktuellen % dieses Stats (0-100). Die "Gegner: ..."-Werte kommen von der Schadensberechnung-Seite.</p>
     <div class="formula-row">
       <label>Waffenschaden &ndash; Variablen: itemlevel, klassenFaktor (1,2 DPS / 1,1 Heiler / 1,0 Tank)</label>
@@ -613,13 +634,13 @@
       <textarea id="f_dmgTotal"></textarea>
     </div>
 
-    <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">Wehrhaftigkeit-Umverteilung pro Klasse/Vorbildpfad</h3>
+    <h3 style="font-size:var(--text-md);margin:16px 0 8px 0;">Wehrhaftigkeit-Umverteilung pro Klasse/Vorbildpfad</h3>
     <p class="helptext">Die Differenz zwischen "Aktuelle %" und berechnetem % bei Wehrhaftigkeit wird je nach Klasse/Vorbildpfad anteilig auf andere Stats verteilt (z. B. 0.5 = 50 % der Differenz). Format: JSON, Schlüssel ist "Klasse|Vorbildpfad".</p>
     <div class="formula-row">
       <textarea id="f_wehr" style="min-height:160px;"></textarea>
     </div>
 
-    <h3 style="font-size:0.9rem;margin:20px 0 8px 0;">Live-Testrechnung</h3>
+    <h3 style="font-size:var(--text-md);margin:20px 0 8px 0;">Live-Testrechnung</h3>
     <p class="helptext">Rechnet die Formeln oben sofort mit festen Beispielwerten durch (H = 100.000 Werte, I = 80 %, Gegenstandsstufe = 95.000, Quellen = +5.000 Werte / +5 %, maxPr = 1,2; Schadensteil: Kraft 95 %, Zielgen. 75 %, KV 92 %, Krit 78 %/98 %, Bonus 6 %, Gegner-Standardwerte, Fähigkeit 800 %). So siehst du VOR dem Speichern, ob eine Änderung Unsinn produziert - Fehler werden rot angezeigt.</p>
     <div id="formelPreview" class="notice" style="background:var(--panel-2);border-color:var(--border);color:var(--text);font-variant-numeric:tabular-nums;"></div>
 
@@ -2027,8 +2048,8 @@ async function renderAccountPanel(){
   try{ incomingTransfers = (await apiGetTransfers()).incoming || []; }catch(e){ /* egal, zeigt dann einfach nichts an */ }
 
   const incomingHtml = incomingTransfers.length ? `
-    <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid var(--edit-border); border-radius:8px;">
-      <label style="font-size:0.8rem;">Charakter-Kopien, die dir angeboten wurden</label>
+    <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid var(--edit-border); border-radius:var(--radius-md);">
+      <label style="font-size:var(--text-sm);">Charakter-Kopien, die dir angeboten wurden</label>
       ${incomingTransfers.map(tr=>`<div class="char-item" style="padding:6px 10px;">
         <span style="flex:1;">${tr.charName} <span class="muted">&middot; von ${tr.from}</span></span>
         <button type="button" class="action gold small" onclick="acceptTransfer('${tr.charName.replace(/'/g,"\\'")}')">${t('btn.accept')}</button>
@@ -2191,8 +2212,8 @@ function toggleSendByIndex(i){
   if(!willOpen){ panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   panel.innerHTML = `
-    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
-      <label for="send-input-${i}" style="font-size:0.8rem;">Kopie an einen anderen Benutzer senden</label>
+    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:var(--radius-md);">
+      <label for="send-input-${i}" style="font-size:var(--text-sm);">Kopie an einen anderen Benutzer senden</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
         <input type="text" id="send-input-${i}" placeholder="Benutzername" style="flex:1;" onkeydown="if(event.key==='Enter')sendCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="sendCharacterByIndex(${i})">Senden</button>
@@ -2250,8 +2271,8 @@ function toggleRenameByIndex(i){
   const charName = myCharacters[i].name;
   panel.style.display = 'block';
   panel.innerHTML = `
-    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:8px;">
-      <label for="rename-input-${i}" style="font-size:0.8rem;">Charakter umbenennen</label>
+    <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:var(--radius-md);">
+      <label for="rename-input-${i}" style="font-size:var(--text-sm);">Charakter umbenennen</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
         <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;" onkeydown="if(event.key==='Enter')renameCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="renameCharacterByIndex(${i})">Speichern</button>
@@ -3113,7 +3134,7 @@ function renderGefaehrtenWerteTable(){
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(companionDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
+      <label style="font-size:var(--text-xs);">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
     </div>`;
   }).join('');
@@ -3201,7 +3222,7 @@ function renderReittierWerteTable(){
     const sel = getSlotSelection(src);
     const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
+      <label style="font-size:var(--text-xs);">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
     </div>`;
   }).join('');
@@ -3272,7 +3293,7 @@ function foodDeathBadge(name, db){
   const persists = !!db[name]._persistsDeath;
   const cls = persists ? 'delta-ok' : 'delta-toomuch';
   const text = persists ? '&#10003; ' + t('food.survives') : '&#10007; ' + t('food.survivesnot');
-  return `<div style="font-size:0.72rem; margin-top:4px;"><span class="${cls}">${text}</span></div>`;
+  return `<div style="font-size:var(--text-xs); margin-top:4px;"><span class="${cls}">${text}</span></div>`;
 }
 function renderFoodWerteTable(cat){
   const loaderCards = FOOD_SLOTS.map(fs=>{
@@ -3281,7 +3302,7 @@ function renderFoodWerteTable(cat){
     const db = foodDb[fs.category] || {};
     const options = ['Leer', ...items].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
     return `<div class="slot-card" style="padding:8px 10px;">
-      <label style="font-size:0.75rem;">${t(fs.labelKey)}${t('label.aus.preset.laden')}</label>
+      <label style="font-size:var(--text-xs);">${t(fs.labelKey)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
       <div class="slot-summary computed" id="summary-${slugSrc(fs.key)}">${summarizeContrib(sel, db)}</div>
       <div id="death-badge-${slugSrc(fs.key)}">${foodDeathBadge(sel, db)}</div>
@@ -3937,7 +3958,7 @@ function renderAlleCharsSection(){
     const totalCols = 1 + entries.length;
 
     const head = entries.map(e => `<th style="text-align:right;">
-      <button type="button" class="ovw-charbtn" title="${t('tt.tocompare')}" onclick="uebersichtCharZumVergleich(${e.origIdx})">${escapeHtml(e.name)}</button>${typBadge(e.typ)}${e.name === currentChar ? ' <span class="muted" style="font-size:0.68rem;">(aktuell)</span>' : ''}
+      <button type="button" class="ovw-charbtn" title="${t('tt.tocompare')}" onclick="uebersichtCharZumVergleich(${e.origIdx})">${escapeHtml(e.name)}</button>${typBadge(e.typ)}${e.name === currentChar ? ' <span class="muted" style="font-size:var(--text-2xs);">(aktuell)</span>' : ''}
     </th>`).join('');
 
     // Eine Zeile: Werte je Charakter; bester Wert gold markiert (außer opt.noBest),
@@ -4004,7 +4025,7 @@ function renderAlleCharsSection(){
   }
   return `<div class="accordion" id="acc-dmg-allechars" style="margin-top:14px;">
     <button type="button" onclick="toggleDmgAccordion('allechars')">
-      <span><span class="dot" style="background:var(--gold)"></span>${t('ovw.heading')} <span class="muted" style="font-weight:400;font-size:0.8rem;">${t('ovw.headingsub')}</span></span><span class="chevron">&#9656;</span>
+      <span><span class="dot" style="background:var(--gold)"></span>${t('ovw.heading')} <span class="muted" style="font-weight:400;font-size:var(--text-sm);">${t('ovw.headingsub')}</span></span><span class="chevron">&#9656;</span>
     </button>
     <div class="body">${inner}</div>
   </div>`;
@@ -4062,7 +4083,7 @@ function renderVergleichSection(){
         const better = d > 0 ? nameB : nameA;
         const worse = d > 0 ? nameA : nameB;
         const pct = d > 0 ? d*100 : (va/vb - 1)*100;
-        return `<p style="margin:8px 0 4px 0;font-size:1.02rem;"><strong>${better}</strong> hat <strong class="${d>0?'delta-pos':'delta-neg'}">${fmt(pct)} %</strong> mehr ${what} als ${worse}.</p>`;
+        return `<p style="margin:8px 0 4px 0;font-size:var(--text-lg);"><strong>${better}</strong> hat <strong class="${d>0?'delta-pos':'delta-neg'}">${fmt(pct)} %</strong> mehr ${what} als ${worse}.</p>`;
       };
       // Zwei Balken (A/B) für den direkten optischen Vergleich einer Kennzahl.
       const bars = (va, vb) => {
@@ -4105,7 +4126,7 @@ function renderVergleichSection(){
         <p class="helptext" style="margin:6px 0 0 0;">${t('vgl.lastcolhint')} ${metricLabel} ${t('vgl.lastcolhint2')}</p>`;
       };
       const sectionBlock = (color, title, inner) => `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
-        <h3 style="font-size:0.95rem;margin:0 0 4px 0;"><span class="dot" style="background:${color}"></span> ${title}</h3>
+        <h3 style="font-size:var(--text-md);margin:0 0 4px 0;"><span class="dot" style="background:${color}"></span> ${title}</h3>
         ${inner}</div>`;
       const pct = v => fmt(v)+' %';
 
@@ -4119,9 +4140,9 @@ function renderVergleichSection(){
       </table></div>`;
 
       /* --- Ankreuzen, was verglichen werden soll --- */
-      const chk = (key, label) => `<label class="slot-check" style="font-size:0.88rem;color:var(--text);"><input type="checkbox" ${vergleichSections[key]?'checked':''} onchange="toggleVergleichSection('${key}', this.checked)"> ${label}</label>`;
-      const chkRow = `<div style="display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 0 0;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;">
-        <span class="muted" style="font-size:0.85rem;">Vergleichen:</span>
+      const chk = (key, label) => `<label class="slot-check" style="font-size:var(--text-base);color:var(--text);"><input type="checkbox" ${vergleichSections[key]?'checked':''} onchange="toggleVergleichSection('${key}', this.checked)"> ${label}</label>`;
+      const chkRow = `<div style="display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 0 0;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius-md);">
+        <span class="muted" style="font-size:var(--text-base);">Vergleichen:</span>
         ${chk('schaden','Schaden (DPS)')}${chk('heilung','Heilung')}${chk('tank','Tank (eHP)')}
       </div>`;
 
@@ -4546,8 +4567,8 @@ function renderUebersicht(){
 
     const xAxisLabel = t('chart.xaxis');
     const legend = statDefs.map(s=>`<div class="chart-legend-item" data-idx="${statDefs.indexOf(s)}" role="button" tabindex="0" aria-pressed="false" style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;">
-      <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px;"></span>
-      <span style="font-size:0.83rem;color:var(--text);">${s.label}</span>
+      <span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:var(--radius-sm);"></span>
+      <span style="font-size:var(--text-base);color:var(--text);">${s.label}</span>
     </div>`).join('');
 
     return `<div class="impact-chart-wrap" id="chart-${chartId}" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;justify-content:center;max-width:960px;margin:0 auto;">
@@ -4667,10 +4688,10 @@ function renderUebersicht(){
       </table>
       </div>
       <p class="helptext" style="margin-top:10px;">${t('help.dmgactive')}</p>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.gesamtschaden')}: <strong>${formatWerte(totalDmg)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:var(--text-lg);">${t('row.gesamtschaden')}: <strong>${formatWerte(totalDmg)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:var(--text-lg);">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(totalDmgToggled)}</strong></p>
       <p class="helptext">${t('help.dmgformula')}</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.dmgchart.title')}</h3>
+      <h3 style="font-size:var(--text-md);margin:16px 0 6px 0;">${t('help.dmgchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.dmgchart.sub')}</p>
       ${buildImpactChart('dmg', dmgChartDefs, dmgTotalGiven)}
     </div>
@@ -4687,10 +4708,10 @@ function renderUebersicht(){
         <tbody>${healRows}</tbody>
       </table>
       </div>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.heilungfaehigkeit')}: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; ${t('result.multiplikator')} × ${fmt(healMult)}</span></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:var(--text-lg);">${t('row.heilungfaehigkeit')}: <strong>${formatWerte(heilWert)}</strong> <span class="muted">&middot; ${t('result.multiplikator')} × ${fmt(healMult)}</span></p>
+      <p style="margin:0 0 10px 0;font-size:var(--text-lg);">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(heilWertToggled)}</strong></p>
       <p class="helptext">${t('help.healformula')}</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.healchart.title')}</h3>
+      <h3 style="font-size:var(--text-md);margin:16px 0 6px 0;">${t('help.healchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.healchart.sub')}</p>
       ${buildImpactChart('heal', healChartDefs, healTotalGiven)}
     </div>
@@ -4707,10 +4728,10 @@ function renderUebersicht(){
         <tbody>${tankRows}</tbody>
       </table>
       </div>
-      <p style="margin:10px 0 4px 0;font-size:1.05rem;">${t('row.ehp')}: <strong>${formatWerte(ehp)}</strong></p>
-      <p style="margin:0 0 10px 0;font-size:1.05rem;">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
+      <p style="margin:10px 0 4px 0;font-size:var(--text-lg);">${t('row.ehp')}: <strong>${formatWerte(ehp)}</strong></p>
+      <p style="margin:0 0 10px 0;font-size:var(--text-lg);">${t('result.veraendertwert').replace('{pct}', fmt(P.deltaPct))} <strong class="computed">${formatWerte(ehpToggled)}</strong></p>
       <p class="helptext">${t('help.tankformula')}</p>
-      <h3 style="font-size:0.9rem;margin:16px 0 6px 0;">${t('help.tankchart.title')}</h3>
+      <h3 style="font-size:var(--text-md);margin:16px 0 6px 0;">${t('help.tankchart.title')}</h3>
       <p class="helptext" style="margin-top:0;">${t('help.tankchart.sub')}</p>
       ${buildImpactChart('tank', tankChartDefs, tankTotalGiven)}
     </div>
@@ -5008,7 +5029,7 @@ async function renderUserOverview(){
           <button type="button" class="user-toggle" onclick="toggleUserChars('${slug}')">
             <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${u.username}
             <span class="muted">(${u.characters.length} Charakter${u.characters.length===1?'':'e'})</span>
-            <span class="muted" style="font-size:0.76rem;">${u.lastActive ? '&middot; zuletzt aktiv: '+formatUpdatedAt(u.lastActive) : '&middot; noch keine Aktivität'}</span>
+            <span class="muted" style="font-size:var(--text-sm);">${u.lastActive ? '&middot; zuletzt aktiv: '+formatUpdatedAt(u.lastActive) : '&middot; noch keine Aktivität'}</span>
           </button>
           <select ${isSelf?'disabled':''} onchange="setUserRoleByIndex(${ui}, this.value)" style="width:auto;">
             ${roleOptions.map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roleLabel[r]}</option>`).join('')}
@@ -5089,9 +5110,9 @@ async function renderBackupsCard(){
         <button type="button" class="action small" onclick="downloadDailyBackup(${i})">Herunterladen (.tar.gz)</button>
       </div>`).join('') : `<p class="helptext">${t('admin.nodailybackupyet')}</p>`;
     el.innerHTML = `
-      <h3 style="font-size:0.9rem;margin:8px 0 8px 0;">${t('h.presetshistorie')} <span class="muted" style="font-weight:400;">${t('h.presetshistoriesub')}</span></h3>
+      <h3 style="font-size:var(--text-md);margin:8px 0 8px 0;">${t('h.presetshistorie')} <span class="muted" style="font-weight:400;">${t('h.presetshistoriesub')}</span></h3>
       <div class="char-list">${sharedList}</div>
-      <h3 style="font-size:0.9rem;margin:16px 0 8px 0;">${t('h.dailybackups')} <span class="muted" style="font-weight:400;">${t('h.dailybackupssub')}</span></h3>
+      <h3 style="font-size:var(--text-md);margin:16px 0 8px 0;">${t('h.dailybackups')} <span class="muted" style="font-weight:400;">${t('h.dailybackupssub')}</span></h3>
       <div class="char-list">${dailyList}</div>`;
   }catch(e){
     el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${escapeHtml(e.message)}</p>`;
@@ -6016,7 +6037,7 @@ function updateInsignienErgebnis(){
   document.getElementById('insDeckenText').textContent = t('ins.deckentext').replace('{startzusatz}', insignieMitStartkosten ? t('ins.startzusatz').replace('{start}', insQualiLabel(insignieStart)) : '');
 
   rows.forEach(r=>{
-    document.getElementById('insLabel-'+r.q).innerHTML = `${insQualiLabel(r.q)}${r.i===bestIdx?` <span class="muted" style="font-size:0.72rem;">(${t('ins.guenstigste')})</span>`:''}`;
+    document.getElementById('insLabel-'+r.q).innerHTML = `${insQualiLabel(r.q)}${r.i===bestIdx?` <span class="muted" style="font-size:var(--text-xs);">(${t('ins.guenstigste')})</span>`:''}`;
     document.getElementById('insBenoetigt-'+r.q).textContent = formatWerte(r.benoetigt);
     document.getElementById('insKosten-'+r.q).textContent = formatWerte(r.gesamt);
     document.getElementById('insRow-'+r.q).className = r.i===bestIdx ? 'best-row' : '';
@@ -6727,9 +6748,9 @@ function renderGpCharEditor(){
     <div style="margin:12px 0;"><label style="display:block;margin-bottom:6px;">${t('label.gprollen')}</label>
       ${rolleChk('dps','DPS')} ${rolleChk('heal',t('role.heiler'))} ${rolleChk('tank','Tank')}
     </div>
-    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gpbesitz')}</h3>
+    <h3 style="font-size:var(--text-md);margin:18px 0 8px 0;">${t('h.gpbesitz')}</h3>
     ${kategorien}
-    <h3 style="font-size:0.9rem;margin:18px 0 8px 0;">${t('h.gplieblinge')} <span class="muted" style="font-weight:400;">${t('h.gpliebIingesub')}</span></h3>
+    <h3 style="font-size:var(--text-md);margin:18px 0 8px 0;">${t('h.gplieblinge')} <span class="muted" style="font-weight:400;">${t('h.gpliebIingesub')}</span></h3>
     <div class="besitz-grid">${lieblingsChips}</div>
     <div class="btnrow" style="margin-top:14px;"><button type="button" class="action gold" onclick="gpSaveCharEditor()">${t('btn.save')}</button></div>
   </div>`;
@@ -7007,7 +7028,7 @@ function renderGpPlanList(){
   if(gpPlans === null){ el.innerHTML = `<p class="helptext">${t('generic.loading')}</p>`; return; }
   const canEdit = hasRole('moderator');
   el.innerHTML = gpPlans.length ? gpPlans.map((p,i) => `<div class="char-item">
-      <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:0.76rem;">(${t('gp.lastchanged')} ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
+      <span style="flex:1;">${escapeHtml(p.name)} ${p.updatedAt ? `<span class="muted" style="font-size:var(--text-sm);">(${t('gp.lastchanged')} ${formatUpdatedAt(p.updatedAt)})</span>` : ''}</span>
       <button type="button" class="action small" onclick="gpOpenPlan(gpPlans[${i}].name)">${t('btn.open')}</button>
       ${canEdit ? `<button type="button" class="action small" onclick="gpRenamePlanPrompt(gpPlans[${i}].name)">${t('btn.rename')}</button>
       <button type="button" class="action small" onclick="gpDuplicatePlan(gpPlans[${i}].name)">${t('btn.duplicate')}</button>
@@ -7337,11 +7358,11 @@ function renderGpPlanBoard(){
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="dungeon" ${g.modus==='dungeon'?'checked':''} onchange="gpSetGroupModus(${gi},'dungeon')"> ${t('gp.dungeon5')}</label>
         <label class="slot-check"><input type="radio" name="gp-modus-${gi}" value="trial" ${g.modus==='trial'?'checked':''} onchange="gpSetGroupModus(${gi},'trial')"> ${t('gp.trial10')}</label>
         <label class="slot-check"><input type="checkbox" ${g.showAusruestung?'checked':''} onchange="gpToggleGroupFlag(${gi},'showAusruestung')"> ${t('gp.showequip')}</label>
-        <span class="muted" style="font-size:0.78rem;" title="${t('tt.dmgorientation')}">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
+        <span class="muted" style="font-size:var(--text-sm);" title="${t('tt.dmgorientation')}">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
         <button type="button" class="action small" style="margin-left:auto;" onclick="gpResetAusruestung(${gi})" title="${t('tt.resetrow')}">${t('btn.resetausruestung')}</button>
         <button type="button" class="action danger small" onclick="gpRemoveGroup(${gi})">${t('btn.removegroup')}</button>
       </div>
-      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
+      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:var(--text-sm);margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
         <thead><tr><th>${t('th.rolle')}</th><th>${t('th.spieler')}</th>${g.modus==='trial'?`<th>${t('th.party')}</th>`:''}${g.showAusruestung?`<th>${t('th.weapon')}</th><th>${t('th.ausruestung')}</th>`:''}<th>${t('th.artefakt')}</th><th>${t('th.mount')}</th><th>${t('th.mountbonus')}</th><th>${t('th.gefaehrte')}</th><th>${t('th.gefaehrtenbonus')}</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
@@ -7358,7 +7379,7 @@ function renderGpPlanBoard(){
   el.innerHTML = `${gpCharDatalistHtml}
     <div class="entry-head" style="margin-top:20px;">
       <h2 style="margin:0;">${escapeHtml(currentGpPlanName)}</h2>
-      ${canEdit ? `<button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? t('btn.backtoedit') : t('btn.viewonly')}</button>` : `<span class="muted" style="margin-left:auto;font-size:0.8rem;">${t('gp.readonlyhint')}</span>`}
+      ${canEdit ? `<button type="button" id="gpAnsichtToggleBtn" class="action small" style="margin-left:auto;" onclick="gpToggleAnsicht()">${gpPlanAnsichtModus ? t('btn.backtoedit') : t('btn.viewonly')}</button>` : `<span class="muted" style="margin-left:auto;font-size:var(--text-sm);">${t('gp.readonlyhint')}</span>`}
     </div>
     ${(gpPlanAnsichtModus || !canEdit) ? gpPlanAnsichtHtml() : groupsHtml}
     ${(gpPlanAnsichtModus || !canEdit) ? '' : `<div class="btnrow" style="margin:14px 0;">
@@ -7413,10 +7434,10 @@ function gpPlanAnsichtHtml(){
       <td>${escapeHtml(gpRefDisplayName(GP_BESITZ_KATEGORIEN[4],row.gefaehrtenBonus)||'–')}</td>
     </tr>`).join('');
     return `<div class="card">
-      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:0.8rem;">(${g.modus==='trial'?t('gp.trialshort'):t('gp.dungeonshort')})</span>
-        <span class="muted" style="font-weight:400;font-size:0.78rem;margin-left:8px;">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
+      <h3 style="margin:0 0 10px 0;">${escapeHtml(g.name)} <span class="muted" style="font-weight:400;font-size:var(--text-sm);">(${g.modus==='trial'?t('gp.trialshort'):t('gp.dungeonshort')})</span>
+        <span class="muted" style="font-weight:400;font-size:var(--text-sm);margin-left:8px;">Σ Dmg-Buff: ${fmt(gpGroupDmgBuffSum(g))} %</span>
       </h3>
-      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:0.78rem;margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
+      ${gpRoleWarnings(g).length ? `<div class="muted" style="color:var(--off);font-size:var(--text-sm);margin:-4px 0 8px 0;">${gpRoleWarnings(g).map(escapeHtml).join(' · ')}</div>` : ''}
       <div class="wide-table-scroll"><table>
         <thead><tr><th>${t('th.rolle')}</th><th>${t('th.spieler')}</th>${g.modus==='trial'?`<th>${t('th.party')}</th>`:''}<th>${t('th.artefakt')}</th><th>${t('th.mount')}</th><th>${t('th.mountbonus')}</th><th>${t('th.gefaehrte')}</th><th>${t('th.gefaehrtenbonus')}</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="8" class="muted">${t('gp.noonelisted')}</td></tr>`}</tbody>

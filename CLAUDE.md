@@ -332,6 +332,34 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.55.0: Design-Craft-Audit umgesetzt (Punkte 1-5 aus dem
+  Skill-gestützten Vorschlag: Typo-Skala, Radius-Skala, dritte Text-Ebene,
+  tabular-nums, text-wrap).**
+  - **1 - Typo-Skala**: die über die Zeit gewachsenen 20 krummen
+    `font-size`-Werte (0.68rem bis 1.7rem, 97 Stellen) durch 7 feste Tokens
+    ersetzt (`--text-2xs` bis `--text-2xl`). Jeder alte Wert wurde auf den
+    nächstliegenden neuen gemappt (z.B. 0.82/0.83/0.85/0.88rem → alle
+    `--text-base`) - Unterschiede liegen bei maximal ~0,03rem (≈0,5px),
+    optisch nicht wahrnehmbar, aber im Code jetzt ein System statt Rauschen.
+  - **2 - Radius-Skala**: 10 krumme `border-radius`-Werte (2-20px, 39
+    Stellen) durch 4 Tokens ersetzt (`--radius-sm/md/lg/xl`). Die bereits
+    vorhandene einzelne `--radius:10px`-Variable (nur für `.card` genutzt)
+    wurde zu `--radius-lg` und bleibt als Alias erhalten, damit nichts
+    bricht, falls sie noch irgendwo referenziert wird.
+  - **3 - Dritte Text-Ebene**: neue `--text-secondary` (zwischen `--text`
+    und `--text-dim`) - angewendet auf die `th`-Basisregel (Tabellen-
+    Spaltenköpfe), die vorher farblich identisch mit reinem Meta-Text
+    waren, obwohl sie strukturell wichtiger sind.
+  - **4 - tabular-nums**: auf die `table`-Basisregel ergänzt, damit
+    Zifferndarstellung in JEDER Tabelle site-weit gleich breite Ziffern
+    nutzt (verhindert leichtes Wackeln beim Neuberechnen). `.computed`
+    und die Eingabefelder hatten das schon aus einer früheren Runde.
+  - **5 - text-wrap**: `balance` auf `h1` (Seitentitel), `pretty` auf
+    `.helptext` und `.subtitle` - verhindert einzelne Wörter/Waisen am
+    Zeilenende bei Überschriften und Fließtext.
+  - Alle Ersetzungen rein mechanisch mit exaktem Vorher/Nachher-
+    Mengenabgleich durchgeführt (97 bzw. 39 Treffer, keine Abweichung).
+    Alle 256 Smoke-Tests grün.
 - **Seit v0.54.1: Veraltete "nur für Moderatoren sichtbar"-Hinweisboxen
   entfernt (Xselli per Screenshot gemeldet).** Nach v0.53.0/v0.54.0 waren
   zwei statische Hinweis-Divs übrig geblieben, die noch behaupteten, der
