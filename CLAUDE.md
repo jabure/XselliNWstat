@@ -332,6 +332,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.54.1: Veraltete "nur für Moderatoren sichtbar"-Hinweisboxen
+  entfernt (Xselli per Screenshot gemeldet).** Nach v0.53.0/v0.54.0 waren
+  zwei statische Hinweis-Divs übrig geblieben, die noch behaupteten, der
+  Gruppenplaner bzw. Insignienrechner sei "vorerst nur für Moderatoren und
+  höher sichtbar. Er wird später für alle geöffnet." - stimmte nicht mehr,
+  beide sind seitdem ja bereits für alle offen. Beide Boxen komplett
+  entfernt (waren ohnehin nie über `data-i18n` übersetzt, reines Deutsch-
+  Überbleibsel). Alle 256 Smoke-Tests grün.
 - **Seit v0.54.0: Insignienrechner ebenfalls für alle geöffnet (Nutzerwunsch,
   direkte Folge von v0.53.0).**
   - `INSIGNIEN_MIN_ROLE` von `'moderator'` auf `'user'` gesetzt - konsistent
