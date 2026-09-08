@@ -3009,7 +3009,6 @@ function updateStatGroups(results){
     if(eCell) eCell.textContent = fmt(r.E);
     const dCell = document.getElementById(`delta-${stat.id}`);
     if(dCell && stat.type==='softcap' && r.delta !== null){
-      dCell.textContent = (r.delta>0?'+':'') + fmt(r.delta) + '%';
       // Ampel mit 1%-Toleranzband ums Cap: Delta = Aktuelle% - Max%.
       // Delta > 1%  -> über Cap = zu viel (rot)
       // Delta < -1% -> noch unter Cap = zu wenig (orange)
@@ -3018,6 +3017,11 @@ function updateStatGroups(results){
       if(r.delta > 1) cls = 'delta-toomuch';
       else if(r.delta < -1) cls = 'delta-toolittle';
       else cls = 'delta-ok';
+      // Als "computed"-Pill statt reinem TD-Text - sonst wirkt die Δ-Spalte neben den
+      // Totale-Werte-Badges (ebenfalls "computed") sichtbar "flacher"/niedriger, weil ihr
+      // das Padding/Hintergrund der Pill-Optik fehlt (Nutzerhinweis per Screenshot). Die
+      // Ampel-Klasse bleibt zusätzlich auch am TD selbst (bisheriges Verhalten/Tests).
+      dCell.innerHTML = `<span class="computed ${cls}">${(r.delta>0?'+':'')}${fmt(r.delta)}%</span>`;
       dCell.className = cls;
       // Prozent (F) trägt dieselbe Ampel wie das Delta (beides basiert auf den Gesamt-%).
       if(fCell) fCell.className = 'computed ' + cls;

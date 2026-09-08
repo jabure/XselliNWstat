@@ -332,6 +332,26 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.55.1: Höhen-Inkonsistenz zwischen "Totale Werte" und "Δ"-Spalte
+  in der Statrechner-Grunddaten-Haupttabelle behoben (Xselli per Screenshot
+  gemeldet).**
+  - Ursache: die "Totale Werte"-Zelle (E-/F-Spans) bekommt bei der Ampel-
+    Färbung immer `class="computed <ampel>"` - der `.computed`-Pill mit
+    Padding/Hintergrund/Radius sorgt für die "Badge"-Optik. Die Δ-Zelle
+    bekam die Ampel-Klasse bisher direkt auf dem `<td>` selbst, ohne
+    `.computed` - reiner Text ohne Padding, dadurch sichtbar "flacher" als
+    die Pills daneben.
+  - Fix: die Δ-Zelle bekommt jetzt zusätzlich einen inneren
+    `<span class="computed <ampel>">` - identische Pill-Optik wie die
+    Totale-Werte-Spalte. Die Ampel-Klasse bleibt zusätzlich auch am `<td>`
+    selbst erhalten (rein kosmetisch irrelevant, da kein direkter Text mehr
+    im TD liegt, aber unverändert für bestehende Tests/eventuelle andere
+    Abhängigkeiten).
+  - Beim Bauen zwei Smoke-Tests kurz rot gehabt (prüften `className` direkt
+    am `<td>`) - durch das Beibehalten der TD-Klasse zusätzlich zum inneren
+    Span sofort wieder grün, ohne die Tests anfassen zu müssen.
+  - Mit jsdom verifiziert (`outerHTML` beider Zellen zeigt jetzt identische
+    `computed <ampel>`-Struktur), 0 JS-Fehler. Alle 256 Smoke-Tests grün.
 - **Seit v0.55.0: Design-Craft-Audit umgesetzt (Punkte 1-5 aus dem
   Skill-gestützten Vorschlag: Typo-Skala, Radius-Skala, dritte Text-Ebene,
   tabular-nums, text-wrap).**
