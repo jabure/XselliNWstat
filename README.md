@@ -65,8 +65,8 @@ angezeigt bekommt und weitergibt), Konten löschen.
 
 Jeder registriert sich mit Benutzername + Passwort und kann beliebig viele
 eigene Charaktere anlegen, umbenennen, kopieren oder löschen. Das eigene
-**Passwort lässt sich im Konto-Fenster jederzeit selbst ändern** (wichtig,
-nachdem ein Admin es auf den Standardwert zurückgesetzt hat). Charaktere
+**Passwort lässt sich im Konto-Fenster jederzeit selbst ändern** (nach einem
+Admin-Reset ist das sogar Pflicht: das Einmalpasswort gilt nur für den nächsten Login). Charaktere
 lassen sich auch als **Kopie an einen anderen Benutzer senden** - der
 Empfänger muss die Kopie erst annehmen oder ablehnen, bevor sie bei ihm
 auftaucht; das eigene Original bleibt davon immer unberührt. Zusätzlich kann
@@ -99,6 +99,13 @@ cp .env.example .env   # JWT_SECRET darin auf einen eigenen Zufallswert setzen (
 docker compose up -d --build
 ```
 
+**Einstellungen (`.env`):** `JWT_SECRET` (Zufallswert; leer = der Server erzeugt selbst
+eines), `ADMIN_USERNAME` (dieser Name bekommt beim Registrieren die Admin-Rolle),
+optional `REGISTER_CODE` (Einladungscode für neue Konten; leer = offen). Der Container
+veröffentlicht keinen Port nach außen, sondern hängt im Docker-Netzwerk `proxy` und wird
+von einem Reverse-Proxy (z. B. Caddy mit `reverse_proxy xselli-stats-rechner:3000`) bedient.
+Für Zugriffe aus dem Internet gehört HTTPS davor.
+
 **Updates:** GitHub (`jabure/XselliNWstat`) ist die einzige verbindliche
 Quelle. Ein `update.sh`-Cronjob zieht neue Commits automatisch und baut den
 Container bei Bedarf neu:
@@ -122,7 +129,10 @@ root (der Start-Wrapper `docker-entrypoint.sh` stellt dafür einmalig die Besitz
 - `backups/shared/` - die letzten 10 Stände von `shared.json` (Sicherheitsnetz vor jedem Presets-/Formeln-Speichern)
 
 **Eingebaute Schutzmechanismen:** Login-Bremse (nach 10 Fehlversuchen 15
-Minuten Sperre pro Benutzername), Passwortwechsel meldet alle bestehenden
+Minuten Sperre pro Kombination aus IP-Adresse und Benutzername, zusätzlich eine
+Obergrenze pro IP - so kann niemand fremde Konten von außen sperren), Bremse für
+Neuregistrierungen (5 pro IP und Stunde), Obergrenzen für Charaktere pro Konto und
+Konten insgesamt, Passwortwechsel meldet alle bestehenden
 Anmeldungen auf anderen Geräten ab (auch nach einem Admin-Reset - dabei muss
 die Person beim nächsten Login zuerst ein eigenes Passwort setzen; bis dahin
 sperrt der Server alle anderen Funktionen), das JWT-Secret wird nie mit einem
@@ -136,8 +146,9 @@ frühere CDN nicht erreichbar ist.
 
 **Gruppenplaner & Insignienrechner (v0.15.0):** Zwei weitere, komplett
 unabhängige Werkzeuge neben dem Statrechner, über einen Umschalter oben
-erreichbar. Aktuell noch in der Planung und deshalb nur für Rolle Moderator
-und höher sichtbar (wird später für alle geöffnet).
+erreichbar. Beide stehen allen angemeldeten Konten offen; nur das Bearbeiten
+der Aufstellungs-Pläne, der Referenzlisten und der gemeinsamen Insignien-Preise
+bleibt Moderatoren vorbehalten (alle anderen sehen die Pläne als Nur-Ansicht).
 - **Insignienrechner:** rechnet aus, wie viel Insignien-Pulver es kostet,
   eine Insignie von einer Start- auf eine Ziel-Qualität in einer bestimmten
   Menge hochzustufen, und mit welcher Qualität sich dieses Pulver am
@@ -160,7 +171,7 @@ und höher sichtbar (wird später für alle geöffnet).
   neben der Auswahl angezeigt, dazu eine grobe Summe pro Gruppe. Ein "Bestes
   eigenes Setup"-Knopf (pro Zeile oder für die ganze Gruppe auf einmal) wählt
   aus dem angekreuzten Besitz eines Charakters automatisch die Kombination
-  mit dem höchsten Dmg-Buff. Officer legen mehrere benannte Aufstellungs-Pläne an
+  mit dem höchsten Dmg-Buff. Moderatoren legen mehrere benannte Aufstellungs-Pläne an
   (umbenennbar, duplizierbar, gegen gleichzeitiges Bearbeiten durch einen
   Versionszähler geschützt); im Board filtern sich die Ausrüstungs-Dropdowns
   automatisch auf das, was der zugewiesene Charakter tatsächlich besitzt,

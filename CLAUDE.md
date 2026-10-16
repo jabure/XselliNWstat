@@ -16,6 +16,8 @@ Datenbank. Beides zusammen liegt in `jabure/XselliNWstat` auf GitHub.
 **GitHub (`jabure/XselliNWstat`, Branch `main`) ist die einzige verbindliche
 Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
 
+- **(ÜBERHOLT seit v0.15.7 und der installierten GitHub-App: es wird direkt gepusht, kein
+  Bundle mehr. Die zwei Wege darunter nur als Notfall nutzen, wenn der Push nicht geht.)**
 - **Ohne Token vom Nutzer:** Ich klone das echte GitHub-Repo, committe meine
   Änderungen als neuen Commit obendrauf, baue daraus ein `.bundle` und gebe es
   dem Nutzer. Vorher IMMER mit `git merge-base` prüfen, dass das Bundle
@@ -34,8 +36,9 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   ich wieder einen (neuen) Token oder falle auf den Bundle-Weg zurück. Token
   nie im Klartext committen, nur zum Pushen verwenden.
 - **Versionsnummer:** `package.json` bei praktisch jedem inhaltlichen Update
-  hochzählen (aktuell 0.91.0 nach "Update 46" - die Update-Nummern in den
-  Commit-Messages sind mein eigenes Zählsystem, kein offizielles Schema).
+  hochzählen (aktuellen Stand immer aus `package.json` und `git log` lesen, nicht aus dieser
+  Datei - die Update-Nummern in den Commit-Messages sind mein eigenes Zählsystem). Die
+  `version` in `package-lock.json` darf hinterherhinken, `npm ci` stört das nicht.
 - Ändert sich `server.js` oder `package.json`, braucht der Nutzer-Server einen
   **Rebuild** (`docker compose up -d --build`), nicht nur einen Neustart -
   sein `update.sh`-Cronjob macht das automatisch bei jedem Git-Änderung.
@@ -60,7 +63,7 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   togglePwChange() versteckt, Login/Kontoformulare reagieren auf Enter.
 - **Seit v0.12.0:** JWT enthält pw-Fingerprint (letzte 10 Zeichen des
   bcrypt-Hashes) - Passwortwechsel/Admin-Reset macht ALLE alten Tokens
-  ungültig (Tokens ohne pw-Feld = Altbestand bleiben bis Ablauf gültig);
+  ungültig (die frühere Ausnahme für Tokens ohne pw-Feld ist seit v0.56.0 weg);
   change-password liefert deshalb ein frisches Token zurück, das Frontend
   übernimmt es. Admin-Reset setzt mustChangePassword (kommt in login- und
   /api/me-Antwort mit, Frontend öffnet dann das Passwort-Formular).
@@ -88,13 +91,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   prevSub-Map in renderUebersicht), klassenrelevante Zellen getönt
   (relev-dps/-tank/-heal; RELEVANTE_GRUPPEN = DPS:offensive, Tank:defensive,
   Heiler:offensive+support).
+- (Reihenfolge dieser Liste: neueste Einträge OBEN, der Verlauf läuft nach unten in die
+  Vergangenheit. Bei Widerspruch gilt der neuere Eintrag.)
 - **Seit v0.15.0: Gruppenplaner + Insignienrechner als DRITTE/VIERTE eigene App.**
   Oberster App-Switcher (showApp('stats'|'gruppenplaner'|'insignien'),
   #appStats/#appGruppenplaner/#appInsignien) - komplett unabhängig vom
-  Statrechner, eigene Datentöpfe. GP_MIN_ROLE='moderator' (Server-Konstante
-  in server.js UND Client-Konstante in index.html, beide "moderator" -
-  bei Freischaltung für alle BEIDE auf 'user' ändern) gated sowohl die
-  Sichtbarkeit der App-Tabs als auch JEDEN /api/gp/*-Aufruf server-seitig.
+  Statrechner, eigene Datentöpfe. (ÜBERHOLT: die anfängliche Moderator-Sperre
+  wurde in v0.53.0/v0.54.0 aufgehoben - heute gelten `gpUserGate`/`gpModGate` im Server und
+  `GP_MIN_ROLE`/`INSIGNIEN_MIN_ROLE` im Client, siehe dort.)
   **Seit v0.15.1:** App-Switcher sitzt jetzt GANZ OBEN LINKS in einer
   gemeinsamen .top-bar-Zeile zusammen mit dem Konto-Button rechts (VOR dem
   h1-Titel) statt darunter - Nutzerwunsch.
@@ -102,7 +106,7 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
   id="appSelect"> statt drei <button>-Tabs (kein #appSwitcher/#apptab-*
   mehr - falls alter Code danach sucht, ist das ein Bug). updateApp-
   SwitcherVisibility() baut die <option>-Liste komplett neu (nur 'stats'
-  für normale Rollen, +gruppenplaner/insignien ab Moderator) statt einzelne
+  für normale Rollen; seit v0.53/v0.54 sehen alle angemeldeten Konten alle drei Bereiche) statt einzelne
   Optionen zu verstecken. showApp() setzt zusätzlich mainTitle/mainSubtitle
   aus APP_INFO[name] - jeder Bereich hat jetzt einen EIGENEN Erklärtext
   (der lange Statrechner-Text erscheint nur noch auf der Statrechner-Seite,
