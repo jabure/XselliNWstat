@@ -1,9 +1,11 @@
 'use strict';
 // Impressum und Datenschutzerklärung als vom Server erzeugte Seiten.
-// Die persönlichen Angaben (Name, Anschrift, E-Mail) stehen NICHT im öffentlichen Repo,
-// sondern kommen aus der .env: LEGAL_NAME, LEGAL_ADDRESS (Zeilen mit "|" trennen),
-// LEGAL_EMAIL, optional LEGAL_PHONE. Fehlt etwas, zeigt die Seite einen deutlichen Hinweis,
-// damit man es nicht unbemerkt vergisst.
+// Standardwerte: Kontakt-E-Mail und "Österreich" als Ort, kein Name (Entscheidung des
+// Betreibers). Über die .env lässt sich alles überschreiben: LEGAL_NAME, LEGAL_ADDRESS
+// (Zeilen mit "|" trennen), LEGAL_EMAIL, optional LEGAL_PHONE. Fehlt die E-Mail, zeigt die
+// Seite einen deutlichen Hinweis.
+const DEFAULT_EMAIL = 'xsellnw@gmail.com';
+const DEFAULT_ADDRESS = 'Österreich';
 
 function esc(s){
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -12,10 +14,10 @@ function esc(s){
 function readLegal(env){
   const e = env || process.env;
   const name = (e.LEGAL_NAME || '').trim();
-  const address = (e.LEGAL_ADDRESS || '').split('|').map(s => s.trim()).filter(Boolean);
-  const email = (e.LEGAL_EMAIL || '').trim();
+  const address = (e.LEGAL_ADDRESS || DEFAULT_ADDRESS).split('|').map(s => s.trim()).filter(Boolean);
+  const email = (e.LEGAL_EMAIL || DEFAULT_EMAIL).trim();
   const phone = (e.LEGAL_PHONE || '').trim();
-  return { name, address, email, phone, complete: !!(name && address.length && email) };
+  return { name, address, email, phone, complete: !!(address.length && email) };
 }
 
 const T = {
@@ -23,8 +25,10 @@ const T = {
     back: '← Zurück zum Rechner',
     imprintTitle: 'Impressum',
     privacyTitle: 'Datenschutzerklärung',
-    missing: 'Die Anbieterangaben sind auf diesem Server noch nicht hinterlegt (LEGAL_NAME, LEGAL_ADDRESS, LEGAL_EMAIL in der .env).',
+    missing: 'Die Anbieterangaben sind auf diesem Server noch nicht hinterlegt (LEGAL_ADDRESS, LEGAL_EMAIL in der .env).',
     provider: 'Anbieter und für den Inhalt verantwortlich',
+    private: 'Privates Fan-Projekt',
+    fiction: 'Auf dieser Seite werden nur frei gewählte Spielernamen und Passwörter gespeichert. Nimm bitte einen ausgedachten Namen (z. B. deinen Spielernamen) und ein Passwort, das du sonst nirgends verwendest.',
     contact: 'Kontakt',
     mail: 'E-Mail',
     phone: 'Telefon',
@@ -39,8 +43,10 @@ const T = {
     back: '← Back to the calculator',
     imprintTitle: 'Legal notice',
     privacyTitle: 'Privacy policy',
-    missing: 'The provider details have not been set on this server yet (LEGAL_NAME, LEGAL_ADDRESS, LEGAL_EMAIL in the .env file).',
+    missing: 'The provider details have not been set on this server yet (LEGAL_ADDRESS, LEGAL_EMAIL in the .env file).',
     provider: 'Provider and responsible for the content',
+    private: 'Private fan project',
+    fiction: 'This site only stores freely chosen player names and passwords. Please use a made-up name (e.g. your player name) and a password you do not use anywhere else.',
     contact: 'Contact',
     mail: 'Email',
     phone: 'Phone',
@@ -92,8 +98,8 @@ function providerBlock(lang, L){
   let h = '';
   if(!L.complete) h += `<p class="warn">${esc(t.missing)}</p>`;
   h += `<h2>${esc(t.provider)}</h2><p>`;
-  h += L.name ? esc(L.name) : '–';
-  h += L.address.length ? '<br>' + L.address.map(esc).join('<br>') : '';
+  h += L.name ? esc(L.name) + '<br>' : esc(t.private) + '<br>';
+  h += L.address.length ? L.address.map(esc).join('<br>') : '–';
   h += '</p>';
   h += `<h2>${esc(t.contact)}</h2><p>${esc(t.mail)}: `;
   h += L.email ? `<a href="mailto:${esc(L.email)}">${esc(L.email)}</a>` : '–';
@@ -106,6 +112,7 @@ function imprintHtml(lang, L){
   const t = T[lang];
   const body = providerBlock(lang, L)
     + `<h2>${esc(t.purpose)}</h2><p>${esc(t.purposeText)}</p>`
+    + `<p>${esc(t.fiction)}</p>`
     + `<h2>${esc(t.disclaimerH)}</h2><p>${esc(t.disclaimer)}</p>`
     + `<h2>${esc(t.source)}</h2><p>${esc(t.sourceText)} <a href="https://github.com/jabure/XselliNWstat" rel="noopener">github.com/jabure/XselliNWstat</a></p>`;
   return page(lang, t.imprintTitle, body);
@@ -137,7 +144,7 @@ function privacyHtml(lang, L){
 <p>Data is stored on a server operated by the controller and is not passed on to third parties or transferred to third countries by this application.</p>
 <h2>Your rights</h2>
 <p>You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15–21 GDPR). To delete your account or receive a copy of your data, write to the email address above. You also have the right to lodge a complaint with a supervisory authority; in Austria this is the Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
-<p class="dim">Do not use your usual passwords from other services here.</p>`;
+<p><strong>${esc(t.fiction)}</strong></p>`;
   } else {
     body += `
 <h2>Worum es geht</h2>
@@ -161,7 +168,7 @@ function privacyHtml(lang, L){
 <p>Die Daten liegen auf einem Server, den der Verantwortliche selbst betreibt. Diese Anwendung gibt sie nicht an Dritte weiter und übermittelt sie nicht in Drittländer.</p>
 <h2>Deine Rechte</h2>
 <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15–21 DSGVO). Für die Löschung deines Kontos oder eine Kopie deiner Daten schreib an die oben genannte E-Mail-Adresse. Außerdem kannst du dich bei einer Aufsichtsbehörde beschweren, in Österreich ist das die Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
-<p class="dim">Verwende hier bitte nicht deine üblichen Passwörter von anderen Diensten.</p>`;
+<p><strong>${esc(t.fiction)}</strong></p>`;
   }
   return page(lang, t.privacyTitle, body);
 }

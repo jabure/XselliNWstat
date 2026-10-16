@@ -213,7 +213,8 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       const get = (p, hdr) => fetch(BASE + p, { headers: hdr || {} }).then(async x => ({ status: x.status, type: x.headers.get('content-type') || '', text: await x.text() }));
       let g = await get('/impressum');
       check('/impressum erreichbar (HTML)', g.status === 200 && /text\/html/.test(g.type), g.status + ' ' + g.type);
-      check('Ohne .env-Angaben: deutlicher Hinweis statt leerer Seite', /LEGAL_NAME/.test(g.text));
+      check('Ohne .env-Angaben: Standard-E-Mail und Österreich, kein Warnhinweis, kein Name', /xsellnw@gmail\.com/.test(g.text) && /Österreich/.test(g.text) && !/class="warn"/.test(g.text));
+      check('Hinweis auf frei gewählte Spielernamen/Passwörter', /ausgedachten Namen/.test(g.text));
       g = await get('/datenschutz');
       check('/datenschutz erreichbar, deutsch, nennt Rechte und Datenschutzbehörde', g.status === 200 && /Rechte/.test(g.text) && /dsb\.gv\.at/.test(g.text));
       g = await get('/datenschutz?lang=en');
