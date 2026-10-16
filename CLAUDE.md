@@ -336,6 +336,14 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.63.0: Wartbarkeit (Punkt 18 der Review-Liste) - `dev/static_check.js`, läuft als erster Schritt von `npm test` und in der CI.**
+  Prüft ohne Browser: (1) keine doppelt deklarierten Funktionen/Top-Level-Variablen in `index.html` und `server.js`
+  (Wiederholung des `gpDisplayName`-Unfalls aus v0.39.0 ausgeschlossen), (2) jeder `t('...')`- und `data-i18n`-Schlüssel
+  existiert im Wörterbuch, (3) kein `JSON.stringify` direkt in `onclick="..."` (v0.16.0-Bug). Negativ getestet.
+  **Bewusst NICHT gemacht: `index.html` (~7700 Zeilen) oder `server.js` in Module aufteilen.** Das wäre ein Umbau
+  der Arbeitsweise (Tests laden das letzte `<script>` der Datei, Deployment ist `git pull` ohne Build). Wenn gewünscht,
+  dann schrittweise: erst CSS, dann Wörterbuch (`TRANSLATIONS`) in eigene Dateien unter `public/`, ohne Build-Schritt
+  per `<script src>`/`<link>`; Tests (`loadFrontend` in smoke_test/xss_test, `static_check`) müssten mitziehen.
 - **Seit v0.61.0: Übersetzungslücken (Punkt 16 der Review-Liste). Nur `index.html` + Smoke-Test.**
   - ~48 bisher fest deutsche Meldungen (Statuszeile `#saveStatus`, Bestätigungs-/Lösch-/Reset-Dialoge,
     Einmalpasswort-Prompt, Konto-Meldungen `setAccountMsg`, Buff-Food-Optimierer-Texte) laufen jetzt

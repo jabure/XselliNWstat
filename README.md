@@ -195,7 +195,8 @@ Tages-Backups als .tar.gz herunterladen. Die Benutzerliste zeigt außerdem
 **Tests:** `dev/smoke_test.js` startet eine eigene Server-Instanz und testet
 Server-API + Frontend automatisch (`npm install` einmalig nötig, dann `npm test`
 bzw. `node dev/smoke_test.js`). Dieselben Tests laufen bei jedem Push über GitHub
-Actions (`.github/workflows/test.yml`). `node dev/xss_test.js` prüft zusätzlich, dass
+Actions (`.github/workflows/test.yml`). `node dev/static_check.js` (Teil von `npm test`) findet
+doppelt deklarierte Funktionen, fehlende Übersetzungsschlüssel und unsichere `onclick`-Einbettungen. `node dev/xss_test.js` prüft zusätzlich, dass
 bösartige Namen/Texte im Frontend nur als Text dargestellt werden.
 
 **Grenzen der einfachen Lösung:** kein „Passwort vergessen" per E-Mail (nur
