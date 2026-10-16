@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const legal = require('./legal');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -1144,6 +1145,9 @@ app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware,
   writeJson(charFile(req.username, target), data);
   res.status(201).json({ name: target });
 });
+
+// Impressum und Datenschutzerklärung (Angaben kommen aus der .env, siehe legal.js)
+legal.mount(app);
 
 // Frontend direkt mit ausliefern - ein Container, ein Port. HTML wird bei jedem
 // Aufruf gegen den Server geprüft (ETag), damit nach Updates niemand tagelang eine

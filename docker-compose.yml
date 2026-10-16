@@ -17,6 +17,11 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
       # Optional: Einladungscode für die Registrierung (leer = jeder darf sich registrieren)
       - REGISTER_CODE=${REGISTER_CODE:-}
+      # Angaben für Impressum und Datenschutzerklärung (Adresse: Zeilen mit | trennen)
+      - LEGAL_NAME=${LEGAL_NAME:-}
+      - LEGAL_ADDRESS=${LEGAL_ADDRESS:-}
+      - LEGAL_EMAIL=${LEGAL_EMAIL:-}
+      - LEGAL_PHONE=${LEGAL_PHONE:-}
     # Schlankere Rechte: der Prozess kann sich keine neuen Rechte verschaffen und hat nur die
     # wenigen Linux-Fähigkeiten, die der Start-Wrapper braucht (Besitzer setzen, Benutzer wechseln).
     security_opt:

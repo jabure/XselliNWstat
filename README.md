@@ -101,7 +101,7 @@ docker compose up -d --build
 
 **Einstellungen (`.env`):** `JWT_SECRET` (Zufallswert; leer = der Server erzeugt selbst
 eines), `ADMIN_USERNAME` (dieser Name bekommt beim Registrieren die Admin-Rolle),
-optional `REGISTER_CODE` (Einladungscode für neue Konten; leer = offen). Der Container
+optional `REGISTER_CODE` (Einladungscode für neue Konten; leer = offen). `LEGAL_NAME`, `LEGAL_ADDRESS` (Zeilen mit `|` trennen), `LEGAL_EMAIL` und optional `LEGAL_PHONE` füllen die Seiten `/impressum` und `/datenschutz` (Fußzeile der Website); ohne Angaben zeigen sie einen Warnhinweis. Der Container
 veröffentlicht keinen Port nach außen, sondern hängt im Docker-Netzwerk `proxy` und wird
 von einem Reverse-Proxy (z. B. Caddy mit `reverse_proxy xselli-stats-rechner:3000`) bedient.
 Für Zugriffe aus dem Internet gehört HTTPS davor.

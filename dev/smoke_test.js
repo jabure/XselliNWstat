@@ -208,6 +208,27 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     r = await api('/api/gp/characters/' + encodeURIComponent('x'), { method: 'PUT', body: JSON.stringify({ rollen: 'nein' }) }, token);
     check('GP-Charakter: unbekannter Charakter bleibt 404', r.status === 404, r.status);
 
+    console.log('\n[1e] Impressum und Datenschutz (Punkt 6)');
+    {
+      const get = (p, hdr) => fetch(BASE + p, { headers: hdr || {} }).then(async x => ({ status: x.status, type: x.headers.get('content-type') || '', text: await x.text() }));
+      let g = await get('/impressum');
+      check('/impressum erreichbar (HTML)', g.status === 200 && /text\/html/.test(g.type), g.status + ' ' + g.type);
+      check('Ohne .env-Angaben: deutlicher Hinweis statt leerer Seite', /LEGAL_NAME/.test(g.text));
+      g = await get('/datenschutz');
+      check('/datenschutz erreichbar, deutsch, nennt Rechte und Datenschutzbehörde', g.status === 200 && /Rechte/.test(g.text) && /dsb\.gv\.at/.test(g.text));
+      g = await get('/datenschutz?lang=en');
+      check('/datenschutz?lang=en liefert Englisch', /Your rights/.test(g.text) && /lang="en"/.test(g.text));
+      g = await get('/impressum', { 'Accept-Language': 'en-US,en;q=0.9' });
+      check('Sprache folgt Accept-Language', /Legal notice/.test(g.text));
+      const L = require('../legal');
+      const voll = L.readLegal({ LEGAL_NAME: 'Max <b>Muster</b>', LEGAL_ADDRESS: 'Weg 1 | 1010 Wien', LEGAL_EMAIL: 'a@b.at' });
+      const h = L.imprintHtml('de', voll);
+      check('Mit Angaben: kein Warnhinweis, Zeilen getrennt', voll.complete && !/class="warn"/.test(h) && /Weg 1<br>1010 Wien/.test(h));
+      check('Angaben werden maskiert (kein HTML-Einschleusen)', !/<b>Muster/.test(h) && /&lt;b&gt;Muster/.test(h));
+      const fr = await get('/');
+      check('Startseite hat Fußzeile mit beiden Links', /href="\/impressum"/.test(fr.text) && /href="\/datenschutz"/.test(fr.text));
+    }
+
     console.log('\n[1d] Missbrauchsschutz: Login-Sperre pro IP+Name, Obergrenzen, Einladungscode-Abfrage');
     const rawPost = (p, body, ip, tk) => fetch(BASE + p, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: JSON.stringify(body) }).then(async x => ({ status: x.status, data: await x.json().catch(() => null) }));
     const opfer = 'opfer_' + uniq, opferPw = 'opferpw1234';
