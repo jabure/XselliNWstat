@@ -968,6 +968,7 @@ const TRANSLATIONS = {
     'acc.newpw': 'Neues Passwort (min. 4 Zeichen)',
     'btn.login': 'Anmelden',
     'btn.register': 'Registrieren',
+    'acc.invite': 'Einladungscode (nur zum Registrieren)',
     'btn.cancel': 'Abbrechen',
     'btn.close': 'Schließen',
     'btn.logout': 'Abmelden',
@@ -1353,6 +1354,7 @@ const TRANSLATIONS = {
     'acc.newpw': 'New Password (min. 4 characters)',
     'btn.login': 'Log In',
     'btn.register': 'Register',
+    'acc.invite': 'Invite code (registration only)',
     'btn.cancel': 'Cancel',
     'btn.close': 'Close',
     'btn.logout': 'Log Out',
@@ -1947,7 +1949,8 @@ async function apiRequest(path, opts){
 const apiGetShared = () => apiRequest('/api/shared');
 const apiSetPresets = (partial) => apiRequest('/api/shared/presets', {method:'PUT', body:JSON.stringify(partial)});
 const apiSetFormulas = (partial) => apiRequest('/api/shared/formulas', {method:'PUT', body:JSON.stringify(partial)});
-const apiRegister = (username, password) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password})});
+const apiRegister = (username, password, inviteCode) => apiRequest('/api/auth/register', {method:'POST', body:JSON.stringify({username,password,inviteCode})});
+const apiAuthConfig = () => fetch('/api/auth/config').then(r=>r.json()).catch(()=>({inviteRequired:false}));
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
 const apiSetLang = (lang) => apiRequest('/api/me/lang', {method:'PUT', body:JSON.stringify({lang})});
@@ -2033,6 +2036,7 @@ async function renderAccountPanel(){
       <div class="login-grid">
         <div><label for="acc_username">${t('acc.username')}</label><input type="text" id="acc_username" autocomplete="username" onkeydown="if(event.key==='Enter')loginAccount()"></div>
         <div><label for="acc_password">${t('acc.password')}</label><input type="password" id="acc_password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAccount()"></div>
+        <div id="acc_invite_wrap" style="display:none;"><label for="acc_invite">${t('acc.invite')}</label><input type="text" id="acc_invite" autocomplete="off"></div>
       </div>
       <div id="accMsg" class="helptext" style="color:var(--off);"></div>
       <div class="btnrow">
@@ -2040,6 +2044,8 @@ async function renderAccountPanel(){
         <button class="action" type="button" onclick="registerAccount()">${t('btn.register')}</button>
         <button class="action" type="button" onclick="closeAccountModal()">${t('btn.cancel')}</button>
       </div>`;
+    // Nur wenn der Server einen Einladungscode verlangt, wird das Feld eingeblendet.
+    apiAuthConfig().then(cfg => { const w = document.getElementById('acc_invite_wrap'); if(w && cfg && cfg.inviteRequired) w.style.display = ''; });
     return;
   }
   let chars = [];
@@ -2328,7 +2334,8 @@ async function registerAccount(){
   const password = document.getElementById('acc_password').value;
   if(!username || !password){ setAccountMsg('Bitte Benutzername und Passwort eingeben.'); return; }
   try{
-    const res = await apiRegister(username, password);
+    const inviteEl = document.getElementById('acc_invite');
+    const res = await apiRegister(username, password, inviteEl ? inviteEl.value.trim() : undefined);
     authToken = res.token; currentUser = username; isLoggedIn = true; currentChar = null; currentRole = res.role || 'user';
     persistLoginLocally();
     applyCharDataBundle({});

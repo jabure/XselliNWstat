@@ -332,6 +332,20 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.58.0: Zugriff & Missbrauch (Punkt 5 der Review-Liste). Betrifft `server.js`,
+  `index.html` UND `docker-compose.yml` - Rebuild nötig.**
+  - **Port zu**: `ports: 3001:3000` -> `expose: 3000`. Caddy (Xselli, zuhause, nur 80/443 offen)
+    nutzt `reverse_proxy xselli-stats-rechner:3000` (Containername), braucht 3001 also nicht.
+    Direktzugriff im Heimnetz hätte HTTPS umgehbar und per X-Forwarded-For die IP fälschbar gemacht.
+  - **Login-Sperre**: nicht mehr pro Benutzername (jeder konnte fremde Konten sperren), sondern
+    pro IP+Name (10 Fehlversuche) und pro IP gesamt (40) / 15 min. Erfolgreicher Login löscht nur
+    den IP+Name-Zähler. `setInterval(...).unref()` räumt Login- und Register-Zähler auf.
+  - **Obergrenzen**: `MAX_CHARS_PER_USER` (50, env-überschreibbar; Stats-Chars, GP-Chars,
+    Übergabe-Annahme) und `MAX_USERS` (500, 503 bei Erreichen). Admin-Kopie bewusst ungedeckelt.
+  - **Einladungscode**: optionales `REGISTER_CODE` (.env/compose). Leer = offen wie bisher.
+    `GET /api/auth/config` -> `{inviteRequired}`; Frontend blendet `#acc_invite_wrap` nur dann ein.
+    Falscher Code zählt in die Registrier-Bremse (403, timingSafeEqual über SHA-256).
+  - Smoke-Test: 306 Prüfungen (Abschnitt [1d]; IPs per `X-Forwarded-For` simuliert, trust proxy 1).
 - **Seit v0.57.0: Datenintegrität (Punkte 7-12 aus dem Code-Review). Betrifft
   `server.js` UND `index.html` - Server braucht Rebuild.**
   - **Autosave verliert nichts mehr**: `pendingSaveChar` hält den Namen fest, für den

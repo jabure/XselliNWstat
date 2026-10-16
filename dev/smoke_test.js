@@ -208,6 +208,31 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     r = await api('/api/gp/characters/' + encodeURIComponent('x'), { method: 'PUT', body: JSON.stringify({ rollen: 'nein' }) }, token);
     check('GP-Charakter: unbekannter Charakter bleibt 404', r.status === 404, r.status);
 
+    console.log('\n[1d] Missbrauchsschutz: Login-Sperre pro IP+Name, Obergrenzen, Einladungscode-Abfrage');
+    const rawPost = (p, body, ip, tk) => fetch(BASE + p, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: JSON.stringify(body) }).then(async x => ({ status: x.status, data: await x.json().catch(() => null) }));
+    const opfer = 'opfer_' + uniq, opferPw = 'opferpw1234';
+    r = await rawPost('/api/auth/register', { username: opfer, password: opferPw }, '10.9.0.1');
+    check('Testkonto für Sperr-Test angelegt', r.status === 201, r.status);
+    const opferToken = r.data && r.data.token;
+    for (let i = 0; i < 10; i++) await rawPost('/api/auth/login', { username: opfer, password: 'falsch' + i }, '10.9.0.2');
+    r = await rawPost('/api/auth/login', { username: opfer, password: opferPw }, '10.9.0.2');
+    check('Nach 10 Fehlversuchen ist DIESE IP für dieses Konto gesperrt (429)', r.status === 429, r.status);
+    r = await rawPost('/api/auth/login', { username: opfer, password: opferPw }, '10.9.0.3');
+    check('Der Besitzer kann sich von einer ANDEREN IP weiterhin anmelden (kein Fremd-Sperren)', r.status === 200, r.status);
+    r = await rawPost('/api/auth/login', { username: 'gibtsnicht_' + uniq, password: 'x' }, '10.9.0.2');
+    check('Dieselbe IP ist für ANDERE Benutzernamen nicht pauschal gesperrt (401, nicht 429)', r.status === 401, r.status);
+    for (let i = 0; i < 40; i++) await rawPost('/api/auth/login', { username: 'scan' + i + '_' + uniq, password: 'x' }, '10.9.0.4');
+    r = await rawPost('/api/auth/login', { username: 'scan99_' + uniq, password: 'x' }, '10.9.0.4');
+    check('Durchprobieren vieler Namen von einer IP wird nach 40 Versuchen gebremst (429)', r.status === 429, r.status);
+    r = await fetch(BASE + '/api/auth/config').then(x => x.json());
+    check('Auth-Konfig: ohne REGISTER_CODE ist kein Einladungscode nötig', r.inviteRequired === false, JSON.stringify(r));
+    let angelegt = 0, letzte = 0;
+    for (let i = 0; i < 60; i++) {
+      const rr = await rawPost('/api/characters', { name: 'Cap' + i + '_' + uniq }, '10.9.0.5', opferToken);
+      letzte = rr.status; if (rr.status === 201) angelegt++; else break;
+    }
+    check('Charakter-Obergrenze: genau 50 Charaktere pro Konto, danach 409', angelegt === 50 && letzte === 409, angelegt + '/' + letzte);
+
     console.log('\n[2] Charakterdaten-Validierung');
     const charV = 'Valid_' + uniq;
     await api('/api/characters', { method: 'POST', body: JSON.stringify({ name: charV }) }, token);

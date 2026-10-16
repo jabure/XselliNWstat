@@ -249,12 +249,25 @@ function noteRegisterAttempt(ip){
 }
 
 /* ---------- Auth ---------- */
+// Obergrenzen gegen Zumüllen der Festplatte (ein Skript könnte sonst beliebig viele Konten/Charaktere anlegen).
+const MAX_USERS = parseInt(process.env.MAX_USERS, 10) > 0 ? parseInt(process.env.MAX_USERS, 10) : 500;
+const MAX_CHARS_PER_USER = parseInt(process.env.MAX_CHARS_PER_USER, 10) > 0 ? parseInt(process.env.MAX_CHARS_PER_USER, 10) : 50;
+// Optionaler Einladungscode für die Registrierung. Leer = Registrierung bleibt offen (wie bisher).
+const REGISTER_CODE = (process.env.REGISTER_CODE || '').trim();
+const sha = (s) => crypto.createHash('sha256').update(String(s)).digest();
+function inviteOk(code){ return !REGISTER_CODE || (isStr(code) && crypto.timingSafeEqual(sha(code.trim()), sha(REGISTER_CODE))); }
+// Das Frontend fragt hier ab, ob es ein Einladungscode-Feld anzeigen muss.
+app.get('/api/auth/config', (req, res) => res.json({ inviteRequired: !!REGISTER_CODE }));
 app.post('/api/auth/register', wrap(async (req, res) => {
   const lockedMin = registerLockedFor(req.ip);
   if(lockedMin > 0){
     return res.status(429).json({ error: `Zu viele Registrierungen von dieser Adresse - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
   }
-  const { username, password } = req.body || {};
+  const { username, password, inviteCode } = req.body || {};
+  if(!inviteOk(inviteCode)){
+    noteRegisterAttempt(req.ip); // falsche Codes zählen mit, damit man ihn nicht durchprobieren kann
+    return res.status(403).json({ error: 'Einladungscode fehlt oder ist falsch' });
+  }
   if(!isStr(username) || !isStr(password) || username.length < 2 || password.length < 4){
     return res.status(400).json({ error: 'Benutzername (min. 2 Zeichen) und Passwort (min. 4 Zeichen) erforderlich' });
   }
@@ -264,6 +277,7 @@ app.post('/api/auth/register', wrap(async (req, res) => {
   if(!validNewUsername(username)){
     return res.status(400).json({ error: 'Benutzername: 2-32 Zeichen, nur Buchstaben, Ziffern, Leerzeichen sowie . _ @ - (kein Leerzeichen am Anfang/Ende)' });
   }
+  if(Object.keys(readUsers()).length >= MAX_USERS) return res.status(503).json({ error: 'Die Registrierung ist derzeit geschlossen (Benutzergrenze erreicht)' });
   const nameTaken = (us) => us[username] || Object.keys(us).some(u => safeName(u) === safeName(username));
   if(nameTaken(readUsers())) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   noteRegisterAttempt(req.ip);
@@ -285,41 +299,55 @@ app.post('/api/auth/register', wrap(async (req, res) => {
 // gezählt (im Speicher, überlebt keinen Neustart - reicht für diesen Zweck). Nach
 // MAX_ATTEMPTS Fehlversuchen ist der Login für LOCK_MINUTES gesperrt; ein
 // erfolgreicher Login setzt den Zähler zurück.
-const loginAttempts = Object.create(null); // username -> { count, firstAt }
-const LOGIN_MAX_ATTEMPTS = 10;
+// Gezählt wird NICHT mehr pro Benutzername allein (dann könnte jeder fremde Konten durch
+// absichtliche Fehlversuche sperren), sondern pro Kombination IP+Benutzername sowie
+// zusätzlich pro IP insgesamt (gegen das Durchprobieren vieler verschiedener Namen).
+const loginAttempts = Object.create(null); // key -> { count, firstAt }
+const LOGIN_MAX_ATTEMPTS = 10;      // je IP+Benutzername
+const LOGIN_MAX_PER_IP = 40;        // je IP über alle Benutzernamen
 const LOGIN_LOCK_MINUTES = 15;
-function loginLockedFor(username){
-  const a = loginAttempts[username];
+const loginPairKey = (ip, username) => 'p|' + ip + '|' + username.slice(0, 64);
+const loginIpKey = (ip) => 'i|' + ip;
+function lockedFor(key, max){
+  const a = loginAttempts[key];
   if(!a) return 0;
   const elapsed = Date.now() - a.firstAt;
-  if(elapsed > LOGIN_LOCK_MINUTES*60*1000){ delete loginAttempts[username]; return 0; }
-  if(a.count < LOGIN_MAX_ATTEMPTS) return 0;
+  if(elapsed > LOGIN_LOCK_MINUTES*60*1000){ delete loginAttempts[key]; return 0; }
+  if(a.count < max) return 0;
   return Math.ceil((LOGIN_LOCK_MINUTES*60*1000 - elapsed) / 60000);
 }
-function noteLoginFailure(username){
-  const a = loginAttempts[username];
+function noteFailure(key){
+  const a = loginAttempts[key];
   if(!a || Date.now() - a.firstAt > LOGIN_LOCK_MINUTES*60*1000){
-    loginAttempts[username] = { count: 1, firstAt: Date.now() };
+    loginAttempts[key] = { count: 1, firstAt: Date.now() };
   } else {
     a.count++;
   }
 }
+const loginLockedFor = (ip, username) => Math.max(lockedFor(loginPairKey(ip, username), LOGIN_MAX_ATTEMPTS), lockedFor(loginIpKey(ip), LOGIN_MAX_PER_IP));
+function noteLoginFailure(ip, username){ noteFailure(loginPairKey(ip, username)); noteFailure(loginIpKey(ip)); }
+// Abgelaufene Einträge regelmäßig wegräumen, sonst wächst die Liste bei vielen verschiedenen Namen/IPs unbegrenzt.
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(loginAttempts).forEach(k => { if(now - loginAttempts[k].firstAt > LOGIN_LOCK_MINUTES*60*1000) delete loginAttempts[k]; });
+  Object.keys(registerAttempts).forEach(k => { if(now - registerAttempts[k].firstAt > REGISTER_WINDOW_MINUTES*60*1000) delete registerAttempts[k]; });
+}, 10*60*1000).unref();
 
 app.post('/api/auth/login', wrap(async (req, res) => {
   const { username, password } = req.body || {};
   if(!isStr(username) || !isStr(password) || !username || password.length > PASSWORD_MAX_LEN){
     return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
   }
-  const lockedMin = loginLockedFor(username);
+  const lockedMin = loginLockedFor(req.ip, username);
   if(lockedMin > 0){
     return res.status(429).json({ error: `Zu viele Fehlversuche - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
   }
   const users = readUsers();
   const user = users[username];
-  if(!user || !isStr(user.passwordHash)){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
+  if(!user || !isStr(user.passwordHash)){ noteLoginFailure(req.ip, username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if(!ok){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
-  delete loginAttempts[username];
+  if(!ok){ noteLoginFailure(req.ip, username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
+  delete loginAttempts[loginPairKey(req.ip, username)];
   const token = signToken(username, user.passwordHash);
   res.json({ token, username, role: getUserRole(username), mustChangePassword: user.mustChangePassword === true, lang: user.lang === 'en' ? 'en' : 'de' });
 }));
@@ -475,6 +503,7 @@ app.post('/api/characters', authMiddleware, (req, res) => {
   const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  if(user.characters.length >= MAX_CHARS_PER_USER) return res.status(409).json({ error: `Du hast die Höchstzahl von ${MAX_CHARS_PER_USER} Charakteren erreicht` });
   if(user.characters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter gibt es schon' });
   if(isCharNameTakenByOther(name, req.username)){
     return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
@@ -652,6 +681,7 @@ app.post('/api/transfers/:name/accept', authMiddleware, (req, res) => {
   // Da Charakternamen global eindeutig sein müssen, bekommt die Kopie automatisch
   // einen neuen, freien Namen.
   if(!toUser.characters) toUser.characters = [];
+  if(toUser.characters.length >= MAX_CHARS_PER_USER) return res.status(409).json({ error: `Du hast die Höchstzahl von ${MAX_CHARS_PER_USER} Charakteren erreicht - bitte erst einen löschen` });
   const base = `${req.params.name} (von ${t.from})`;
   let target = base, i = 2;
   while(toUser.characters.includes(target) || isCharNameTakenByOther(target, req.username) || charFileTaken(req.username, target)){
@@ -714,6 +744,7 @@ app.post('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   if(!user.gpCharacters) user.gpCharacters = [];
+  if(user.gpCharacters.length >= MAX_CHARS_PER_USER) return res.status(409).json({ error: `Du hast die Höchstzahl von ${MAX_CHARS_PER_USER} Charakteren erreicht` });
   if(user.gpCharacters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter hast du schon angelegt' });
   if(gpCharFileTaken(req.username, name)) return res.status(409).json({ error: 'Ein sehr ähnlicher Name existiert schon (Sonderzeichen werden gleich behandelt)' });
   user.gpCharacters.push(name);
