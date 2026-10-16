@@ -17,6 +17,16 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
       # Optional: Einladungscode für die Registrierung (leer = jeder darf sich registrieren)
       - REGISTER_CODE=${REGISTER_CODE:-}
+    # Schlankere Rechte: der Prozess kann sich keine neuen Rechte verschaffen und hat nur die
+    # wenigen Linux-Fähigkeiten, die der Start-Wrapper braucht (Besitzer setzen, Benutzer wechseln).
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     networks:
       - proxy
     # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,

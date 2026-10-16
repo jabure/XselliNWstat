@@ -332,6 +332,21 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.59.0: Docker-Härtung + Deployment mit Rollback + CI (Punkte 13-14 der Review-Liste).
+  Betrifft `Dockerfile`, `docker-compose.yml`, `update.sh`, neu: `docker-entrypoint.sh`,
+  `.dockerignore`, `package-lock.json`, `.github/workflows/test.yml`. UNGETESTET im echten Docker
+  (Sandbox hatte keinen Daemon) - nur Shell-Logik mit Attrappen und `docker compose config` geprüft.**
+  - `npm ci` mit Lockfile statt `npm install` (reproduzierbar); `jsdom` als devDependency,
+    `npm test` = Smoke- + XSS-Test; `engines.node >= 20`. Lockfile bei Abhängigkeitsänderung
+    neu erzeugen (`npm install --package-lock-only`) und mit committen, sonst bricht `npm ci`.
+  - Container läuft nicht als root: `docker-entrypoint.sh` chownt `data/` (Bind-Mount, gehörte
+    bisher root) auf `node` und startet per `su-exec` neu. `HEALTHCHECK` fragt `/api/version`.
+    Compose: `no-new-privileges`, `cap_drop: ALL` + nur CHOWN/SETUID/SETGID.
+    Fällt der Start nach dem Update aus (z. B. Rechte): zuerst `docker compose logs` ansehen.
+  - `update.sh`: `git fetch` + `merge --ff-only`, danach `wait_healthy` (bis 120 s). Unhealthy ->
+    `git reset --hard` auf den vorherigen Commit, Rebuild, Commit-Hash in `.deploy-bad-commit`
+    (gitignored) -> derselbe Commit wird nicht erneut versucht. Exit-Code 1 im Fehlerfall.
+  - GitHub Actions `Tests`: `npm ci`, `node --check server.js`, `npm test` bei Push/PR auf main.
 - **Seit v0.58.0: Zugriff & Missbrauch (Punkt 5 der Review-Liste). Betrifft `server.js`,
   `index.html` UND `docker-compose.yml` - Rebuild nötig.**
   - **Port zu**: `ports: 3001:3000` -> `expose: 3000`. Caddy (Xselli, zuhause, nur 80/443 offen)

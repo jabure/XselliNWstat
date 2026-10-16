@@ -1,0 +1,22 @@
+name: Tests
+
+# Läuft bei jedem Push und Pull Request auf main: Syntax-Check, Smoke-Test (Server-API +
+# Frontend in jsdom) und XSS-Regressionstest. Schlägt etwas fehl, sieht man es sofort
+# auf GitHub, bevor der Server (update.sh) den Stand ausrollt.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node --check server.js
+      - run: npm test

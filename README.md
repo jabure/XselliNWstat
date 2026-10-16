@@ -106,6 +106,12 @@ Container bei Bedarf neu:
 crontab -e
 */15 * * * * /pfad/zu/xselli-server/update.sh >> /pfad/zu/xselli-server/update.log 2>&1
 ```
+Das Skript wartet nach jedem Neustart, bis der Container „healthy" meldet. Startet die
+neue Version nicht sauber, wird automatisch auf den letzten funktionierenden Stand
+zurückgerollt; der fehlerhafte Commit steht dann in `.deploy-bad-commit` und wird erst
+wieder versucht, wenn ein neuerer Commit auf GitHub liegt. Der Container läuft nicht als
+root (der Start-Wrapper `docker-entrypoint.sh` stellt dafür einmalig die Besitzer von
+`data/` um und gibt dann die Rechte ab).
 
 **Datendateien unter `data/`:**
 - `users.json` - Konten (Passwort gehasht)
@@ -176,8 +182,9 @@ Tages-Backups als .tar.gz herunterladen. Die Benutzerliste zeigt außerdem
 „zuletzt aktiv" und ist danach sortiert.
 
 **Tests:** `dev/smoke_test.js` startet eine eigene Server-Instanz und testet
-Server-API + Frontend automatisch (`npm install jsdom` einmalig nötig, dann
-`node dev/smoke_test.js`). `node dev/xss_test.js` prüft zusätzlich, dass
+Server-API + Frontend automatisch (`npm install` einmalig nötig, dann `npm test`
+bzw. `node dev/smoke_test.js`). Dieselben Tests laufen bei jedem Push über GitHub
+Actions (`.github/workflows/test.yml`). `node dev/xss_test.js` prüft zusätzlich, dass
 bösartige Namen/Texte im Frontend nur als Text dargestellt werden.
 
 **Grenzen der einfachen Lösung:** kein „Passwort vergessen" per E-Mail (nur
