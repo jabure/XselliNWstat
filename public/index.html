@@ -1096,6 +1096,54 @@ const TRANSLATIONS = {
     'gp.ref.gefverstaerkung': 'Gefährten-Verstärkung',
     'gp.of': 'von',
     'generic.error': 'Fehler: ',
+    'status.saving': 'Speichere …',
+    'status.saved': 'Gespeichert',
+    'status.guestcache': 'Im Browser zwischengespeichert (Gast - nicht auf dem Server)',
+    'status.saveerror': 'Fehler beim Speichern: ',
+    'status.formulassaved': 'Formeln gespeichert (für alle)',
+    'status.presetssaved': 'Presets gespeichert (für alle)',
+    'status.overviewfail': 'Übersicht laden fehlgeschlagen: ',
+    'status.rolerequired': 'Dafür brauchst du mindestens die Rolle "{role}".',
+    'status.copied': 'Kopiert als "{name}" – über die Charakterauswahl oben rechts abrufbar.',
+    'status.roleset': '{user}: Rolle auf "{role}" gesetzt.',
+    'status.downloadfail': 'Download fehlgeschlagen: ',
+    'status.wehrjson': 'Fehler im JSON der Wehrhaftigkeit-Tabelle – nichts wurde gespeichert: ',
+    'status.demoloaded': 'Beispielcharakter geladen - alle Werte sind frei änderbar.',
+    'status.restored': 'Stand wiederhergestellt (gilt für alle).',
+    'status.restorefail': 'Wiederherstellen fehlgeschlagen: ',
+    'status.pwreset': 'Passwort von "{user}" zurückgesetzt (Einmalpasswort wurde angezeigt).',
+    'status.accdeleted': 'Account "{user}" gelöscht.',
+    'status.pwmustchange': 'Dein Passwort wurde zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.',
+    'status.sessionexpired': 'Deine Anmeldung ist abgelaufen - bitte oben rechts neu anmelden.',
+    'status.guestrestored': 'Gast-Eingaben aus dem Browser wiederhergestellt ("Alles zurücksetzen" verwirft sie).',
+    'status.gpcharsfail': 'Gruppenplaner-Charaktere laden fehlgeschlagen: ',
+    'status.gpplansfail': 'Gruppenplaner-Pläne laden fehlgeschlagen: ',
+    'modal.deletechar': 'Charakter "{name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.',
+    'modal.resetpw': 'Passwort von "{user}" wirklich zurücksetzen? Es wird ein zufälliges Einmalpasswort erzeugt, das dir einmalig angezeigt wird.',
+    'modal.deleteacc': 'Account "{user}" mit allen Charakteren wirklich löschen? Das kann nicht rückgängig gemacht werden.',
+    'prompt.onetimepw': 'Einmalpasswort für "{user}" (jetzt kopieren und der Person persönlich weitergeben - es wird nicht noch einmal angezeigt):',
+    'confirm.presetsdirty': 'Du hast ungespeicherte Preset-Änderungen. Ohne Speichern verlassen?',
+    'confirm.formulasdirty': 'Du hast ungespeicherte Formel-Änderungen. Ohne Speichern verlassen?',
+    'acc.pickchar': '{user}: Charakter wählen',
+    'accmsg.newpw': 'Bitte ein neues Passwort eingeben.',
+    'accmsg.pwchanged': 'Passwort geändert. Alle anderen Anmeldungen (andere Geräte/Browser) wurden dabei abgemeldet.',
+    'accmsg.imported': 'Importiert als "{name}".',
+    'accmsg.importfail': 'Import fehlgeschlagen: ',
+    'accmsg.credentials': 'Bitte Benutzername und Passwort eingeben.',
+    'accmsg.name': 'Bitte einen Namen eingeben.',
+    'accmsg.noguest': 'Keine Gast-Eingaben (mehr) vorhanden.',
+    'accmsg.flushfail': 'Die letzten Änderungen konnten nicht gespeichert werden - Wechsel abgebrochen.',
+    'bf.goal.tank': 'maximale eHP (Tank)',
+    'bf.goal.heal': 'maximale Heilung (Heiler)',
+    'bf.goal.dps': 'maximalen Gesamtschaden (DPS)',
+    'bf.goal.none': 'größten Fortschritt Richtung Caps (keine Klasse gewählt)',
+    'bf.unit.tank': 'eHP',
+    'bf.unit.heal': 'Heilung',
+    'bf.unit.dps': 'Schaden',
+    'bf.gain.caps': '%-Punkte Richtung Caps',
+    'bf.alreadybest': 'Deine aktuelle Buff-Food-Auswahl ist bereits die bestmögliche{goal} - Utility unberücksichtigt.',
+    'bf.alreadybest.goal': ' für {goal}',
+    'bf.set': 'Bestes Buff Food gesetzt - optimiert auf {goal}, {gain}: {slots} - Utility-Slots unverändert.',
     'gp.klasse.none': 'Keine',
     'btn.edit': 'Bearbeiten',
     'prompt.newcharname': 'Neuer Charaktername:',
@@ -1482,6 +1530,54 @@ const TRANSLATIONS = {
     'gp.ref.gefverstaerkung': 'Companion Reinforcement',
     'gp.of': 'of',
     'generic.error': 'Error: ',
+    'status.saving': 'Saving …',
+    'status.saved': 'Saved',
+    'status.guestcache': 'Cached in this browser (guest - not stored on the server)',
+    'status.saveerror': 'Error while saving: ',
+    'status.formulassaved': 'Formulas saved (for everyone)',
+    'status.presetssaved': 'Presets saved (for everyone)',
+    'status.overviewfail': 'Loading the overview failed: ',
+    'status.rolerequired': 'You need at least the role "{role}" for this.',
+    'status.copied': 'Copied as "{name}" – available via the character selection at the top right.',
+    'status.roleset': '{user}: role set to "{role}".',
+    'status.downloadfail': 'Download failed: ',
+    'status.wehrjson': 'Error in the Forte table JSON – nothing was saved: ',
+    'status.demoloaded': 'Example character loaded - all values can be edited freely.',
+    'status.restored': 'State restored (applies to everyone).',
+    'status.restorefail': 'Restore failed: ',
+    'status.pwreset': 'Password of "{user}" reset (one-time password was shown).',
+    'status.accdeleted': 'Account "{user}" deleted.',
+    'status.pwmustchange': 'Your password was reset - please change it in the account window at the top right.',
+    'status.sessionexpired': 'Your session has expired - please sign in again at the top right.',
+    'status.guestrestored': 'Guest inputs restored from the browser ("Reset everything" discards them).',
+    'status.gpcharsfail': 'Loading group planner characters failed: ',
+    'status.gpplansfail': 'Loading group planner plans failed: ',
+    'modal.deletechar': 'Really delete character "{name}"? This cannot be undone.',
+    'modal.resetpw': 'Really reset the password of "{user}"? A random one-time password is generated and shown to you once.',
+    'modal.deleteacc': 'Really delete account "{user}" with all its characters? This cannot be undone.',
+    'prompt.onetimepw': 'One-time password for "{user}" (copy it now and hand it to the person in private - it will not be shown again):',
+    'confirm.presetsdirty': 'You have unsaved preset changes. Leave without saving?',
+    'confirm.formulasdirty': 'You have unsaved formula changes. Leave without saving?',
+    'acc.pickchar': '{user}: pick a character',
+    'accmsg.newpw': 'Please enter a new password.',
+    'accmsg.pwchanged': 'Password changed. All other sessions (other devices/browsers) were signed out.',
+    'accmsg.imported': 'Imported as "{name}".',
+    'accmsg.importfail': 'Import failed: ',
+    'accmsg.credentials': 'Please enter username and password.',
+    'accmsg.name': 'Please enter a name.',
+    'accmsg.noguest': 'No guest inputs (left).',
+    'accmsg.flushfail': 'The latest changes could not be saved - switch cancelled.',
+    'bf.goal.tank': 'maximum eHP (tank)',
+    'bf.goal.heal': 'maximum healing (healer)',
+    'bf.goal.dps': 'maximum total damage (DPS)',
+    'bf.goal.none': 'the most progress towards the caps (no class selected)',
+    'bf.unit.tank': 'eHP',
+    'bf.unit.heal': 'healing',
+    'bf.unit.dps': 'damage',
+    'bf.gain.caps': 'percentage points towards the caps',
+    'bf.alreadybest': 'Your current buff food selection is already the best possible{goal} - utility not considered.',
+    'bf.alreadybest.goal': ' for {goal}',
+    'bf.set': 'Best buff food set - optimized for {goal}, {gain}: {slots} - utility slots unchanged.',
     'gp.klasse.none': 'None',
     'btn.edit': 'Edit',
     'prompt.newcharname': 'New character name:',
@@ -2011,7 +2107,7 @@ function updateAccountLabel(){
   const el = document.getElementById('accountLabel');
   if(!el) return;
   if(!isLoggedIn) el.textContent = t('guest.label');
-  else if(!currentChar) el.textContent = `${currentUser}: Charakter wählen`;
+  else if(!currentChar) el.textContent = t('acc.pickchar').replace('{user}', currentUser);
   else el.textContent = `${currentUser} · ${currentChar}`;
   const gdName = document.getElementById('grunddatenCharName');
   if(gdName) gdName.textContent = currentChar ? `– ${currentChar}` : '';
@@ -2200,7 +2296,7 @@ function togglePwChange(){
 async function changePassword(){
   const oldP = document.getElementById('acc_oldpw').value;
   const newP = document.getElementById('acc_newpw').value;
-  if(!newP){ setAccountMsg('Bitte ein neues Passwort eingeben.'); return; }
+  if(!newP){ setAccountMsg(t('accmsg.newpw')); return; }
   try{
     const res = await apiChangePassword(oldP, newP);
     // Der Wechsel macht alle alten Tokens ungültig (inkl. des gerade benutzten) -
@@ -2209,7 +2305,7 @@ async function changePassword(){
     pwChangeRequired = false;
     document.getElementById('acc_oldpw').value = '';
     document.getElementById('acc_newpw').value = '';
-    setAccountMsg('Passwort geändert. Alle anderen Anmeldungen (andere Geräte/Browser) wurden dabei abgemeldet.', true);
+    setAccountMsg(t('accmsg.pwchanged'), true);
   }catch(e){ setAccountMsg(e.message); }
 }
 
@@ -2251,9 +2347,9 @@ async function handleImportFile(ev){
     }
     if(!created) throw new Error('Kein freier Name gefunden - bitte den Charakter in der Datei umbenennen');
     await apiSaveCharacter(created, obj.data);
-    setAccountMsg(`Importiert als "${created}".`, true);
+    setAccountMsg(t('accmsg.imported').replace('{name}', created), true);
     renderAccountPanel();
-  }catch(e){ setAccountMsg('Import fehlgeschlagen: ' + e.message); }
+  }catch(e){ setAccountMsg(t('accmsg.importfail') + e.message); }
 }
 
 // Angebote werden per Index angesprochen (nie den Namen in ein onclick-Attribut einbetten:
@@ -2388,7 +2484,7 @@ async function copyOwnCharacterByIndex(i){
 async function registerAccount(){
   const username = document.getElementById('acc_username').value.trim();
   const password = document.getElementById('acc_password').value;
-  if(!username || !password){ setAccountMsg('Bitte Benutzername und Passwort eingeben.'); return; }
+  if(!username || !password){ setAccountMsg(t('accmsg.credentials')); return; }
   try{
     const inviteEl = document.getElementById('acc_invite');
     const res = await apiRegister(username, password, inviteEl ? inviteEl.value.trim() : undefined);
@@ -2428,13 +2524,13 @@ function logoutAccount(){
 }
 async function createCharacter(){
   const name = document.getElementById('acc_newchar').value.trim();
-  if(!name){ setAccountMsg('Bitte einen Namen eingeben.'); return; }
+  if(!name){ setAccountMsg(t('accmsg.name')); return; }
   const copyIdx = document.getElementById('acc_copyfrom').value;
   // "__guest__": die im Browser zwischengespeicherten Gast-Eingaben werden zum
   // Startinhalt des neuen Charakters - die Brücke vom Ausprobieren zum Konto.
   if(copyIdx === '__guest__'){
     const guest = loadGuestBundle();
-    if(!guest){ setAccountMsg('Keine Gast-Eingaben (mehr) vorhanden.'); return; }
+    if(!guest){ setAccountMsg(t('accmsg.noguest')); return; }
     try{
       await apiCreateCharacter(name);
       currentChar = name;
@@ -2470,7 +2566,7 @@ async function createCharacter(){
 async function selectCharacter(name){
   // Erst die letzte, noch verzögerte Änderung des bisherigen Charakters sichern - sonst
   // geht sie verloren, oder (beim erneuten Laden desselben Charakters) kommt ein alter Stand zurück.
-  if(!(await flushSave())){ setAccountMsg('Die letzten Änderungen konnten nicht gespeichert werden - Wechsel abgebrochen.'); return; }
+  if(!(await flushSave())){ setAccountMsg(t('accmsg.flushfail')); return; }
   try{
     const res = await apiGetCharacter(name);
     currentChar = name;
@@ -2484,7 +2580,7 @@ async function selectCharacter(name){
 function confirmDeleteCharacter(name){
   pendingDeleteChar = name;
   pendingAction = 'deletechar';
-  document.getElementById('modalText').textContent = `Charakter "${name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`;
+  document.getElementById('modalText').textContent = t('modal.deletechar').replace('{name}', name);
   document.getElementById('modalConfirm').textContent = 'Ja, löschen';
   document.getElementById('modalBg').classList.add('show');
 }
@@ -2798,12 +2894,12 @@ function queueSave(){
     saveTimer = setTimeout(()=>{
       try{ localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(getCharDataBundle())); }catch(e){ /* z. B. Speicher voll - dann eben nicht */ }
       const el = document.getElementById('saveStatus');
-      el.textContent = 'Im Browser zwischengespeichert (Gast - nicht auf dem Server)';
+      el.textContent = t('status.guestcache');
       setTimeout(()=>{ if(el.textContent.startsWith('Im Browser')) el.textContent=''; }, 1800);
     }, 400);
     return;
   }
-  document.getElementById('saveStatus').textContent = 'Speichere …';
+  document.getElementById('saveStatus').textContent = t('status.saving');
   pendingSaveChar = currentChar; // der Name wird HIER festgehalten: ein späterer Wechsel darf nicht in den falschen Charakter schreiben
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{ flushSave(); }, 400);
@@ -2824,12 +2920,12 @@ async function flushSave(){
     // Falls dieser Charakter im Vergleich als "gespeicherter" Stand gecacht ist:
     // Cache verwerfen, damit der Vergleich beim nächsten Auswählen frisch lädt.
     delete vergleichBundles[name];
-    document.getElementById('saveStatus').textContent = 'Gespeichert';
+    document.getElementById('saveStatus').textContent = t('status.saved');
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
     return true;
   }catch(e){
     if(!pendingSaveChar) pendingSaveChar = name; // vormerken, damit ein weiterer Versuch möglich bleibt
-    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.saveerror') + e.message;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
     return false;
   }
@@ -2858,9 +2954,9 @@ async function queueSaveShared(){
     const r = await apiSetFormulas({ rev: sharedRev, formulas, maxPrOverrides, wehrVerteilung });
     if(r && r.rev !== undefined) sharedRev = r.rev;
     setDirty('formeln', false);
-    document.getElementById('saveStatus').textContent = 'Formeln gespeichert (für alle)';
+    document.getElementById('saveStatus').textContent = t('status.formulassaved');
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.saveerror') + e.message;
   }
   setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
 }
@@ -3539,10 +3635,9 @@ function runBuffFoodOptimierung(){
 
   const statusEl = document.getElementById('saveStatus');
   if(!best || !besser(bestScore, baseScore)){
-    statusEl.textContent = 'Deine aktuelle Buff-Food-Auswahl ist bereits die bestmögliche' +
-      (typ ? ` für ${typ === 'Tank' ? 'maximale eHP (Tank)' : (typ === 'Heiler' ? 'maximale Heilung (Heiler)' : 'maximalen Schaden (DPS)')}` : '') +
-      ' - Utility unberücksichtigt.';
-    setTimeout(()=>{ if(statusEl.textContent.startsWith('Deine aktuelle Buff-Food')) statusEl.textContent = ''; }, 6000);
+    const alreadyMsg = t('bf.alreadybest').replace('{goal}', typ ? t('bf.alreadybest.goal').replace('{goal}', typ === 'Tank' ? t('bf.goal.tank') : (typ === 'Heiler' ? t('bf.goal.heal') : t('bf.goal.dps'))) : '');
+    statusEl.textContent = alreadyMsg;
+    setTimeout(()=>{ if(statusEl.textContent === alreadyMsg) statusEl.textContent = ''; }, 6000);
     return;
   }
   slots.forEach(fs => { applySlotSelection(fs.key, best[fs.key], foodDb[fs.category] || {}); });
@@ -3550,19 +3645,18 @@ function runBuffFoodOptimierung(){
   renderSourceAccordions();
   refresh(false);
 
-  const zielTxt = typ === 'Tank' ? 'maximale eHP (Tank)'
-    : (typ === 'Heiler' ? 'maximale Heilung (Heiler)'
-    : (typ === 'DPS' ? 'maximalen Gesamtschaden (DPS)' : 'größten Fortschritt Richtung Caps (keine Klasse gewählt)'));
+  const zielTxt = typ === 'Tank' ? t('bf.goal.tank')
+    : (typ === 'Heiler' ? t('bf.goal.heal')
+    : (typ === 'DPS' ? t('bf.goal.dps') : t('bf.goal.none')));
   let gewinnTxt;
   if(typ && baseScore.primary > 0){
-    const einheit = typ === 'Tank' ? 'eHP' : (typ === 'Heiler' ? 'Heilung' : 'Schaden');
+    const einheit = typ === 'Tank' ? t('bf.unit.tank') : (typ === 'Heiler' ? t('bf.unit.heal') : t('bf.unit.dps'));
     gewinnTxt = '+' + fmt((bestScore.primary / baseScore.primary - 1) * 100) + ' % ' + einheit;
   } else {
-    gewinnTxt = '+' + fmt(bestScore.secondary - baseScore.secondary) + ' %-Punkte Richtung Caps';
+    gewinnTxt = '+' + fmt(bestScore.secondary - baseScore.secondary) + ' ' + t('bf.gain.caps');
   }
-  const msg = `Bestes Buff Food gesetzt - optimiert auf ${zielTxt}, ${gewinnTxt}: `
-    + slots.map(fs => `${fs.label}: ${best[fs.key]}`).join(' · ')
-    + ' - Utility-Slots unverändert.';
+  const msg = t('bf.set').replace('{goal}', zielTxt).replace('{gain}', gewinnTxt)
+    .replace('{slots}', slots.map(fs => `${fs.label}: ${best[fs.key]}`).join(' · '));
   const show = ()=>{ statusEl.textContent = msg; };
   show();
   setTimeout(show, 1200); // überlebt die "zwischengespeichert"-Meldung des Auto-Speicherns
@@ -4050,7 +4144,7 @@ async function loadAlleChars(){
     }
     uebersichtCharsData = result;
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Übersicht laden fehlgeschlagen: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.overviewfail') + e.message;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
   }
   uebersichtCharsLoading = false;
@@ -5072,15 +5166,15 @@ function updateGpTabVisibility(){
 function showPage(name){
   const openNow = PAGE_IDS.find(p => document.getElementById('page'+capitalize(p)).style.display !== 'none');
   if(openNow === 'presets' && name !== 'presets' && presetsDirty){
-    if(!confirm('Du hast ungespeicherte Preset-Änderungen. Ohne Speichern verlassen?')) return;
+    if(!confirm(t('confirm.presetsdirty'))) return;
     setDirty('presets', false);
   }
   if(openNow === 'formeln' && name !== 'formeln' && formelnDirty){
-    if(!confirm('Du hast ungespeicherte Formel-Änderungen. Ohne Speichern verlassen?')) return;
+    if(!confirm(t('confirm.formulasdirty'))) return;
     setDirty('formeln', false);
   }
   if(PAGE_MIN_ROLE[name] !== 'user' && !hasRole(PAGE_MIN_ROLE[name])){
-    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+PAGE_MIN_ROLE[name]+'".';
+    document.getElementById('saveStatus').textContent = t('status.rolerequired').replace('{role}', PAGE_MIN_ROLE[name]);
     return;
   }
   PAGE_IDS.forEach(p=>{
@@ -5194,7 +5288,7 @@ async function adminCopyChar(ui, ci){
   const u = adminUsers[ui], c = u.characters[ci];
   try{
     const res = await apiAdminCopyCharacter(u.username, c.name);
-    document.getElementById('saveStatus').textContent = `Kopiert als "${res.name}" – über die Charakterauswahl oben rechts abrufbar.`;
+    document.getElementById('saveStatus').textContent = t('status.copied').replace('{name}', res.name);
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
   }catch(e){
     document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
@@ -5203,21 +5297,21 @@ async function adminCopyChar(ui, ci){
 function confirmResetPassword(ui){
   pendingAdminUser = adminUsers[ui].username;
   pendingAction = 'resetpw';
-  document.getElementById('modalText').textContent = `Passwort von "${pendingAdminUser}" wirklich zurücksetzen? Es wird ein zufälliges Einmalpasswort erzeugt, das dir einmalig angezeigt wird.`;
+  document.getElementById('modalText').textContent = t('modal.resetpw').replace('{user}', pendingAdminUser);
   document.getElementById('modalConfirm').textContent = 'Ja, zurücksetzen';
   document.getElementById('modalBg').classList.add('show');
 }
 function confirmDeleteUser(ui){
   pendingAdminUser = adminUsers[ui].username;
   pendingAction = 'deleteuser';
-  document.getElementById('modalText').textContent = `Account "${pendingAdminUser}" mit allen Charakteren wirklich löschen? Das kann nicht rückgängig gemacht werden.`;
+  document.getElementById('modalText').textContent = t('modal.deleteacc').replace('{user}', pendingAdminUser);
   document.getElementById('modalConfirm').textContent = 'Ja, löschen';
   document.getElementById('modalBg').classList.add('show');
 }
 async function setUserRole(username, role){
   try{
     await apiAdminSetUserRole(username, role);
-    document.getElementById('saveStatus').textContent = `${username}: Rolle auf "${role}" gesetzt.`;
+    document.getElementById('saveStatus').textContent = t('status.roleset').replace('{user}', username).replace('{role}', role);
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
   }catch(e){
     document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
@@ -5269,7 +5363,7 @@ async function adminDownload(url, filename){
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Download fehlgeschlagen: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.downloadfail') + e.message;
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
   }
 }
@@ -5582,9 +5676,9 @@ async function savePresetsShared(){
     });
     if(r && r.rev !== undefined) sharedRev = r.rev;
     setDirty('presets', false);
-    document.getElementById('saveStatus').textContent = 'Presets gespeichert (für alle)';
+    document.getElementById('saveStatus').textContent = t('status.presetssaved');
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.saveerror') + e.message;
   }
   setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 2000);
   fillPresetFields();
@@ -5619,7 +5713,7 @@ async function saveFormulas(){
   try{
     wehrVerteilung = JSON.parse(document.getElementById('f_wehr').value);
   }catch(e){
-    document.getElementById('saveStatus').textContent = 'Fehler im JSON der Wehrhaftigkeit-Tabelle – nichts wurde gespeichert: ' + e.message;
+    document.getElementById('saveStatus').textContent = t('status.wehrjson') + e.message;
     return;
   }
   await queueSaveShared();
@@ -5658,7 +5752,7 @@ function loadDemoCharacter(){
     if(fs.items && fs.items.length) applySlotSelection(fs.key, fs.items[0], foodDb);
   });
   setRaptorCount(1);
-  document.getElementById('saveStatus').textContent = 'Beispielcharakter geladen - alle Werte sind frei änderbar.';
+  document.getElementById('saveStatus').textContent = t('status.demoloaded');
   setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 5000);
 }
 
@@ -5683,10 +5777,10 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
     try{
       await apiAdminRestoreShared(pendingBackupFile);
       await reloadShared();
-      document.getElementById('saveStatus').textContent = 'Stand wiederhergestellt (gilt für alle).';
+      document.getElementById('saveStatus').textContent = t('status.restored');
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 4000);
     }catch(e){
-      document.getElementById('saveStatus').textContent = 'Wiederherstellen fehlgeschlagen: ' + e.message;
+      document.getElementById('saveStatus').textContent = t('status.restorefail') + e.message;
     }
     pendingBackupFile = null;
     closeModal();
@@ -5696,11 +5790,11 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
   if(pendingAction === 'resetpw' && pendingAdminUser){
     try{
       const res = await apiAdminResetPassword(pendingAdminUser);
-      document.getElementById('saveStatus').textContent = `Passwort von "${pendingAdminUser}" zurückgesetzt (Einmalpasswort wurde angezeigt).`;
+      document.getElementById('saveStatus').textContent = t('status.pwreset').replace('{user}', pendingAdminUser);
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
       // Das Einmalpasswort ist zufällig und wird nur dieses eine Mal angezeigt - in einem
       // Dialogfeld, damit es sich in Ruhe markieren/kopieren und weitergeben lässt.
-      window.prompt(`Einmalpasswort für "${pendingAdminUser}" (jetzt kopieren und der Person persönlich weitergeben - es wird nicht noch einmal angezeigt):`, res.password);
+      window.prompt(t('prompt.onetimepw').replace('{user}', pendingAdminUser), res.password);
     }catch(e){
       document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
     }
@@ -5712,7 +5806,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
   if(pendingAction === 'deleteuser' && pendingAdminUser){
     try{
       await apiAdminDeleteUser(pendingAdminUser);
-      document.getElementById('saveStatus').textContent = `Account "${pendingAdminUser}" gelöscht.`;
+      document.getElementById('saveStatus').textContent = t('status.accdeleted').replace('{user}', pendingAdminUser);
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 3000);
     }catch(e){
       document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
@@ -5902,7 +5996,7 @@ async function init(){
       if(me.lang === 'de' || me.lang === 'en') currentLang = me.lang;
       if(pwChangeRequired){
         setTimeout(()=>{
-          document.getElementById('saveStatus').textContent = 'Dein Passwort wurde zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.';
+          document.getElementById('saveStatus').textContent = t('status.pwmustchange');
           setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 12000);
         }, 500);
       }
@@ -5936,10 +6030,10 @@ async function init(){
   refresh(true);
 
   if(loginExpiredHint){
-    document.getElementById('saveStatus').textContent = 'Deine Anmeldung ist abgelaufen - bitte oben rechts neu anmelden.';
+    document.getElementById('saveStatus').textContent = t('status.sessionexpired');
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 10000);
   } else if(guestRestoredHint){
-    document.getElementById('saveStatus').textContent = 'Gast-Eingaben aus dem Browser wiederhergestellt ("Alles zurücksetzen" verwirft sie).';
+    document.getElementById('saveStatus').textContent = t('status.guestrestored');
     setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 8000);
   }
 }
@@ -6012,7 +6106,7 @@ function updateAppSwitcherVisibility(){
 function showApp(name){
   const minRole = name==='gruppenplaner' ? GP_MIN_ROLE : (name==='insignien' ? INSIGNIEN_MIN_ROLE : null);
   if(minRole && !hasRole(minRole)){
-    document.getElementById('saveStatus').textContent = 'Dafür brauchst du mindestens die Rolle "'+minRole+'".';
+    document.getElementById('saveStatus').textContent = t('status.rolerequired').replace('{role}', minRole);
     document.getElementById('appSelect').value = currentApp;
     return;
   }
@@ -6247,7 +6341,7 @@ async function ensureGpCharactersLoaded(force){
   if((gpCharacters !== null && !force) || gpCharListLoading) return;
   gpCharListLoading = true;
   try{ gpCharacters = await apiGpCharacters(); }
-  catch(e){ gpCharacters = []; document.getElementById('saveStatus').textContent = 'Gruppenplaner-Charaktere laden fehlgeschlagen: ' + e.message; }
+  catch(e){ gpCharacters = []; document.getElementById('saveStatus').textContent = t('status.gpcharsfail') + e.message; }
   gpCharListLoading = false;
   if(currentApp==='gruppenplaner'){
     if(currentGpPage==='charaktere') renderGpCharList();
@@ -6258,7 +6352,7 @@ async function ensureGpPlansLoaded(force){
   if((gpPlans !== null && !force) || gpPlanListLoading) return;
   gpPlanListLoading = true;
   try{ gpPlans = await apiGpPlans(); }
-  catch(e){ gpPlans = []; document.getElementById('saveStatus').textContent = 'Gruppenplaner-Pläne laden fehlgeschlagen: ' + e.message; }
+  catch(e){ gpPlans = []; document.getElementById('saveStatus').textContent = t('status.gpplansfail') + e.message; }
   gpPlanListLoading = false;
   if(currentApp==='gruppenplaner' && currentGpPage==='planung') renderGpPlanList();
 }

@@ -332,6 +332,16 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.61.0: Übersetzungslücken (Punkt 16 der Review-Liste). Nur `index.html` + Smoke-Test.**
+  - ~48 bisher fest deutsche Meldungen (Statuszeile `#saveStatus`, Bestätigungs-/Lösch-/Reset-Dialoge,
+    Einmalpasswort-Prompt, Konto-Meldungen `setAccountMsg`, Buff-Food-Optimierer-Texte) laufen jetzt
+    über `t()`. Platzhalter im Muster `t('key').replace('{name}', wert)`. Neue Schlüssel-Gruppen:
+    `status.*`, `modal.*`, `confirm.*dirty`, `prompt.*`, `accmsg.*`, `bf.*`.
+  - Smoke-Test prüft jetzt DE/EN-Schlüsselparität UND gleiche Platzhalter pro Schlüssel (liest
+    `TRANSLATIONS` per `win.eval`). Neuer Text = beide Sprachen im selben Commit.
+  - Bewusst noch deutsch: Fehlertexte, die der SERVER liefert (`e.message` aus `res.json().error`) -
+    bräuchte Fehlercodes statt Klartext (größerer Umbau). Formeln-Seite und Optimierungsregeln-
+    Detailtexte (Admin-Werkzeuge) wie schon seit v0.44.0.
 - **Seit v0.60.0: Barrierefreiheit (Punkt 15 der Review-Liste). Nur `index.html` + Smoke-Test, kein Server-Rebuild nötig.**
   - Zahlenfelder in den Stat-/Ausrüstungs-/Gefährten-/Reittier-Tabellen haben `aria-label` über
     `inLabel(statId, kind, src)` ("Kraft – Werte (Kopf)"). Neue Tabellen-Inputs mit `num-in` MÜSSEN das

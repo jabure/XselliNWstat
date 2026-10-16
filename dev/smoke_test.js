@@ -341,6 +341,27 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     await wait(200);
     check('Wehrhaftigkeit-Umverteilung (+50 % der Differenz auf Kraft)', doc.getElementById('F-kraft').textContent.startsWith('55'), doc.getElementById('F-kraft').textContent);
     check('Toast: Statusmeldung wird sichtbar eingeblendet', doc.getElementById('saveStatus').classList.contains('show') || doc.getElementById('saveStatus').textContent === '', undefined);
+    // [5b] Übersetzungen (Punkt 16): DE und EN müssen dieselben Schlüssel und Platzhalter haben
+    {
+      const TR = win.eval('TRANSLATIONS');
+      const de = Object.keys(TR.de), en = Object.keys(TR.en);
+      const fehlEn = de.filter(k => !(k in TR.en)), fehlDe = en.filter(k => !(k in TR.de));
+      check('i18n: jeder deutsche Schlüssel existiert auch auf Englisch', fehlEn.length === 0, fehlEn.slice(0, 8).join(', '));
+      check('i18n: jeder englische Schlüssel existiert auch auf Deutsch', fehlDe.length === 0, fehlDe.slice(0, 8).join(', '));
+      const ph = x => (String(x).match(/\{[a-z]+\}/g) || []).sort().join(',');
+      const abw = de.filter(k => k in TR.en && ph(TR.de[k]) !== ph(TR.en[k]));
+      check('i18n: Platzhalter ({name}, {count} ...) stimmen in DE und EN überein', abw.length === 0, abw.slice(0, 8).join(', '));
+      // Meldungen kommen in der aktiven Sprache
+      win.setLang('en');
+      await wait(100);
+      doc.querySelector('input[data-role="H"][data-stat="kraft"]').dispatchEvent(new win.Event('input', {bubbles:true}));
+      win.showPage('presets');
+      await wait(50);
+      check('i18n: Rollen-Hinweis erscheint auf Englisch', /You need at least the role/.test(doc.getElementById('saveStatus').textContent), doc.getElementById('saveStatus').textContent);
+      win.setLang('de');
+      await wait(100);
+      win.showPage('rechner');
+    }
     // [5a] Barrierefreiheit (Punkt 15 der Review-Liste)
     check('A11y: Toast ist Live-Region', doc.getElementById('saveStatus').getAttribute('role') === 'status' && doc.getElementById('saveStatus').getAttribute('aria-live') === 'polite', undefined);
     {
