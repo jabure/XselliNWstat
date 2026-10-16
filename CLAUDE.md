@@ -332,6 +332,40 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.56.0: Kritische Sicherheitsfixes aus dem Code-Review (Punkte 1-4).
+  Betrifft `server.js` UND `index.html` - Server braucht Rebuild.**
+  - **Login-/Register-/Passwort-Absturz**: async-Handler hatten kein try/catch, ein
+    abgelehntes Promise (z. B. `bcrypt.compare(undefined, ...)` bei fehlendem Passwort
+    oder Benutzername "constructor") beendete unter Node 20 den ganzen Prozess. Jetzt:
+    `wrap()` um alle async-Handler, `isStr()`-Typprüfung für alle Eingaben, zentraler
+    JSON-Fehler-Handler am Ende der Routen, `unhandledRejection` wird nur geloggt,
+    `uncaughtException` loggt und beendet (Docker startet neu). `readUsers()`/
+    `readTransfers()` liefern Objekte OHNE Prototyp (nie wieder `readJson(USERS_FILE...)`
+    direkt benutzen - sonst findet `users['constructor']` einen "Benutzer").
+    Passwortwechsel/Registrierung/Reset hashen JETZT VOR dem frischen Lesen+Schreiben
+    von users.json (verhindert nebenbei das Lost-Update).
+  - **Stored XSS**: Namen/Texte (Benutzername, Charaktername, Klasse, Übergabe-Absender,
+    Preset-/Gegnerprofil-Namen) landeten ungemaskiert in `innerHTML`; die Übergabe-
+    Knöpfe betteten den Namen in `onclick="..."` ein (Ausbruch per `"`). Jetzt überall
+    `escapeHtml()`, Übergaben per Index (`acceptTransferByIndex`), Preset-Knöpfe per
+    `data-preset` + `this.dataset.preset`. REGEL: nutzergesteuerte Strings NIE ohne
+    `escapeHtml()` in Template-Literale für innerHTML und NIE in ein `onclick`-Attribut.
+    Zusätzlich serverseitig (zweite Verteidigungslinie): neue Benutzernamen nur
+    `[\p{L}\p{N} ._@-]{2,32}` (Bestandskonten können sich weiter anmelden), Anzeigenamen
+    (Charaktere/Pläne) max. 120 Zeichen ohne `<`, `>` und Steuerzeichen.
+    Regressionstest: `dev/xss_test.js` (schlägt gegen den Stand vor v0.56.0 mit 11 Fehlern an).
+  - **JWT-Secret**: kein öffentlicher Fallback mehr. Fehlt `JWT_SECRET` oder steht ein
+    bekannter Platzhalter drin, erzeugt der Server einmalig ein Zufalls-Secret in
+    `data/.jwt-secret` (0600) und warnt im Log (bei Erstanlauf sind alle Logins einmalig
+    ungültig). Tokens OHNE `pw`-Prüfwert werden abgelehnt (der Altbestand-Pfad ist weg),
+    `jwt.verify` erzwingt HS256.
+  - **Reset-Passwort**: das feste `123456789` (stand im Repo) ist weg, ebenso die
+    Umgebungsvariable `DEFAULT_RESET_PASSWORD`. Jeder Reset erzeugt ein zufälliges
+    12-stelliges Einmalpasswort, das dem Admin per `prompt()` EINMAL angezeigt wird.
+    `mustChangePassword` wird jetzt SERVERSEITIG in `authMiddleware` erzwungen: bis zum
+    Wechsel sind alle Endpunkte außer `GET /api/me` und `POST /api/me/change-password`
+    mit 403 gesperrt; das Einmalpasswort darf nicht als neues Passwort bleiben.
+  - Smoke-Test: 289 Prüfungen (33 neu, Abschnitte [1b] und [3c]), alle grün.
 - **Seit v0.55.1: Höhen-Inkonsistenz zwischen "Totale Werte" und "Δ"-Spalte
   in der Statrechner-Grunddaten-Haupttabelle behoben (Xselli per Screenshot
   gemeldet).**

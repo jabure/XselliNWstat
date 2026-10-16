@@ -9,9 +9,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'bitte-in-der-.env-aendern';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const CHAR_DIR = path.join(DATA_DIR, 'chars');
 // Gruppenplaner: komplett eigener Datentopf, absichtlich getrennt von den
@@ -23,9 +23,34 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SHARED_FILE = path.join(DATA_DIR, 'shared.json');
 const TRANSFERS_FILE = path.join(DATA_DIR, 'transfers.json');
 
-if(JWT_SECRET === 'bitte-in-der-.env-aendern'){
-  console.warn('WARNUNG: JWT_SECRET wurde nicht gesetzt - bitte in der .env auf einen langen, zufälligen Wert ändern!');
+// JWT-Secret: Kommt aus der Umgebung (.env). Fehlt es - oder steht noch einer der
+// öffentlich bekannten Platzhalter aus dem Repo drin - wird NICHT mit diesem
+// Platzhalter weitergelaufen (jeder könnte sonst gültige Tokens für beliebige
+// Konten, auch den Admin, selbst erzeugen). Stattdessen erzeugt der Server einmalig
+// ein zufälliges Secret und legt es im Datenordner ab (Rechte 0600), damit es
+// Neustarts übersteht und der Betrieb nicht ausfällt.
+const KNOWN_PLACEHOLDER_SECRETS = [
+  'bitte-in-der-.env-aendern',
+  'hier-einen-langen-zufaelligen-string-eintragen',
+];
+function resolveJwtSecret(){
+  const fromEnv = (process.env.JWT_SECRET || '').trim();
+  if(fromEnv && fromEnv.length >= 16 && !KNOWN_PLACEHOLDER_SECRETS.includes(fromEnv)) return fromEnv;
+  const secretFile = path.join(DATA_DIR, '.jwt-secret');
+  try{
+    const existing = fs.readFileSync(secretFile, 'utf8').trim();
+    if(existing.length >= 32){
+      console.warn('WARNUNG: JWT_SECRET fehlt/ist unsicher - nutze das automatisch erzeugte Secret aus ' + secretFile + '. Bitte in der .env einen eigenen Zufallswert setzen (openssl rand -hex 32).');
+      return existing;
+    }
+  }catch(e){ /* noch keins vorhanden */ }
+  const generated = crypto.randomBytes(48).toString('hex');
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(secretFile, generated, { mode: 0o600 });
+  console.warn('WARNUNG: JWT_SECRET fehlt/ist unsicher - es wurde ein zufälliges Secret erzeugt und in ' + secretFile + ' gespeichert. Bitte in der .env einen eigenen Zufallswert setzen (openssl rand -hex 32). Alle bisherigen Anmeldungen sind damit einmalig ungültig.');
+  return generated;
 }
+const JWT_SECRET = resolveJwtSecret();
 
 fs.mkdirSync(CHAR_DIR, { recursive: true });
 fs.mkdirSync(GP_CHAR_DIR, { recursive: true });
@@ -38,6 +63,11 @@ function readJson(file, fallback){
   try{ return JSON.parse(fs.readFileSync(file, 'utf8')); }
   catch(e){ return fallback; }
 }
+// users.json / transfers.json werden mit Namen aus Requests als Schlüssel benutzt.
+// Bei einem normalen Objekt liefert users['constructor'] oder users['__proto__'] etwas
+// Vorhandenes zurück ("Benutzer gefunden") - ein Objekt ohne Prototyp kennt nur echte Einträge.
+function readUsers(){ return Object.assign(Object.create(null), readJson(USERS_FILE, {})); }
+function readTransfers(){ return Object.assign(Object.create(null), readJson(TRANSFERS_FILE, {})); }
 function writeJson(file, data){
   // Erst in eine Temp-Datei schreiben, dann umbenennen - vermeidet kaputte
   // Dateien, falls der Server genau während des Schreibens neu startet.
@@ -48,6 +78,35 @@ function writeJson(file, data){
 function safeName(s){
   return String(s).replace(/[^a-zA-Z0-9_\-äöüÄÖÜß]/g, '_').slice(0, 80);
 }
+/* ---------- Eingabe-Hilfen ----------
+   Alles, was von außen kommt (JSON-Body, URL-Parameter), kann ein beliebiger Typ
+   sein (Zahl, Objekt, Array ...). Deshalb prüfen wir Typen, bevor wir damit rechnen. */
+const isStr = v => typeof v === 'string';
+// Anzeigenamen (Charaktere, Pläne): kein HTML-Kleinerzeichen/-Größerzeichen und keine
+// Steuerzeichen. Das ist nur eine zweite Verteidigungslinie - das Frontend maskiert
+// trotzdem jede Ausgabe.
+const NAME_MAX_LEN = 120;
+function validDisplayName(v){
+  return isStr(v) && v.trim().length > 0 && v.length <= NAME_MAX_LEN && !/[<>\u0000-\u001f\u007f]/.test(v);
+}
+// Benutzernamen (nur bei NEUEN Registrierungen streng; Bestandskonten können sich weiter anmelden).
+const RESERVED_USERNAMES = ['__proto__', 'constructor', 'prototype', 'hasownproperty', 'tostring', 'valueof'];
+function validNewUsername(v){
+  return isStr(v) && v === v.trim() && /^[\p{L}\p{N} ._@-]{2,32}$/u.test(v) && !RESERVED_USERNAMES.includes(v.toLowerCase());
+}
+const PASSWORD_MAX_LEN = 200; // bcrypt verarbeitet ohnehin nur 72 Bytes - hier geht es nur um Missbrauch/DoS
+// Express 4 fängt abgelehnte Promises von async-Handlern NICHT ab - unter Node >= 15 würde
+// so ein einziger fehlerhafter Request den ganzen Prozess beenden. Dieser Wrapper leitet
+// jeden Fehler an den zentralen Fehler-Handler weiter.
+const wrap = fn => (req, res, next) => { Promise.resolve(fn(req, res, next)).catch(next); };
+// Zufälliges Einmalpasswort (ohne leicht verwechselbare Zeichen wie 0/O, 1/l/I).
+function generateTempPassword(){
+  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for(let i = 0; i < 12; i++) out += alphabet[crypto.randomInt(alphabet.length)];
+  return out;
+}
+
 function charFile(username, charname){
   return path.join(CHAR_DIR, `${safeName(username)}__${safeName(charname)}.json`);
 }
@@ -66,17 +125,17 @@ function gpPlanFile(planname){
    Pro Charakter kann es höchstens eine offene Übergabe geben (Schlüssel = Charaktername,
    da Namen global eindeutig sind). */
 function getTransfer(charname){
-  const transfers = readJson(TRANSFERS_FILE, {});
+  const transfers = readTransfers();
   return transfers[charname] || null;
 }
 function setTransfer(charname, transfer){
-  const transfers = readJson(TRANSFERS_FILE, {});
+  const transfers = readTransfers();
   if(transfer) transfers[charname] = transfer;
   else delete transfers[charname];
   writeJson(TRANSFERS_FILE, transfers);
 }
 function removeTransfersInvolving(username){
-  const transfers = readJson(TRANSFERS_FILE, {});
+  const transfers = readTransfers();
   let changed = false;
   Object.keys(transfers).forEach(charname=>{
     const t = transfers[charname];
@@ -107,24 +166,35 @@ function authMiddleware(req, res, next){
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if(!token) return res.status(401).json({ error: 'Nicht angemeldet' });
+  let payload;
   try{
-    const payload = jwt.verify(token, JWT_SECRET);
-    // Prüfwert des Passwort-Hashes vergleichen: nach einem Passwortwechsel (selbst
-    // oder per Admin-Reset) werden damit ALLE vorher ausgestellten Tokens ungültig.
-    // Tokens ohne Prüfwert stammen aus der Zeit vor diesem Mechanismus und bleiben
-    // gültig, bis sie regulär ablaufen.
-    if(payload.pw !== undefined){
-      const users = readJson(USERS_FILE, {});
-      const user = users[payload.username];
-      if(!user || payload.pw !== pwFingerprint(user.passwordHash)){
-        return res.status(401).json({ error: 'Login abgelaufen (Passwort wurde geändert), bitte neu anmelden' });
-      }
-    }
-    req.username = payload.username;
-    next();
+    payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   }catch(e){
     return res.status(401).json({ error: 'Login abgelaufen, bitte neu anmelden' });
   }
+  // Der Prüfwert des Passwort-Hashes ist PFLICHT: nach einem Passwortwechsel (selbst oder
+  // per Admin-Reset) werden damit ALLE vorher ausgestellten Tokens ungültig - und ein
+  // Token, das nur "{username}" enthält, lässt sich nicht mehr fälschen oder weiterverwenden.
+  // (Die früher tolerierten Tokens ohne Prüfwert sind längst abgelaufen: 90 Tage Laufzeit.)
+  if(!isStr(payload.username) || !isStr(payload.pw)){
+    return res.status(401).json({ error: 'Login abgelaufen, bitte neu anmelden' });
+  }
+  const users = readUsers();
+  const user = users[payload.username];
+  if(!user || payload.pw !== pwFingerprint(user.passwordHash)){
+    return res.status(401).json({ error: 'Login abgelaufen (Passwort wurde geändert), bitte neu anmelden' });
+  }
+  // Nach einem Admin-Reset gilt das Einmalpasswort nur, um das Passwort zu ÄNDERN:
+  // bis dahin sind alle anderen Endpunkte serverseitig gesperrt (nicht nur im Frontend).
+  if(user.mustChangePassword === true){
+    const allowed = (req.method === 'GET' && req.path === '/api/me') ||
+                    (req.method === 'POST' && req.path === '/api/me/change-password');
+    if(!allowed){
+      return res.status(403).json({ error: 'Bitte ändere zuerst dein Passwort (Konto-Fenster > Passwort ändern).', mustChangePassword: true });
+    }
+  }
+  req.username = payload.username;
+  next();
 }
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Xselli';
@@ -136,7 +206,7 @@ const VALID_ROLES = Object.keys(ROLE_RANK);
 
 function getUserRole(username){
   if(username === ADMIN_USERNAME) return 'admin'; // Bootstrap-Admin, auch für Bestandskonten ohne gespeicherte Rolle
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[username];
   if(!user) return 'user';
   if(VALID_ROLES.includes(user.role)) return user.role;
@@ -158,7 +228,7 @@ function requireRole(minRole){
 // Einfache Bremse gegen automatisiertes Massen-Anlegen von Konten: pro IP
 // werden Registrierungen gezählt (im Speicher, überlebt keinen Neustart -
 // reicht für diesen Zweck, gleiches Muster wie die Login-Bremse unten).
-const registerAttempts = {}; // ip -> { count, firstAt }
+const registerAttempts = Object.create(null); // ip -> { count, firstAt }
 const REGISTER_MAX_PER_WINDOW = 5;
 const REGISTER_WINDOW_MINUTES = 60;
 function registerLockedFor(ip){
@@ -179,19 +249,28 @@ function noteRegisterAttempt(ip){
 }
 
 /* ---------- Auth ---------- */
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', wrap(async (req, res) => {
   const lockedMin = registerLockedFor(req.ip);
   if(lockedMin > 0){
     return res.status(429).json({ error: `Zu viele Registrierungen von dieser Adresse - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
   }
   const { username, password } = req.body || {};
-  if(!username || !password || username.length < 2 || password.length < 4){
+  if(!isStr(username) || !isStr(password) || username.length < 2 || password.length < 4){
     return res.status(400).json({ error: 'Benutzername (min. 2 Zeichen) und Passwort (min. 4 Zeichen) erforderlich' });
   }
-  const users = readJson(USERS_FILE, {});
-  if(users[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
+  if(password.length > PASSWORD_MAX_LEN){
+    return res.status(400).json({ error: `Passwort ist zu lang (max. ${PASSWORD_MAX_LEN} Zeichen)` });
+  }
+  if(!validNewUsername(username)){
+    return res.status(400).json({ error: 'Benutzername: 2-32 Zeichen, nur Buchstaben, Ziffern, Leerzeichen sowie . _ @ - (kein Leerzeichen am Anfang/Ende)' });
+  }
+  if(readUsers()[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   noteRegisterAttempt(req.ip);
   const passwordHash = await bcrypt.hash(password, 10);
+  // Erst NACH dem (langsamen) Hashen frisch lesen und schreiben: sonst überschreiben sich
+  // zwei gleichzeitige Registrierungen gegenseitig (Lost-Update).
+  const users = readUsers();
+  if(users[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   // Wer sich mit exakt dem Namen aus ADMIN_USERNAME registriert, wird automatisch
   // zum ersten Admin. Weitere Rollen kann dieser danach über die Benutzerübersicht vergeben.
   const role = username === ADMIN_USERNAME ? 'admin' : 'user';
@@ -199,13 +278,13 @@ app.post('/api/auth/register', async (req, res) => {
   writeJson(USERS_FILE, users);
   const token = signToken(username, passwordHash);
   res.status(201).json({ token, username, role, lang: 'de' });
-});
+}));
 
 // Einfache Bremse gegen Passwort-Durchprobieren: pro Benutzername werden Fehlversuche
 // gezählt (im Speicher, überlebt keinen Neustart - reicht für diesen Zweck). Nach
 // MAX_ATTEMPTS Fehlversuchen ist der Login für LOCK_MINUTES gesperrt; ein
 // erfolgreicher Login setzt den Zähler zurück.
-const loginAttempts = {}; // username -> { count, firstAt }
+const loginAttempts = Object.create(null); // username -> { count, firstAt }
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_LOCK_MINUTES = 15;
 function loginLockedFor(username){
@@ -225,45 +304,62 @@ function noteLoginFailure(username){
   }
 }
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', wrap(async (req, res) => {
   const { username, password } = req.body || {};
+  if(!isStr(username) || !isStr(password) || !username || password.length > PASSWORD_MAX_LEN){
+    return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+  }
   const lockedMin = loginLockedFor(username);
   if(lockedMin > 0){
     return res.status(429).json({ error: `Zu viele Fehlversuche - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
   }
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[username];
-  if(!user){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
+  if(!user || !isStr(user.passwordHash)){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   const ok = await bcrypt.compare(password, user.passwordHash);
   if(!ok){ noteLoginFailure(username); return res.status(401).json({ error: 'Benutzername oder Passwort falsch' }); }
   delete loginAttempts[username];
   const token = signToken(username, user.passwordHash);
   res.json({ token, username, role: getUserRole(username), mustChangePassword: user.mustChangePassword === true, lang: user.lang === 'en' ? 'en' : 'de' });
-});
+}));
 
 // Eigenes Passwort ändern (altes Passwort muss stimmen). Wichtig z. B. nachdem ein
 // Admin das Passwort auf den Standardwert zurückgesetzt hat.
-app.post('/api/me/change-password', authMiddleware, async (req, res) => {
+app.post('/api/me/change-password', authMiddleware, wrap(async (req, res) => {
   const { oldPassword, newPassword } = req.body || {};
-  if(!newPassword || newPassword.length < 4){
+  if(!isStr(newPassword) || newPassword.length < 4){
     return res.status(400).json({ error: 'Neues Passwort muss mindestens 4 Zeichen haben' });
   }
-  const users = readJson(USERS_FILE, {});
+  if(newPassword.length > PASSWORD_MAX_LEN){
+    return res.status(400).json({ error: `Passwort ist zu lang (max. ${PASSWORD_MAX_LEN} Zeichen)` });
+  }
+  if(oldPassword !== undefined && oldPassword !== null && !isStr(oldPassword)){
+    return res.status(400).json({ error: 'Ungültige Eingabe' });
+  }
+  const before = readUsers()[req.username];
+  if(!before) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  const ok = await bcrypt.compare(String(oldPassword||''), before.passwordHash);
+  if(!ok) return res.status(401).json({ error: 'Das aktuelle Passwort ist falsch' });
+  // Das Einmalpasswort nach einem Admin-Reset darf nicht als "neues" Passwort bleiben.
+  if(before.mustChangePassword === true && newPassword === String(oldPassword)){
+    return res.status(400).json({ error: 'Das neue Passwort muss sich vom Einmalpasswort unterscheiden' });
+  }
+  const newHash = await bcrypt.hash(newPassword, 10);
+  // Frisch lesen, erst nach dem Hashen schreiben (siehe Registrierung: Lost-Update).
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-  const ok = await bcrypt.compare(String(oldPassword||''), user.passwordHash);
-  if(!ok) return res.status(401).json({ error: 'Das aktuelle Passwort ist falsch' });
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  user.passwordHash = newHash;
   delete user.mustChangePassword; // Pflicht nach Admin-Reset ist hiermit erfüllt
   writeJson(USERS_FILE, users);
   // Der Passwortwechsel macht alle alten Tokens ungültig - auch das gerade benutzte.
   // Deshalb bekommt der Aufrufer sofort ein frisches Token zurück und bleibt angemeldet.
   res.json({ ok: true, token: signToken(req.username, user.passwordHash) });
-});
+}));
 
 /* ---------- Charaktere (pro Benutzer, benötigt Login) ---------- */
 app.get('/api/me', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   res.json({ username: req.username, role: getUserRole(req.username), characters: (user && user.characters) || [], mustChangePassword: !!(user && user.mustChangePassword), lang: (user && user.lang === 'en') ? 'en' : 'de' });
 });
@@ -273,7 +369,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
 app.put('/api/me/lang', authMiddleware, (req, res) => {
   const { lang } = req.body || {};
   if(lang !== 'de' && lang !== 'en') return res.status(400).json({ error: 'lang muss "de" oder "en" sein' });
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   user.lang = lang;
@@ -294,9 +390,9 @@ function charSummary(username, name){
 }
 
 app.get('/api/characters', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
-  const transfers = readJson(TRANSFERS_FILE, {});
+  const transfers = readTransfers();
   const own = ((user && user.characters) || []).map(n => Object.assign(
     charSummary(req.username, n),
     { owner: req.username, isOwner: true, pendingTransferTo: (transfers[n] && transfers[n].from === req.username) ? transfers[n].to : null }
@@ -308,7 +404,7 @@ app.get('/api/characters', authMiddleware, (req, res) => {
 // "order" muss exakt dieselben Charakternamen enthalten wie aktuell vorhanden (nur die
 // Reihenfolge darf sich unterscheiden) - so kann darüber nichts hinzugefügt/entfernt werden.
 app.put('/api/characters/reorder', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   const order = req.body && req.body.order;
@@ -326,7 +422,7 @@ app.put('/api/characters/reorder', authMiddleware, (req, res) => {
 // (nicht nur vom aktuellen) - so kann derselbe Charaktername nie zwei
 // verschiedenen Leuten gehören. Groß-/Kleinschreibung wird dabei ignoriert.
 function isCharNameTakenByOther(name, ownUsername){
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const lower = name.trim().toLowerCase();
   return Object.keys(users).some(u =>
     u !== ownUsername && (users[u].characters || []).some(c => c.toLowerCase() === lower)
@@ -335,8 +431,9 @@ function isCharNameTakenByOther(name, ownUsername){
 
 app.post('/api/characters', authMiddleware, (req, res) => {
   const { name, copyFrom } = req.body || {};
-  if(!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const users = readJson(USERS_FILE, {});
+  if(!validDisplayName(name)) return res.status(400).json({ error: 'Name erforderlich (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
+  if(copyFrom !== undefined && copyFrom !== null && copyFrom !== '' && !isStr(copyFrom)) return res.status(400).json({ error: 'Ungültige Vorlage' });
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   if(user.characters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter gibt es schon' });
@@ -356,7 +453,7 @@ app.post('/api/characters', authMiddleware, (req, res) => {
 });
 
 app.get('/api/characters/:name', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
@@ -378,7 +475,7 @@ function sanitizeCharData(body){
 }
 
 app.put('/api/characters/:name', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
@@ -392,7 +489,7 @@ app.put('/api/characters/:name', authMiddleware, (req, res) => {
 });
 
 app.delete('/api/characters/:name', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   user.characters = user.characters.filter(c => c !== req.params.name);
@@ -404,13 +501,16 @@ app.delete('/api/characters/:name', authMiddleware, (req, res) => {
 
 // Charakter umbenennen - nur der Besitzer darf das.
 app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(403).json({ error: 'Nur der Besitzer kann den Charakter umbenennen' });
   }
-  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  const rawNewName = req.body && req.body.newName;
+  if(rawNewName !== undefined && !isStr(rawNewName)) return res.status(400).json({ error: 'Ungültiger Name' });
+  const newName = isStr(rawNewName) ? rawNewName.trim() : '';
   if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(!validDisplayName(newName)) return res.status(400).json({ error: 'Ungültiger Name (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
   if(newName === req.params.name) return res.json({ ok: true, name: newName });
   if(user.characters.includes(newName)){
     return res.status(409).json({ error: 'Diesen Charakternamen hast du bereits vergeben' });
@@ -444,7 +544,7 @@ app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
    der Empfänger bekommt bei "Annehmen" einen neuen, eigenen Charakter mit denselben
    Daten (unter einem automatisch angepassten, eindeutigen Namen). */
 app.get('/api/transfers', authMiddleware, (req, res) => {
-  const transfers = readJson(TRANSFERS_FILE, {});
+  const transfers = readTransfers();
   const incoming = [];
   const outgoing = [];
   Object.keys(transfers).forEach(charname => {
@@ -455,13 +555,13 @@ app.get('/api/transfers', authMiddleware, (req, res) => {
   res.json({ incoming, outgoing });
 });
 app.post('/api/characters/:name/send', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(403).json({ error: 'Nur der Besitzer kann den Charakter senden' });
   }
   const targetUsername = req.body && req.body.username;
-  if(!targetUsername || !users[targetUsername]){
+  if(!isStr(targetUsername) || !users[targetUsername]){
     return res.status(404).json({ error: 'Diesen Benutzer gibt es nicht' });
   }
   if(targetUsername === req.username){
@@ -471,7 +571,7 @@ app.post('/api/characters/:name/send', authMiddleware, (req, res) => {
   res.json({ ok: true, to: targetUsername });
 });
 app.post('/api/characters/:name/cancel-send', authMiddleware, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !user.characters.includes(req.params.name)){
     return res.status(403).json({ error: 'Nur der Besitzer kann eine Übergabe abbrechen' });
@@ -488,7 +588,7 @@ app.post('/api/transfers/:name/accept', authMiddleware, (req, res) => {
   if(!t || t.to !== req.username){
     return res.status(404).json({ error: 'Kein an dich gerichtetes Angebot für diesen Charakter' });
   }
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const fromUser = users[t.from];
   const toUser = users[req.username];
   if(!fromUser || !toUser){
@@ -543,7 +643,7 @@ const gpModGate = requireRole('moderator');
 // getrennt gespeichert. Für die Aufstellung braucht man die Charaktere ALLER
 // Benutzer (um sie in Slots zu ziehen), daher gibt es nur ein "alle anzeigen".
 app.get('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const result = [];
   Object.keys(users).forEach(owner => {
     (users[owner].gpCharacters || []).forEach(name => {
@@ -555,9 +655,9 @@ app.get('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
 });
 
 app.post('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
-  const name = req.body && req.body.name && String(req.body.name).trim();
-  if(!name) return res.status(400).json({ error: 'Name erforderlich' });
-  const users = readJson(USERS_FILE, {});
+  const name = (req.body && isStr(req.body.name)) ? req.body.name.trim() : '';
+  if(!validDisplayName(name)) return res.status(400).json({ error: 'Name erforderlich (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   if(!user.gpCharacters) user.gpCharacters = [];
@@ -571,7 +671,7 @@ app.post('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
 const GP_CHAR_ALLOWED_KEYS = ['klasse', 'handle', 'rollen', 'besitz', 'lieblingsartefakte'];
 const GP_CHAR_MAX_BYTES = 50000; // reine Checklisten - deutlich kleiner als Stats-Charaktere
 app.put('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !(user.gpCharacters || []).includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden (oder gehört dir nicht)' });
@@ -586,7 +686,7 @@ app.put('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
 });
 
 app.delete('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   user.gpCharacters = (user.gpCharacters || []).filter(c => c !== req.params.name);
@@ -603,13 +703,14 @@ app.delete('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) =>
 // deshalb im selben Zug auf den neuen Key nachgezogen, sonst würde eine
 // bestehende Aufstellung den Charakter beim Umbenennen "verlieren".
 app.post('/api/gp/characters/:name/rename', authMiddleware, gpUserGate, (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const user = users[req.username];
   if(!user || !(user.gpCharacters || []).includes(req.params.name)){
     return res.status(404).json({ error: 'Charakter nicht gefunden (oder gehört dir nicht)' });
   }
-  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  const newName = (req.body && isStr(req.body.newName)) ? req.body.newName.trim() : '';
   if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(!validDisplayName(newName)) return res.status(400).json({ error: 'Ungültiger Name (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
   if(newName === req.params.name) return res.json({ ok: true, name: newName });
   if(user.gpCharacters.includes(newName)){
     return res.status(409).json({ error: 'Diesen Charakternamen hast du schon vergeben' });
@@ -666,8 +767,8 @@ app.get('/api/gp/plans', authMiddleware, gpUserGate, (req, res) => {
   res.json(list);
 });
 app.post('/api/gp/plans', authMiddleware, gpModGate, (req, res) => {
-  const name = req.body && req.body.name && String(req.body.name).trim();
-  if(!name) return res.status(400).json({ error: 'Name erforderlich' });
+  const name = (req.body && isStr(req.body.name)) ? req.body.name.trim() : '';
+  if(!validDisplayName(name)) return res.status(400).json({ error: 'Name erforderlich (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
   if(fs.existsSync(gpPlanFile(name))) return res.status(409).json({ error: 'Diesen Plan gibt es schon' });
   writeJson(gpPlanFile(name), { name, groups: [], rev: 0 });
   res.status(201).json({ name });
@@ -703,8 +804,9 @@ app.delete('/api/gp/plans/:name', authMiddleware, gpModGate, (req, res) => {
   res.json({ ok: true });
 });
 app.post('/api/gp/plans/:name/rename', authMiddleware, gpModGate, (req, res) => {
-  const newName = req.body && req.body.newName && String(req.body.newName).trim();
+  const newName = (req.body && isStr(req.body.newName)) ? req.body.newName.trim() : '';
   if(!newName) return res.status(400).json({ error: 'Neuer Name erforderlich' });
+  if(!validDisplayName(newName)) return res.status(400).json({ error: 'Ungültiger Name (max. 120 Zeichen, ohne < > und Steuerzeichen)' });
   if(!fs.existsSync(gpPlanFile(req.params.name))) return res.status(404).json({ error: 'Plan nicht gefunden' });
   if(fs.existsSync(gpPlanFile(newName))) return res.status(409).json({ error: 'Diesen Namen gibt es schon' });
   const data = readJson(gpPlanFile(req.params.name), { groups: [] });
@@ -760,7 +862,7 @@ app.put('/api/shared/formulas', authMiddleware, requireRole('coadmin'), (req, re
 // Kleines Statistik-Dashboard: nutzt ausschließlich bereits vorhandene Daten neu
 // zusammengestellt (keine zusätzliche Datenhaltung nötig).
 app.get('/api/admin/stats', authMiddleware, requireRole('admin'), (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const usernames = Object.keys(users);
   const roleCounts = { user: 0, moderator: 0, coadmin: 0, admin: 0 };
   let totalCharacters = 0, totalGpCharacters = 0;
@@ -787,7 +889,7 @@ app.get('/api/admin/stats', authMiddleware, requireRole('admin'), (req, res) => 
   });
 });
 app.get('/api/admin/users', authMiddleware, requireRole('admin'), (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const list = Object.keys(users).map(username => ({
     username,
     role: getUserRole(username),
@@ -796,7 +898,7 @@ app.get('/api/admin/users', authMiddleware, requireRole('admin'), (req, res) => 
   res.json(list);
 });
 app.put('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req, res) => {
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   const target = users[req.params.username];
   if(!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   const role = req.body && req.body.role;
@@ -806,26 +908,29 @@ app.put('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req
   res.json({ ok: true, username: req.params.username, role });
 });
 
-// Passwort auf den Standardwert zurücksetzen (die Person sollte es danach selbst ändern).
-const DEFAULT_RESET_PASSWORD = process.env.DEFAULT_RESET_PASSWORD || '123456789';
-app.post('/api/admin/users/:username/reset-password', authMiddleware, requireRole('admin'), async (req, res) => {
-  const users = readJson(USERS_FILE, {});
+// Passwort zurücksetzen: Es gibt KEIN festes Standardpasswort mehr (das stand öffentlich
+// im Repo). Stattdessen wird bei jedem Reset ein zufälliges Einmalpasswort erzeugt und
+// dem Admin einmalig in der Antwort gezeigt - er gibt es persönlich weiter. Die Person
+// muss es beim nächsten Login sofort ändern; bis dahin sperrt der Server alles andere.
+app.post('/api/admin/users/:username/reset-password', authMiddleware, requireRole('admin'), wrap(async (req, res) => {
+  if(!readUsers()[req.params.username]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  const tempPassword = generateTempPassword();
+  const newHash = await bcrypt.hash(tempPassword, 10);
+  const users = readUsers(); // nach dem Hashen frisch lesen (Lost-Update)
   const target = users[req.params.username];
   if(!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-  target.passwordHash = await bcrypt.hash(DEFAULT_RESET_PASSWORD, 10);
-  // Beim nächsten Login wird die Person aufgefordert, das Standardpasswort sofort
-  // zu ändern (Frontend öffnet das Passwort-Formular automatisch).
+  target.passwordHash = newHash;
   target.mustChangePassword = true;
   writeJson(USERS_FILE, users);
-  res.json({ ok: true, username: req.params.username, password: DEFAULT_RESET_PASSWORD });
-});
+  res.json({ ok: true, username: req.params.username, password: tempPassword });
+}));
 
 // Kompletten Account inkl. aller Charakterdaten löschen.
 app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req, res) => {
   const target = req.params.username;
   if(target === req.username) return res.status(400).json({ error: 'Du kannst dich nicht selbst löschen' });
   if(target === ADMIN_USERNAME) return res.status(400).json({ error: 'Das Haupt-Admin-Konto kann nicht gelöscht werden' });
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   (users[target].characters || []).forEach(c => {
     try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
@@ -910,7 +1015,7 @@ app.get('/api/admin/backups/daily/:day', authMiddleware, requireRole('admin'), (
 app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware, requireRole('admin'), (req, res) => {
   const source = req.params.username;
   const sourceChar = req.params.charname;
-  const users = readJson(USERS_FILE, {});
+  const users = readUsers();
   if(!users[source] || !(users[source].characters || []).includes(sourceChar)){
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
@@ -967,6 +1072,27 @@ function dailyBackup(){
 }
 dailyBackup();
 setInterval(dailyBackup, 60*60*1000);
+
+// Zentraler Fehler-Handler (muss NACH allen Routen stehen): Jeder Fehler in einem Handler -
+// auch aus async-Code über wrap() - und jeder kaputte Request-Body endet als saubere
+// JSON-Antwort statt als HTML-Fehlerseite oder gar als Absturz des Prozesses.
+app.use((err, req, res, next) => {
+  if(res.headersSent) return next(err);
+  if(err && (err.type === 'entity.too.large' || err.status === 413)){
+    return res.status(413).json({ error: 'Anfrage ist zu groß' });
+  }
+  if(err && (err.type === 'entity.parse.failed' || err.status === 400)){
+    return res.status(400).json({ error: 'Ungültige Anfrage (kein gültiges JSON)' });
+  }
+  console.error('Unbehandelter Fehler bei ' + req.method + ' ' + req.path + ':', err && err.stack || err);
+  res.status(500).json({ error: 'Interner Serverfehler' });
+});
+// Letzte Absicherung: eine vergessene abgelehnte Promise soll protokolliert werden, aber
+// nicht den ganzen Server (und damit alle angemeldeten Nutzer) mitreißen.
+process.on('unhandledRejection', (reason) => { console.error('Unbehandelte Promise-Ablehnung:', reason); });
+// Bei einer wirklich unerwarteten Ausnahme ist der Prozess-Zustand unklar: protokollieren und
+// beenden - Docker (restart: unless-stopped) startet den Container sauber neu.
+process.on('uncaughtException', (err) => { console.error('Unbehandelte Ausnahme:', err && err.stack || err); process.exit(1); });
 
 app.listen(PORT, () => {
   console.log(`Xselli's Stats-Rechner läuft auf Port ${PORT}`);

@@ -58,7 +58,8 @@ einem Tippfehler springt die Seite automatisch auf die eingebaute
 Standard-Rechnung zurück, damit nichts kaputtgeht.
 
 **Benutzer** (ab Rolle Admin) - Übersicht aller Konten, Rollen vergeben,
-Passwort zurücksetzen, Konten löschen.
+Passwort zurücksetzen (zufälliges Einmalpasswort, das der Admin einmalig
+angezeigt bekommt und weitergibt), Konten löschen.
 
 ## Konten & Charaktere
 
@@ -94,7 +95,7 @@ JSON-Dateien unter `data/` (kein Datenbanksystem nötig).
 ```
 git clone https://github.com/jabure/XselliNWstat.git xselli-server
 cd xselli-server
-cp .env.example .env   # JWT_SECRET darin auf einen eigenen Zufallswert setzen
+cp .env.example .env   # JWT_SECRET darin auf einen eigenen Zufallswert setzen (openssl rand -hex 32)
 docker compose up -d --build
 ```
 
@@ -116,8 +117,12 @@ crontab -e
 
 **Eingebaute Schutzmechanismen:** Login-Bremse (nach 10 Fehlversuchen 15
 Minuten Sperre pro Benutzername), Passwortwechsel meldet alle bestehenden
-Anmeldungen auf anderen Geräten ab (auch nach einem Admin-Reset - dabei wird
-beim nächsten Login automatisch ein eigener Passwortwechsel angefordert),
+Anmeldungen auf anderen Geräten ab (auch nach einem Admin-Reset - dabei muss
+die Person beim nächsten Login zuerst ein eigenes Passwort setzen; bis dahin
+sperrt der Server alle anderen Funktionen), das JWT-Secret wird nie mit einem
+öffentlichen Standardwert betrieben (fehlt es, erzeugt der Server ein zufälliges),
+Eingaben werden typgeprüft und Fehler in Handlern können den Server nicht mehr
+abstürzen lassen,
 Struktur-Whitelist + Größenlimit beim Speichern von Charakterdaten, `Cache-Control`-Header, damit nach Updates
 niemand eine veraltete Seite aus dem Browser-Cache sieht. mathjs liegt lokal
 unter `public/vendor/` bei - der Rechner funktioniert also auch, wenn das
@@ -172,10 +177,11 @@ Tages-Backups als .tar.gz herunterladen. Die Benutzerliste zeigt außerdem
 
 **Tests:** `dev/smoke_test.js` startet eine eigene Server-Instanz und testet
 Server-API + Frontend automatisch (`npm install jsdom` einmalig nötig, dann
-`node dev/smoke_test.js`).
+`node dev/smoke_test.js`). `node dev/xss_test.js` prüft zusätzlich, dass
+bösartige Namen/Texte im Frontend nur als Text dargestellt werden.
 
 **Grenzen der einfachen Lösung:** kein „Passwort vergessen" per E-Mail (nur
-Admin kann zurücksetzen, danach Passwort selbst ändern); bei sehr vielen
+Admin kann zurücksetzen und gibt das Einmalpasswort weiter, danach Passwort selbst ändern); bei sehr vielen
 gleichzeitigen Speicherungen auf denselben Charakter könnte theoretisch die
 letzte Speicherung gewinnen (in der Praxis unproblematisch, da jeder nur an
 eigenen Charakteren schreibt).

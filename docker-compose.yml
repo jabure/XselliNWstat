@@ -9,9 +9,10 @@ services:
       - ./data:/app/data
     environment:
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-bitte-in-der-.env-aendern}
+      # Kein öffentlicher Standardwert mehr: Ist JWT_SECRET leer, erzeugt der Server
+      # einmalig ein zufälliges Secret (data/.jwt-secret). Besser: in der .env setzen.
+      - JWT_SECRET=${JWT_SECRET:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-Xselli}
-      - DEFAULT_RESET_PASSWORD=${DEFAULT_RESET_PASSWORD:-123456789}
     networks:
       - proxy
     # Läuft mit sehr wenig Ressourcen - diese Grenzen sind großzügig bemessen,

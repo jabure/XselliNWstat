@@ -20,6 +20,7 @@ const REPO = path.join(__dirname, '..');
 const PORT = 3900 + Math.floor(Math.random() * 100);
 const BASE = `http://localhost:${PORT}`;
 const ADMIN = 'SmokeAdmin';
+const TEST_JWT_SECRET = 'smoketest-geheimnis-mit-ausreichend-laenge-0123456789';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const uniq = Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
 const num = s => Number(String(s).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''));
@@ -76,7 +77,7 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xselli-smoke-'));
   const server = spawn('node', ['server.js'], {
     cwd: REPO,
-    env: Object.assign({}, process.env, { DATA_DIR: dataDir, JWT_SECRET: 'smoketest', PORT: String(PORT), ADMIN_USERNAME: ADMIN }),
+    env: Object.assign({}, process.env, { DATA_DIR: dataDir, JWT_SECRET: TEST_JWT_SECRET, PORT: String(PORT), ADMIN_USERNAME: ADMIN }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let up = false;
@@ -117,6 +118,63 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     check('Login-Bremse: 11. Fehlversuch -> 429', last === 429, last);
     r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: bruteUser, password: 'richtig' }) });
     check('Auch richtiges Passwort ist während der Sperre blockiert', r.status === 429, r.status);
+
+    console.log('\n[1b] Härtung: kaputte Eingaben, gefälschte Tokens, Namen');
+    const alive = async () => { try { return (await fetch(BASE + '/api/version')).ok; } catch (e) { return false; } };
+    const post = (p, body, tk) => api(p, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }, tk);
+    r = await post('/api/auth/login', { username: 'constructor', password: 'irgendwas' });
+    check('Login mit Benutzername "constructor" -> 401 (kein Absturz)', r.status === 401, r.status);
+    r = await post('/api/auth/login', { username: '__proto__', password: 'irgendwas' });
+    check('Login mit Benutzername "__proto__" -> 401', r.status === 401, r.status);
+    r = await post('/api/auth/login', { username: user });
+    check('Login ohne Passwort -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/login', { username: { $ne: 1 }, password: ['x'] });
+    check('Login mit Objekt/Array statt Text -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/login', { username: 12345, password: 12345 });
+    check('Login mit Zahlen statt Text -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: 'zahl_' + uniq, password: 123456 });
+    check('Registrieren mit Zahl als Passwort -> 400 (früher: Absturz)', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: 99999, password: 'pass1234' });
+    check('Registrieren mit Zahl als Benutzername -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: 'constructor', password: 'pass1234' });
+    check('Registrieren mit reserviertem Namen "constructor" -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: '<img src=x onerror=alert(1)>', password: 'pass1234' });
+    check('Registrieren mit HTML im Benutzernamen -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: ' lead_' + uniq, password: 'pass1234' });
+    check('Registrieren mit Leerzeichen am Anfang -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/register', { username: 'lang_' + uniq, password: 'x'.repeat(500) });
+    check('Registrieren mit übergroßem Passwort -> 400', r.status === 400, r.status);
+    r = await post('/api/me/change-password', { oldPassword: 'neu1234', newPassword: { a: 1 } }, token);
+    check('Passwortwechsel mit Objekt als neuem Passwort -> 400 (früher: Absturz)', r.status === 400, r.status);
+    r = await post('/api/me/change-password', { oldPassword: { a: 1 }, newPassword: 'abcd1234' }, token);
+    check('Passwortwechsel mit Objekt als altem Passwort -> 400', r.status === 400, r.status);
+    r = await post('/api/auth/login', '{kaputtes json', undefined);
+    check('Kaputtes JSON -> 400 als JSON-Antwort', r.status === 400 && r.data && r.data.error, r.status);
+    check('Server lebt nach all den kaputten Anfragen noch', await alive());
+
+    const jwtLib = require('jsonwebtoken');
+    r = await api('/api/me', {}, jwtLib.sign({ username: user }, TEST_JWT_SECRET, { expiresIn: '1h' }));
+    check('Token ohne Passwort-Prüfwert (Altbestand/Fälschung) wird abgelehnt', r.status === 401, r.status);
+    r = await api('/api/me', {}, jwtLib.sign({ username: user, pw: 'xxxxxxxxxx' }, TEST_JWT_SECRET, { expiresIn: '1h' }));
+    check('Token mit falschem Prüfwert wird abgelehnt', r.status === 401, r.status);
+    r = await api('/api/me', {}, jwtLib.sign({ username: user }, 'bitte-in-der-.env-aendern', { expiresIn: '1h' }));
+    check('Token mit dem früheren öffentlichen Standard-Secret wird abgelehnt', r.status === 401, r.status);
+    r = await api('/api/me', {}, jwtLib.sign({ username: user, pw: 1 }, TEST_JWT_SECRET, { algorithm: 'HS512' }));
+    check('Token mit anderem Algorithmus wird abgelehnt', r.status === 401, r.status);
+
+    r = await post('/api/characters', { name: '<img src=x onerror=alert(1)>' }, token);
+    check('Charaktername mit HTML -> 400', r.status === 400, r.status);
+    r = await post('/api/characters', { name: 12345 }, token);
+    check('Charaktername als Zahl -> 400', r.status === 400, r.status);
+    r = await post('/api/characters', { name: 'x'.repeat(200) }, token);
+    check('Charaktername über 120 Zeichen -> 400', r.status === 400, r.status);
+    r = await post('/api/characters', { name: 'D\'Artagnan "Der Dritte" (Test)' }, token);
+    check('Normale Sonderzeichen (Apostroph, Anführungszeichen, Klammern) bleiben erlaubt', r.status === 201, r.status);
+    await api('/api/characters/' + encodeURIComponent('D\'Artagnan "Der Dritte" (Test)'), { method: 'DELETE' }, token);
+    r = await post('/api/characters/' + encodeURIComponent(user) + '/rename', { newName: '<b>x</b>' }, token);
+    check('Umbenennen auf Namen mit HTML wird nicht angenommen (400/403)', r.status === 400 || r.status === 403, r.status);
+    r = await post('/api/gp/characters', { name: '<script>x</script>' }, token);
+    check('GP-Charaktername mit HTML -> 400', r.status === 400, r.status);
 
     console.log('\n[2] Charakterdaten-Validierung');
     const charV = 'Valid_' + uniq;
@@ -163,17 +221,34 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     r = await api('/api/admin/users', {}, admToken);
     check('Benutzerliste enthält updatedAt für Charaktere', r.data.some(u => (u.characters || []).some(c => c.updatedAt)), false);
 
-    console.log('\n[3c] Admin-Reset erzwingt Passwortwechsel');
+    console.log('\n[3c] Admin-Reset: zufälliges Einmalpasswort + serverseitig erzwungener Wechsel');
     r = await api('/api/admin/users/' + encodeURIComponent(user) + '/reset-password', { method: 'POST' }, admToken);
-    check('Admin setzt Passwort zurück', r.status === 200, r.status);
+    check('Admin setzt Passwort zurück', r.status === 200 && typeof r.data.password === 'string', r.status);
+    const tempPw1 = r.data.password;
+    check('Einmalpasswort ist NICHT das alte Standardpasswort und mind. 10 Zeichen lang', tempPw1 !== '123456789' && tempPw1.length >= 10, tempPw1);
+    r = await api('/api/admin/users/' + encodeURIComponent(user) + '/reset-password', { method: 'POST' }, admToken);
+    const tempPw = r.data.password;
+    check('Jeder Reset erzeugt ein anderes Einmalpasswort', tempPw !== tempPw1, tempPw1 + ' / ' + tempPw);
     r = await api('/api/me', {}, freshToken);
     check('Auch das frische Token fliegt nach Admin-Reset raus', r.status === 401, r.status);
     r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: '123456789' }) });
-    check('Login mit Standardpasswort meldet Wechsel-Pflicht', r.status === 200 && r.data.mustChangePassword === true, JSON.stringify(r.data).slice(0, 60));
+    check('Das frühere Standardpasswort funktioniert nicht mehr', r.status === 401, r.status);
+    r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: tempPw }) });
+    check('Login mit Einmalpasswort meldet Wechsel-Pflicht', r.status === 200 && r.data.mustChangePassword === true, JSON.stringify(r.data).slice(0, 60));
     const resetToken = r.data.token;
-    r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: '123456789', newPassword: 'neu1234' }) }, resetToken);
+    r = await api('/api/me', {}, resetToken);
+    check('GET /api/me bleibt vor dem Wechsel erlaubt (liefert mustChangePassword)', r.status === 200 && r.data.mustChangePassword === true, r.status);
+    r = await api('/api/characters', {}, resetToken);
+    check('Vor dem Wechsel sind andere Endpunkte serverseitig gesperrt (403)', r.status === 403 && r.data.mustChangePassword === true, r.status);
+    r = await api('/api/shared/presets', { method: 'PUT', body: JSON.stringify({ companionDb: {} }) }, resetToken);
+    check('Auch Schreib-Endpunkte sind vor dem Wechsel gesperrt (403)', r.status === 403, r.status);
+    r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: tempPw, newPassword: tempPw }) }, resetToken);
+    check('Einmalpasswort als neues Passwort wird abgelehnt (400)', r.status === 400, r.status);
+    r = await api('/api/me/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: tempPw, newPassword: 'neu1234' }) }, resetToken);
     check('Wechsel-Pflicht nach Passwortänderung erledigt', r.status === 200, r.status);
     token = r.data.token; // frisches Token für die folgenden Abschnitte
+    r = await api('/api/characters', {}, token);
+    check('Nach dem Wechsel sind die Endpunkte wieder frei', r.status === 200, r.status);
     r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: user, password: 'neu1234' }) });
     check('Flag ist danach wieder aus', r.status === 200 && r.data.mustChangePassword === false, JSON.stringify(r.data).slice(0, 60));
 

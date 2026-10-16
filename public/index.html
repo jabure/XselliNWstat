@@ -1046,7 +1046,7 @@ const TRANSLATIONS = {
     'acc.loggedinas': 'Angemeldet als',
     'acc.nochars': 'Noch keine Charaktere angelegt.',
     'acc.sendhint': 'Über "Senden" kannst du eine Kopie eines eigenen Charakters an einen anderen (bereits registrierten) Benutzer schicken - dein Original bleibt dabei unverändert erhalten. Der Empfänger muss die Kopie erst annehmen, bevor sie bei ihm als eigener Charakter erscheint. Bis dahin kannst du das Senden auch wieder abbrechen.',
-    'acc.pwresethint': 'Dein Passwort wurde vom Admin auf das Standardpasswort zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Standardpasswort).',
+    'acc.pwresethint': 'Dein Passwort wurde vom Admin zurückgesetzt - bitte lege jetzt ein eigenes fest (aktuelles Passwort = das Einmalpasswort, das du vom Admin bekommen hast). Bis dahin sind alle anderen Funktionen gesperrt.',
     'generic.loading': 'Lade …',
     'generic.loaderror': 'Fehler beim Laden:',
     'admin.userstats.loaderror': 'Statistik konnte nicht geladen werden:',
@@ -1430,7 +1430,7 @@ const TRANSLATIONS = {
     'acc.loggedinas': 'Logged in as',
     'acc.nochars': 'No characters created yet.',
     'acc.sendhint': 'Via "Send" you can send a copy of one of your own characters to another (already registered) user - your original stays unchanged. The recipient has to accept the copy first before it appears as their own character. Until then you can also cancel the send.',
-    'acc.pwresethint': 'Your password was reset to the default password by an admin - please set your own now (current password = the default password).',
+    'acc.pwresethint': 'Your password was reset by an admin - please set your own now (current password = the one-time password you got from the admin). All other functions are locked until then.',
     'generic.loading': 'Loading …',
     'generic.loaderror': 'Failed to load:',
     'admin.userstats.loaderror': 'Statistics could not be loaded:',
@@ -2046,20 +2046,21 @@ async function renderAccountPanel(){
 
   let incomingTransfers = [];
   try{ incomingTransfers = (await apiGetTransfers()).incoming || []; }catch(e){ /* egal, zeigt dann einfach nichts an */ }
+  incomingTransfersList = incomingTransfers;
 
   const incomingHtml = incomingTransfers.length ? `
     <div style="margin-bottom:14px; padding:10px; background:var(--edit-bg); border:1px solid var(--edit-border); border-radius:var(--radius-md);">
       <label style="font-size:var(--text-sm);">Charakter-Kopien, die dir angeboten wurden</label>
-      ${incomingTransfers.map(tr=>`<div class="char-item" style="padding:6px 10px;">
-        <span style="flex:1;">${tr.charName} <span class="muted">&middot; von ${tr.from}</span></span>
-        <button type="button" class="action gold small" onclick="acceptTransfer('${tr.charName.replace(/'/g,"\\'")}')">${t('btn.accept')}</button>
-        <button type="button" class="action danger small" onclick="declineTransfer('${tr.charName.replace(/'/g,"\\'")}')">${t('btn.decline')}</button>
+      ${incomingTransfers.map((tr, ti)=>`<div class="char-item" style="padding:6px 10px;">
+        <span style="flex:1;">${escapeHtml(tr.charName)} <span class="muted">&middot; von ${escapeHtml(tr.from)}</span></span>
+        <button type="button" class="action gold small" onclick="acceptTransferByIndex(${ti})">${t('btn.accept')}</button>
+        <button type="button" class="action danger small" onclick="declineTransferByIndex(${ti})">${t('btn.decline')}</button>
       </div>`).join('')}
     </div>` : '';
 
   const list = chars.length ? chars.map((c, i)=>{
-    const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
-    const statusNote = c.pendingTransferTo ? ` <span class="muted">&middot; Kopie wird gesendet an: ${c.pendingTransferTo}</span>` : '';
+    const info = escapeHtml([c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt');
+    const statusNote = c.pendingTransferTo ? ` <span class="muted">&middot; Kopie wird gesendet an: ${escapeHtml(c.pendingTransferTo)}</span>` : '';
     const updatedNote = c.updatedAt ? ` <span class="muted">&middot; zuletzt bearbeitet: ${formatUpdatedAt(c.updatedAt)}</span>` : '';
     return `<div>
       <div class="char-item">
@@ -2068,7 +2069,7 @@ async function renderAccountPanel(){
           <button type="button" class="action small" style="padding:2px 6px; ${i===chars.length-1?'visibility:hidden;':''}" title="${t('tt.movedown')}" aria-label="${t('tt.movedown')}" onclick="moveCharacterByIndex(${i},1)">&#9660;</button>
         </div>
         <button class="action char-select ${c.name===currentChar?'gold':''}" type="button" onclick="selectCharacterByIndex(${i})">
-          <span class="char-name">${c.name}</span>
+          <span class="char-name">${escapeHtml(c.name)}</span>
           <span class="char-info">${info}${updatedNote}${statusNote}</span>
         </button>
         <button class="action small" type="button" title="${t('btn.copy')}" onclick="copyOwnCharacterByIndex(${i})">${t('btn.copy')}</button>
@@ -2086,10 +2087,10 @@ async function renderAccountPanel(){
 
   const vorlageOptions = ['<option value="">– leer starten –</option>',
     ...(loadGuestBundle() ? ['<option value="__guest__">Aktuelle Gast-Eingaben übernehmen</option>'] : []),
-    ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${c.name}</option>`)].join('');
+    ...chars.map((c,i)=>`<option value="${i}">Kopie von: ${escapeHtml(c.name)}</option>`)].join('');
 
   body.innerHTML = `
-    <h3>${t('acc.loggedinas')} ${currentUser}</h3>
+    <h3>${t('acc.loggedinas')} ${escapeHtml(currentUser)}</h3>
     ${incomingHtml}
     <div class="char-list">${list}</div>
     <p class="helptext" style="margin-top:4px;">${t('acc.sendhint')}</p>
@@ -2122,7 +2123,7 @@ async function renderAccountPanel(){
     </div>`;
 }
 
-// Nach einem Admin-Reset auf das Standardpasswort: beim nächsten Login wird das
+// Nach einem Admin-Reset (Einmalpasswort): beim nächsten Login wird das
 // Passwort-Formular automatisch geöffnet und um einen Wechsel gebeten.
 let pwChangeRequired = false;
 
@@ -2191,6 +2192,11 @@ async function handleImportFile(ev){
   }catch(e){ setAccountMsg('Import fehlgeschlagen: ' + e.message); }
 }
 
+// Angebote werden per Index angesprochen (nie den Namen in ein onclick-Attribut einbetten:
+// ein Name mit Anführungszeichen würde sonst aus dem Attribut ausbrechen - Skript-Einschleusung).
+let incomingTransfersList = [];
+function acceptTransferByIndex(i){ const tr = incomingTransfersList[i]; if(tr) acceptTransfer(tr.charName); }
+function declineTransferByIndex(i){ const tr = incomingTransfersList[i]; if(tr) declineTransfer(tr.charName); }
 async function acceptTransfer(charName){
   try{
     await apiAcceptTransfer(charName);
@@ -2274,7 +2280,7 @@ function toggleRenameByIndex(i){
     <div style="margin:6px 0 10px 0; padding:10px; background:var(--panel-2); border-radius:var(--radius-md);">
       <label for="rename-input-${i}" style="font-size:var(--text-sm);">Charakter umbenennen</label>
       <div style="display:flex; gap:6px; margin-top:4px;">
-        <input type="text" id="rename-input-${i}" value="${charName.replace(/"/g,'&quot;')}" style="flex:1;" onkeydown="if(event.key==='Enter')renameCharacterByIndex(${i})">
+        <input type="text" id="rename-input-${i}" value="${escapeHtml(charName)}" style="flex:1;" onkeydown="if(event.key==='Enter')renameCharacterByIndex(${i})">
         <button type="button" class="action gold small" onclick="renameCharacterByIndex(${i})">Speichern</button>
       </div>
       <div id="rename-msg-${i}" class="helptext" style="color:var(--off);"></div>
@@ -3111,7 +3117,7 @@ function setRaptorCount(val){
 
 function renderPresetSlots(cat, names, db, presets){
   const presetBtns = presets ? Object.keys(presets).map(p=>
-    `<button type="button" class="action" onclick="applyCatPreset('${cat.id}','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`
+    `<button type="button" class="action" data-preset="${escapeHtml(p)}" onclick="applyCatPreset('${cat.id}', this.dataset.preset)">${escapeHtml(presetDisplayName(p))}</button>`
   ).join('') : '';
   const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">${t('badge.manualvalues')}</button>`;
   const slotCards = cat.sources.map(src=>{
@@ -3198,7 +3204,7 @@ function renderReittierSlots(cat){
   const names = Object.keys(mountDb);
 
   const presetBtns = Object.keys(reittierPresets).map(p=>
-    `<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`
+    `<button type="button" class="action" data-preset="${escapeHtml(p)}" onclick="applyCatPreset('reittier', this.dataset.preset)">${escapeHtml(presetDisplayName(p))}</button>`
   ).join('');
   const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">${t('badge.manualvalues')}</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
@@ -3260,7 +3266,7 @@ function renderReittierWerteTable(){
   }).join('');
 
   return `<div class="btnrow" style="margin-top:0;margin-bottom:14px;">
-      ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" onclick="applyCatPreset('reittier','${p.replace(/'/g,"\\'")}')">${presetDisplayName(p)}</button>`).join('')}
+      ${Object.keys(reittierPresets).map(p=>`<button type="button" class="action" data-preset="${escapeHtml(p)}" onclick="applyCatPreset('reittier', this.dataset.preset)">${escapeHtml(presetDisplayName(p))}</button>`).join('')}
       <button type="button" class="action gold" onclick="setReittierMode('werte')">${t('badge.manualvalues')}</button>
     </div>
     <p class="helptext" style="margin-top:0;">${t('gp.reittierpreset.intro')}</p>
@@ -3454,7 +3460,7 @@ function loadFoodPreset(src, name){
 }
 
 function renderBadgesHtml(cat){
-  return catBadgeText(cat).map(b=>`<span class="cat-badge">${b}</span>`).join(' ');
+  return catBadgeText(cat).map(b=>`<span class="cat-badge">${escapeHtml(b)}</span>`).join(' ');
 }
 function catBadgeText(cat){
   if(cat.kind === 'gefaehrten') return [gefaehrtenMode==='werte' ? t('badge.manualvalues') : presetDisplayName(gefaehrtenActivePreset)];
@@ -5020,9 +5026,9 @@ async function renderUserOverview(){
       const slug = slugSrc(u.username);
       const charList = u.characters.length
         ? u.characters.map((c, ci)=>{
-            const info = [c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt';
+            const info = escapeHtml([c.klasse, c.vorbildpfad].filter(Boolean).join(' · ') || 'noch keine Klasse gewählt');
             return `<div class="user-char-item">
-              <span style="flex:1;"><strong>${c.name}</strong> <span class="muted">${info}</span></span>
+              <span style="flex:1;"><strong>${escapeHtml(c.name)}</strong> <span class="muted">${info}</span></span>
               <button type="button" class="action small" onclick="adminCopyChar(${ui}, ${ci})">In meinen Account kopieren</button>
             </div>`;
           }).join('')
@@ -5031,7 +5037,7 @@ async function renderUserOverview(){
       return `<div class="user-item-wrap">
         <div class="char-item">
           <button type="button" class="user-toggle" onclick="toggleUserChars('${slug}')">
-            <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${u.username}
+            <span class="chevron" id="userchevron-${slug}">&#9656;</span> ${escapeHtml(u.username)}
             <span class="muted">(${u.characters.length} Charakter${u.characters.length===1?'':'e'})</span>
             <span class="muted" style="font-size:var(--text-sm);">${u.lastActive ? '&middot; zuletzt aktiv: '+formatUpdatedAt(u.lastActive) : '&middot; noch keine Aktivität'}</span>
           </button>
@@ -5045,7 +5051,7 @@ async function renderUserOverview(){
       </div>`;
     }).join('') || `<p class="helptext">${t('admin.nousersfound')}</p>`;
   }catch(e){
-    el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${e.message}</p>`;
+    el.innerHTML = `<p class="helptext" style="color:var(--off);">${t('generic.loaderror')} ${escapeHtml(e.message)}</p>`;
   }
 }
 function toggleUserChars(slug){
@@ -5072,7 +5078,7 @@ async function adminCopyChar(ui, ci){
 function confirmResetPassword(ui){
   pendingAdminUser = adminUsers[ui].username;
   pendingAction = 'resetpw';
-  document.getElementById('modalText').textContent = `Passwort von "${pendingAdminUser}" wirklich auf das Standardpasswort zurücksetzen?`;
+  document.getElementById('modalText').textContent = `Passwort von "${pendingAdminUser}" wirklich zurücksetzen? Es wird ein zufälliges Einmalpasswort erzeugt, das dir einmalig angezeigt wird.`;
   document.getElementById('modalConfirm').textContent = 'Ja, zurücksetzen';
   document.getElementById('modalBg').classList.add('show');
 }
@@ -5211,14 +5217,14 @@ function entryCardHtml(name, statsObj, extraHtml, withInfo, withDeathCheck){
   const nameEnVal = (statsObj && statsObj._nameEn) ? String(statsObj._nameEn) : '';
   const infoHtml = withInfo ? `<div style="margin-top:8px;">
       <label>Sonstige Info (nur Text, beeinflusst keine Stats)</label>
-      <input type="text" class="entry-info" value="${infoVal.replace(/"/g,'&quot;')}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz …">
+      <input type="text" class="entry-info" value="${escapeHtml(infoVal)}" placeholder="z. B. Besonderheit, Proc-Bedingung, Notiz …">
     </div>` : '';
   const persistsChecked = (statsObj && statsObj._persistsDeath) ? 'checked' : '';
   const deathHtml = withDeathCheck ? `<label class="slot-check" style="margin-top:8px;"><input type="checkbox" class="entry-persists-death" ${persistsChecked}> Besteht über den Tod hinaus</label>` : '';
   return `<div class="entry-card">
     <div class="entry-head">
-      <input type="text" class="entry-name" value="${name||''}" placeholder="Name eingeben…">
-      <input type="text" class="entry-name-en" value="${nameEnVal.replace(/"/g,'&quot;')}" placeholder="Name (EN), optional…" title="${t('tt.nameendesc')}">
+      <input type="text" class="entry-name" value="${escapeHtml(name||'')}" placeholder="Name eingeben…">
+      <input type="text" class="entry-name-en" value="${escapeHtml(nameEnVal)}" placeholder="Name (EN), optional…" title="${t('tt.nameendesc')}">
       <button type="button" class="action danger small" onclick="this.closest('.entry-card').remove()">Entfernen</button>
     </div>
     <div class="stat-rows">${rows}</div>
@@ -5355,7 +5361,7 @@ function presetCardHtml(presetName, slotLabels, names, assigned, db){
   }).join('');
   return `<div class="preset-card">
     <div class="entry-head">
-      <input type="text" class="entry-name preset-name" value="${presetName}" placeholder="Preset-Name">
+      <input type="text" class="entry-name preset-name" value="${escapeHtml(presetName)}" placeholder="Preset-Name">
       <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
     </div>
     <div class="slot-grid">${selects}</div>
@@ -5394,7 +5400,7 @@ function gegnerProfilCardHtml(name, prof){
   </div>`).join('');
   return `<div class="preset-card">
     <div class="entry-head">
-      <input type="text" class="entry-name gp-name" value="${String(name||'').replace(/"/g,'&quot;')}" placeholder="Profil-Name (z. B. Boss XY)">
+      <input type="text" class="entry-name gp-name" value="${escapeHtml(name||'')}" placeholder="Profil-Name (z. B. Boss XY)">
       <button type="button" class="action danger small" onclick="this.closest('.preset-card').remove()">Entfernen</button>
     </div>
     <div class="slot-grid">${fields}</div>
@@ -5565,8 +5571,11 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
   if(pendingAction === 'resetpw' && pendingAdminUser){
     try{
       const res = await apiAdminResetPassword(pendingAdminUser);
-      document.getElementById('saveStatus').textContent = `Passwort von "${pendingAdminUser}" zurückgesetzt auf: ${res.password}`;
+      document.getElementById('saveStatus').textContent = `Passwort von "${pendingAdminUser}" zurückgesetzt (Einmalpasswort wurde angezeigt).`;
       setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 6000);
+      // Das Einmalpasswort ist zufällig und wird nur dieses eine Mal angezeigt - in einem
+      // Dialogfeld, damit es sich in Ruhe markieren/kopieren und weitergeben lässt.
+      window.prompt(`Einmalpasswort für "${pendingAdminUser}" (jetzt kopieren und der Person persönlich weitergeben - es wird nicht noch einmal angezeigt):`, res.password);
     }catch(e){
       document.getElementById('saveStatus').textContent = t('generic.error') + e.message;
     }
@@ -5767,7 +5776,7 @@ async function init(){
       if(me.lang === 'de' || me.lang === 'en') currentLang = me.lang;
       if(pwChangeRequired){
         setTimeout(()=>{
-          document.getElementById('saveStatus').textContent = 'Dein Passwort wurde auf das Standardpasswort zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.';
+          document.getElementById('saveStatus').textContent = 'Dein Passwort wurde zurückgesetzt - bitte ändere es über das Konto-Fenster oben rechts.';
           setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 12000);
         }, 500);
       }
@@ -6859,7 +6868,7 @@ function gpRefFieldHtml(e, f){
     const opts = f.select.map(o=>`<option value="${escapeHtml(o)}" ${cur===o?'selected':''}>${o?escapeHtml(o):'–'}</option>`).join('');
     return `<select class="gpref-field" data-field="${f.key}" style="width:100%;">${opts}</select>`;
   }
-  return `<input type="text" class="gpref-field" data-field="${f.key}" placeholder="${f.label}" value="${cur.replace(/"/g,'&quot;')}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}">`;
+  return `<input type="text" class="gpref-field" data-field="${f.key}" placeholder="${escapeHtml(f.label)}" value="${escapeHtml(cur)}" style="${f.numeric?'width:90px;text-align:right;':'width:100%;'}">`;
 }
 function gpRefRowHtml(e, fields){
   const iconVal = String(e.icon||'');
