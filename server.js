@@ -264,13 +264,14 @@ app.post('/api/auth/register', wrap(async (req, res) => {
   if(!validNewUsername(username)){
     return res.status(400).json({ error: 'Benutzername: 2-32 Zeichen, nur Buchstaben, Ziffern, Leerzeichen sowie . _ @ - (kein Leerzeichen am Anfang/Ende)' });
   }
-  if(readUsers()[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
+  const nameTaken = (us) => us[username] || Object.keys(us).some(u => safeName(u) === safeName(username));
+  if(nameTaken(readUsers())) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   noteRegisterAttempt(req.ip);
   const passwordHash = await bcrypt.hash(password, 10);
   // Erst NACH dem (langsamen) Hashen frisch lesen und schreiben: sonst überschreiben sich
   // zwei gleichzeitige Registrierungen gegenseitig (Lost-Update).
   const users = readUsers();
-  if(users[username]) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
+  if(nameTaken(users)) return res.status(409).json({ error: 'Benutzername bereits vergeben' });
   // Wer sich mit exakt dem Namen aus ADMIN_USERNAME registriert, wird automatisch
   // zum ersten Admin. Weitere Rollen kann dieser danach über die Benutzerübersicht vergeben.
   const role = username === ADMIN_USERNAME ? 'admin' : 'user';
@@ -421,6 +422,44 @@ app.put('/api/characters/reorder', authMiddleware, (req, res) => {
 // Prüft, ob der Charaktername schon von IRGENDEINEM Benutzer verwendet wird
 // (nicht nur vom aktuellen) - so kann derselbe Charaktername nie zwei
 // verschiedenen Leuten gehören. Groß-/Kleinschreibung wird dabei ignoriert.
+// safeName() macht aus verschiedenen Namen dieselbe Datei ("A B" und "A_B" -> A_B.json).
+// Ohne diese Prüfung würde der zweite Charakter die Daten des ersten stillschweigend
+// überschreiben bzw. beide teilten sich eine Datei. Prüft ALLE Konten, ignoriert nur den
+// Eintrag "ignoreName" des Besitzers (beim Umbenennen: der alte Name).
+function fileKeyTaken(fileFn, listKey, username, name, ignoreName){
+  const target = fileFn(username, name);
+  const users = readUsers();
+  return Object.keys(users).some(u => (users[u][listKey] || []).some(c =>
+    !(u === username && c === ignoreName) && fileFn(u, c) === target));
+}
+const charFileTaken = (u, n, ign) => fileKeyTaken(charFile, 'characters', u, n, ign);
+const gpCharFileTaken = (u, n, ign) => fileKeyTaken(gpCharFile, 'gpCharacters', u, n, ign);
+
+// Vor dem Speichern von Nutzerdaten: Tiefe begrenzen und gefährliche Schlüssel entfernen
+// (__proto__/constructor/prototype), ohne sonst am Inhalt etwas zu verändern - bestehende
+// Daten bleiben so unverändert gültig. Gibt null zurück, wenn die Verschachtelung absurd tief ist.
+const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function cleanJson(v, depth = 0){
+  if(depth > 12) return null;
+  if(Array.isArray(v)){
+    const out = [];
+    for(const x of v){ const c = cleanJson(x, depth + 1); if(c === null && x !== null) return null; out.push(c); }
+    return out;
+  }
+  if(v && typeof v === 'object'){
+    const out = {};
+    for(const k of Object.keys(v)){
+      if(BAD_KEYS.has(k)) continue;
+      const c = cleanJson(v[k], depth + 1);
+      if(c === null && v[k] !== null) return null;
+      out[k] = c;
+    }
+    return out;
+  }
+  return v;
+}
+const isPlainObj = v => v && typeof v === 'object' && !Array.isArray(v);
+
 function isCharNameTakenByOther(name, ownUsername){
   const users = readUsers();
   const lower = name.trim().toLowerCase();
@@ -440,6 +479,7 @@ app.post('/api/characters', authMiddleware, (req, res) => {
   if(isCharNameTakenByOther(name, req.username)){
     return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
   }
+  if(charFileTaken(req.username, name)) return res.status(409).json({ error: 'Ein sehr ähnlicher Charaktername existiert schon (Sonderzeichen werden gleich behandelt)' });
   // Optional: Daten eines eigenen vorhandenen Charakters übernehmen (Kopie).
   let initialData = {};
   if(copyFrom){
@@ -468,9 +508,20 @@ app.get('/api/characters/:name', authMiddleware, (req, res) => {
 const CHAR_ALLOWED_KEYS = ['grunddaten','baseInputs','sourceInputs','slotSelections','raptorCount',
   'gefaehrtenMode','reittierMode','gefaehrtenActivePreset','reittierActivePreset','uebersichtParams','calcActive'];
 const CHAR_MAX_BYTES = 300000; // ein echter Charakter liegt bei wenigen KB - großzügige Obergrenze
+// Erwartete Grundtypen je Schlüssel; Abweichungen werden beim Speichern abgelehnt (null),
+// statt kaputte Daten abzulegen, die beim Laden das Frontend stören könnten.
+const CHAR_OBJECT_KEYS = ['grunddaten','baseInputs','sourceInputs','slotSelections','uebersichtParams','calcActive'];
 function sanitizeCharData(body){
   const clean = {};
-  CHAR_ALLOWED_KEYS.forEach(k => { if(body && k in body) clean[k] = body[k]; });
+  for(const k of CHAR_ALLOWED_KEYS){
+    if(!(body && k in body)) continue;
+    const v = body[k];
+    if(CHAR_OBJECT_KEYS.includes(k) && !isPlainObj(v)) return null;
+    if(!CHAR_OBJECT_KEYS.includes(k) && v !== null && typeof v === 'object') return null;
+    const c = cleanJson(v);
+    if(c === null && v !== null) return null;
+    clean[k] = c;
+  }
   return clean;
 }
 
@@ -481,6 +532,7 @@ app.put('/api/characters/:name', authMiddleware, (req, res) => {
     return res.status(404).json({ error: 'Charakter nicht gefunden' });
   }
   const clean = sanitizeCharData(req.body);
+  if(!clean) return res.status(400).json({ error: 'Ungültige Charakterdaten (falscher Datentyp oder zu tief verschachtelt) - nicht gespeichert' });
   if(JSON.stringify(clean).length > CHAR_MAX_BYTES){
     return res.status(413).json({ error: 'Charakterdaten sind unerwartet groß - nicht gespeichert' });
   }
@@ -518,6 +570,7 @@ app.post('/api/characters/:name/rename', authMiddleware, (req, res) => {
   if(isCharNameTakenByOther(newName, req.username)){
     return res.status(409).json({ error: 'Dieser Charaktername ist bereits von einem anderen Benutzer vergeben' });
   }
+  if(charFileTaken(req.username, newName, req.params.name)) return res.status(409).json({ error: 'Ein sehr ähnlicher Charaktername existiert schon (Sonderzeichen werden gleich behandelt)' });
 
   const oldFile = charFile(req.username, req.params.name);
   const newFile = charFile(req.username, newName);
@@ -601,7 +654,7 @@ app.post('/api/transfers/:name/accept', authMiddleware, (req, res) => {
   if(!toUser.characters) toUser.characters = [];
   const base = `${req.params.name} (von ${t.from})`;
   let target = base, i = 2;
-  while(toUser.characters.includes(target) || isCharNameTakenByOther(target, req.username)){
+  while(toUser.characters.includes(target) || isCharNameTakenByOther(target, req.username) || charFileTaken(req.username, target)){
     target = `${base} ${i++}`;
   }
   const data = readJson(charFile(t.from, req.params.name), {});
@@ -662,6 +715,7 @@ app.post('/api/gp/characters', authMiddleware, gpUserGate, (req, res) => {
   if(!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   if(!user.gpCharacters) user.gpCharacters = [];
   if(user.gpCharacters.includes(name)) return res.status(409).json({ error: 'Diesen Charakter hast du schon angelegt' });
+  if(gpCharFileTaken(req.username, name)) return res.status(409).json({ error: 'Ein sehr ähnlicher Name existiert schon (Sonderzeichen werden gleich behandelt)' });
   user.gpCharacters.push(name);
   writeJson(USERS_FILE, users);
   writeJson(gpCharFile(req.username, name), { klasse: '', rollen: { dps: false, heal: false, tank: false }, besitz: {} });
@@ -678,6 +732,11 @@ app.put('/api/gp/characters/:name', authMiddleware, gpUserGate, (req, res) => {
   }
   const clean = {};
   GP_CHAR_ALLOWED_KEYS.forEach(k => { if(req.body && k in req.body) clean[k] = req.body[k]; });
+  const gpClean = cleanJson(clean);
+  if(!gpClean) return res.status(400).json({ error: 'Ungültige Daten (zu tief verschachtelt) - nicht gespeichert' });
+  for(const k of ['rollen','besitz']){ if(k in gpClean && !isPlainObj(gpClean[k])) return res.status(400).json({ error: 'Ungültige Daten (' + k + ' muss ein Objekt sein)' }); }
+  if('lieblingsartefakte' in gpClean && !Array.isArray(gpClean.lieblingsartefakte)) return res.status(400).json({ error: 'Ungültige Daten (lieblingsartefakte muss eine Liste sein)' });
+  Object.keys(clean).forEach(k => delete clean[k]); Object.assign(clean, gpClean);
   if(JSON.stringify(clean).length > GP_CHAR_MAX_BYTES){
     return res.status(413).json({ error: 'Daten sind unerwartet groß - nicht gespeichert' });
   }
@@ -715,6 +774,7 @@ app.post('/api/gp/characters/:name/rename', authMiddleware, gpUserGate, (req, re
   if(user.gpCharacters.includes(newName)){
     return res.status(409).json({ error: 'Diesen Charakternamen hast du schon vergeben' });
   }
+  if(gpCharFileTaken(req.username, newName, req.params.name)) return res.status(409).json({ error: 'Ein sehr ähnlicher Name existiert schon (Sonderzeichen werden gleich behandelt)' });
 
   const oldFile = gpCharFile(req.username, req.params.name);
   const newFile = gpCharFile(req.username, newName);
@@ -792,7 +852,9 @@ app.put('/api/gp/plans/:name', authMiddleware, gpModGate, (req, res) => {
   if(clientRev !== undefined && clientRev !== null && Number(clientRev) !== currentRev){
     return res.status(409).json({ error: 'Jemand anderes hat diesen Plan inzwischen gespeichert - bitte neu laden und Änderung erneut machen', rev: currentRev });
   }
-  const clean = { name: req.params.name, groups: (req.body && Array.isArray(req.body.groups)) ? req.body.groups : [], rev: currentRev + 1 };
+  const groups = cleanJson((req.body && Array.isArray(req.body.groups)) ? req.body.groups : []);
+  if(!groups) return res.status(400).json({ error: 'Plan ist zu tief verschachtelt - nicht gespeichert' });
+  const clean = { name: req.params.name, groups, rev: currentRev + 1 };
   if(JSON.stringify(clean).length > GP_PLAN_MAX_BYTES){
     return res.status(413).json({ error: 'Plan ist unerwartet groß - nicht gespeichert' });
   }
@@ -827,6 +889,7 @@ app.get('/api/shared', (req, res) => {
 // 2) Historie: Vor jedem Überschreiben wird der alte Stand datiert unter
 //    data/backups/shared/ abgelegt (die letzten 10 bleiben erhalten).
 const SHARED_HISTORY_DIR = path.join(DATA_DIR, 'backups', 'shared');
+const SHARED_MAX_BYTES = 6000000; // Referenzlisten mit Icons (data-URLs) sind groß, aber nicht unbegrenzt
 function saveShared(req, res, allowedKeys){
   const current = readJson(SHARED_FILE, {});
   const clientRev = req.body ? req.body.rev : undefined;
@@ -835,7 +898,17 @@ function saveShared(req, res, allowedKeys){
     return res.status(409).json({ error: 'Jemand anderes hat inzwischen gespeichert - bitte Seite neu laden und Änderung erneut machen', rev: currentRev });
   }
   const patch = {};
-  allowedKeys.forEach(key => { if(req.body && key in req.body) patch[key] = req.body[key]; });
+  for(const key of allowedKeys){
+    if(!(req.body && key in req.body)) continue;
+    const v = req.body[key];
+    if(v === null || typeof v !== 'object') return res.status(400).json({ error: `Ungültige Daten für "${key}" (Objekt oder Liste erwartet)` });
+    const c = cleanJson(v);
+    if(!c) return res.status(400).json({ error: `"${key}" ist zu tief verschachtelt - nicht gespeichert` });
+    patch[key] = c;
+  }
+  if(JSON.stringify(patch).length > SHARED_MAX_BYTES){
+    return res.status(413).json({ error: 'Daten sind unerwartet groß - nicht gespeichert' });
+  }
   try{
     fs.mkdirSync(SHARED_HISTORY_DIR, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g,'-'); // inkl. Millisekunden - zwei Speicherungen in derselben Sekunde überschreiben sich sonst
@@ -935,6 +1008,10 @@ app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (
   (users[target].characters || []).forEach(c => {
     try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
   });
+  // Gruppenplaner-Charaktere liegen in einem eigenen Ordner und blieben sonst als Leichen zurück.
+  (users[target].gpCharacters || []).forEach(c => {
+    try{ fs.unlinkSync(gpCharFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
+  });
   delete users[target];
   writeJson(USERS_FILE, users);
   removeTransfersInvolving(target);
@@ -955,8 +1032,10 @@ app.get('/api/admin/backups', authMiddleware, requireRole('admin'), (req, res) =
   const daily = [];
   try{
     fs.readdirSync(DAILY_BACKUP_DIR).filter(f=>/^\d{4}-\d{2}-\d{2}$/.test(f)).sort().reverse().forEach(day=>{
+      // Zählt alle Dateien des Backups (Stammdateien + chars/gpchars/gpplans), nicht mehr nur chars+2.
       let files = 0;
-      try{ files = fs.readdirSync(path.join(DAILY_BACKUP_DIR, day, 'chars')).length + 2; }catch(e){ files = 2; }
+      const countFiles = (dir) => { fs.readdirSync(dir, { withFileTypes: true }).forEach(e => { if(e.isDirectory()) countFiles(path.join(dir, e.name)); else files++; }); };
+      try{ countFiles(path.join(DAILY_BACKUP_DIR, day)); }catch(e){ /* Backup unvollständig */ }
       daily.push({ day, files });
     });
   }catch(e){ /* Ordner existiert evtl. noch nicht */ }
@@ -1025,7 +1104,7 @@ app.post('/api/admin/users/:username/characters/:charname/copy', authMiddleware,
   // Eindeutigen Zielnamen finden, damit weder eigene noch fremde Namen kollidieren.
   const base = `${sourceChar} (Kopie von ${source})`;
   let target = base, i = 2;
-  while(me.characters.includes(target) || isCharNameTakenByOther(target, req.username)){
+  while(me.characters.includes(target) || isCharNameTakenByOther(target, req.username) || charFileTaken(req.username, target)){
     target = `${base} ${i++}`;
   }
   const data = readJson(charFile(source, sourceChar), {});
@@ -1060,6 +1139,7 @@ function dailyBackup(){
     fs.mkdirSync(target, { recursive: true });
     if(fs.existsSync(USERS_FILE)) fs.copyFileSync(USERS_FILE, path.join(target, 'users.json'));
     if(fs.existsSync(SHARED_FILE)) fs.copyFileSync(SHARED_FILE, path.join(target, 'shared.json'));
+    if(fs.existsSync(TRANSFERS_FILE)) fs.copyFileSync(TRANSFERS_FILE, path.join(target, 'transfers.json'));
     fs.cpSync(CHAR_DIR, path.join(target, 'chars'), { recursive: true });
     fs.cpSync(GP_CHAR_DIR, path.join(target, 'gpchars'), { recursive: true });
     fs.cpSync(GP_PLAN_DIR, path.join(target, 'gpplans'), { recursive: true });

@@ -176,6 +176,38 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     r = await post('/api/gp/characters', { name: '<script>x</script>' }, token);
     check('GP-Charaktername mit HTML -> 400', r.status === 400, r.status);
 
+    console.log('\n[1c] Datenintegrität: Dateinamen-Kollisionen, Typprüfung, Aufräumen');
+    const kA = 'Kol A ' + uniq, kB = 'Kol_A_' + uniq;
+    r = await post('/api/characters', { name: kA }, token);
+    check('Charakter "Kol A" angelegt', r.status === 201, r.status);
+    r = await post('/api/characters', { name: kB }, token);
+    check('Charakter "Kol_A" (gleiche Datei nach safeName) -> 409 statt stilles Überschreiben', r.status === 409, r.status);
+    r = await post('/api/characters', { name: 'Kol Z ' + uniq }, token);
+    r = await post('/api/characters/' + encodeURIComponent('Kol Z ' + uniq) + '/rename', { newName: kB }, token);
+    check('Umbenennen auf kollidierenden Dateinamen -> 409', r.status === 409, r.status);
+    await api('/api/characters/' + encodeURIComponent(kA), { method: 'DELETE' }, token);
+    await api('/api/characters/' + encodeURIComponent('Kol Z ' + uniq), { method: 'DELETE' }, token);
+    r = await post('/api/gp/characters', { name: 'GKol A ' + uniq }, token);
+    r = await post('/api/gp/characters', { name: 'GKol_A_' + uniq }, token);
+    check('GP-Charakter mit kollidierendem Dateinamen -> 409', r.status === 409, r.status);
+    await api('/api/gp/characters/' + encodeURIComponent('GKol A ' + uniq), { method: 'DELETE' }, token);
+    r = await post('/api/auth/register', { username: user.replace(/_/g, ' '), password: 'pass1234' });
+    check('Registrieren mit Namen, der nach safeName kollidiert -> 409', user.includes('_') ? r.status === 409 : true, r.status);
+    const charT = 'Typ_' + uniq;
+    await post('/api/characters', { name: charT }, token);
+    r = await api('/api/characters/' + encodeURIComponent(charT), { method: 'PUT', body: JSON.stringify({ grunddaten: 'kaputt' }) }, token);
+    check('Charakterdaten: Text statt Objekt in "grunddaten" -> 400', r.status === 400, r.status);
+    let deep = {}; let cur = deep; for (let i = 0; i < 30; i++) { cur.x = {}; cur = cur.x; }
+    r = await api('/api/characters/' + encodeURIComponent(charT), { method: 'PUT', body: JSON.stringify({ baseInputs: deep }) }, token);
+    check('Charakterdaten: 30 Ebenen tief verschachtelt -> 400', r.status === 400, r.status);
+    r = await api('/api/characters/' + encodeURIComponent(charT), { method: 'PUT', body: '{"baseInputs":{"__proto__":{"evil":1},"kraft":5}}' }, token);
+    check('Charakterdaten: normale Daten mit __proto__-Schlüssel werden angenommen', r.status === 200, r.status);
+    r = await api('/api/characters/' + encodeURIComponent(charT), {}, token);
+    check('__proto__-Schlüssel wurde beim Speichern entfernt, Rest bleibt', r.data && r.data.data.baseInputs && r.data.data.baseInputs.kraft === 5 && !Object.prototype.hasOwnProperty.call(r.data.data.baseInputs, '__proto__'), JSON.stringify(r.data && r.data.data));
+    await api('/api/characters/' + encodeURIComponent(charT), { method: 'DELETE' }, token);
+    r = await api('/api/gp/characters/' + encodeURIComponent('x'), { method: 'PUT', body: JSON.stringify({ rollen: 'nein' }) }, token);
+    check('GP-Charakter: unbekannter Charakter bleibt 404', r.status === 404, r.status);
+
     console.log('\n[2] Charakterdaten-Validierung');
     const charV = 'Valid_' + uniq;
     await api('/api/characters', { method: 'POST', body: JSON.stringify({ name: charV }) }, token);

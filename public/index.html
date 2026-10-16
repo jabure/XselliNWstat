@@ -1204,6 +1204,7 @@ const TRANSLATIONS = {
     'msg.insigniepreisegespeichert': 'Insignien-Preise gespeichert (für alle).',
     'tt.itemnotowned': 'Der zugewiesene Charakter besitzt dieses Item laut Checkliste nicht',
     'gp.notavailable': ' (nicht vorhanden)',
+    'slot.notavailable': ' (nicht mehr in den Presets)',
     'gp.enterorchoosename': 'Name eingeben oder wählen',
     'alert.needplayer': 'Bitte zuerst einen Spieler (Charakter oder freien Namen) in diese Zeile eintragen.',
     'msg.bestsetupgroup': 'Bestes Gesamt-Setup für {count} Zeile(n) übernommen - bitte Plan speichern, falls es passt.',
@@ -1588,6 +1589,7 @@ const TRANSLATIONS = {
     'msg.insigniepreisegespeichert': 'Insignia prices saved (for everyone).',
     'tt.itemnotowned': 'The assigned character does not own this item per the checklist',
     'gp.notavailable': ' (not owned)',
+    'slot.notavailable': ' (no longer in presets)',
     'gp.enterorchoosename': 'Enter or choose a name',
     'alert.needplayer': 'Please enter a player (character or free name) in this row first.',
     'msg.bestsetupgroup': 'Best overall setup applied for {count} row(s) - please save the plan if it fits.',
@@ -2287,6 +2289,7 @@ function toggleRenameByIndex(i){
     </div>`;
 }
 async function renameCharacterByIndex(i){
+  await flushSave(); // sonst würde eine ausstehende Speicherung unter dem alten Namen ins Leere laufen
   const charName = myCharacters[i].name;
   const input = document.getElementById('rename-input-'+i);
   const newName = input.value.trim();
@@ -2347,6 +2350,10 @@ async function loginAccount(){
   }catch(e){ setAccountMsg(e.message); }
 }
 function logoutAccount(){
+  // Ausstehende Speicherung noch MIT dem aktuellen Token losschicken (der Request startet
+  // synchron, bevor das Token unten gelöscht wird) - sonst feuert der Timer später ohne
+  // Charakter und meldet nur einen Fehler.
+  flushSave();
   clearLoginLocally();
   authToken = null; currentUser = null; currentChar = null; isLoggedIn = false; currentRole = 'user';
   pwChangeRequired = false;
@@ -2398,6 +2405,9 @@ async function createCharacter(){
   }catch(e){ setAccountMsg(e.message); }
 }
 async function selectCharacter(name){
+  // Erst die letzte, noch verzögerte Änderung des bisherigen Charakters sichern - sonst
+  // geht sie verloren, oder (beim erneuten Laden desselben Charakters) kommt ein alter Stand zurück.
+  if(!(await flushSave())){ setAccountMsg('Die letzten Änderungen konnten nicht gespeichert werden - Wechsel abgebrochen.'); return; }
   try{
     const res = await apiGetCharacter(name);
     currentChar = name;
@@ -2433,6 +2443,15 @@ function fullUiRefreshAfterProfileSwitch(){
   renderUebersicht();
 }
 function getSlotSelection(src){ return slotSelections[src] || 'Leer'; }
+// Optionsliste für die Preset-Dropdowns (Gefährten/Reittiere/Buff Food). Wurde der gespeicherte
+// Eintrag inzwischen in den Presets umbenannt oder gelöscht, gäbe es keine passende Option mehr:
+// das Dropdown stünde auf "Leer", obwohl die gespeicherten Werte weiter mitgerechnet werden.
+// Deshalb bleibt der Name als eigene, rot markierte Option erhalten.
+function slotOptionsHtml(names, sel, db){
+  const opts = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
+  if(!sel || sel === 'Leer' || names.includes(sel)) return opts;
+  return opts + `<option value="${escapeHtml(sel)}" selected style="color:var(--off);">${escapeHtml(sel)}${escapeHtml(t('slot.notavailable'))}</option>`;
+}
 
 // Schreibt die Werte/% eines gewählten Presets (Gefährte/Reittier/Food) in sourceInputs,
 // damit die bestehende Berechnung (sumSources etc.) unverändert weiterfunktioniert.
@@ -2572,6 +2591,7 @@ let baseInputs = {};   // statId -> {H, I}
 let sourceInputs = {}; // sourceKey -> statId -> {werte, prozent}
 
 let saveTimer = null;
+let pendingSaveChar = null; // Charakter, für den noch eine verzögerte Speicherung aussteht
 
 /* Statusmeldungen ("Gespeichert", Fehler, Konflikte) werden jetzt als schwebende
    Einblendung unten rechts angezeigt statt in einer Zeile ganz oben - so sieht man
@@ -2721,20 +2741,55 @@ function queueSave(){
     return;
   }
   document.getElementById('saveStatus').textContent = 'Speichere …';
+  pendingSaveChar = currentChar; // der Name wird HIER festgehalten: ein späterer Wechsel darf nicht in den falschen Charakter schreiben
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async ()=>{
-    try{
-      await apiSaveCharacter(currentChar, getCharDataBundle());
-      // Falls dieser Charakter im Vergleich als "gespeicherter" Stand gecacht ist:
-      // Cache verwerfen, damit der Vergleich beim nächsten Auswählen frisch lädt.
-      delete vergleichBundles[currentChar];
-      document.getElementById('saveStatus').textContent = 'Gespeichert';
-    }catch(e){
-      document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
-    }
-    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
-  }, 400);
+  saveTimer = setTimeout(()=>{ flushSave(); }, 400);
 }
+// Schreibt eine ausstehende, noch verzögerte Speicherung SOFORT. Wird vor Charakterwechsel,
+// Umbenennen und Abmelden aufgerufen (und beim Verlassen der Seite, siehe flushOnLeave) -
+// sonst ginge die letzte Änderung der letzten 400 ms verloren. Liefert false, wenn das
+// Speichern fehlgeschlagen ist (die Änderung bleibt dann vorgemerkt).
+async function flushSave(){
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const name = pendingSaveChar;
+  if(!name || !isLoggedIn) return true;
+  const data = getCharDataBundle(); // Zustand gehört zu "name", solange vor dem Wechsel aufgerufen
+  pendingSaveChar = null;
+  try{
+    await apiSaveCharacter(name, data);
+    // Falls dieser Charakter im Vergleich als "gespeicherter" Stand gecacht ist:
+    // Cache verwerfen, damit der Vergleich beim nächsten Auswählen frisch lädt.
+    delete vergleichBundles[name];
+    document.getElementById('saveStatus').textContent = 'Gespeichert';
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
+    return true;
+  }catch(e){
+    if(!pendingSaveChar) pendingSaveChar = name; // vormerken, damit ein weiterer Versuch möglich bleibt
+    document.getElementById('saveStatus').textContent = 'Fehler beim Speichern: ' + e.message;
+    setTimeout(()=>{ document.getElementById('saveStatus').textContent=''; }, 1500);
+    return false;
+  }
+}
+// Beim Schließen/Verlassen der Seite bleibt keine Zeit für await: ein "keepalive"-Request
+// läuft auch nach dem Schließen des Tabs weiter. Gäste: Zwischenspeicher sofort schreiben.
+function flushOnLeave(){
+  try{
+    if(isLoggedIn && pendingSaveChar && authToken){
+      fetch('/api/characters/' + encodeURIComponent(pendingSaveChar), {
+        method:'PUT', keepalive:true,
+        headers:{'Content-Type':'application/json','Authorization':'Bearer ' + authToken},
+        body: JSON.stringify(getCharDataBundle()),
+      });
+      pendingSaveChar = null;
+      clearTimeout(saveTimer);
+    }else if((!isLoggedIn || !currentChar) && saveTimer){
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(getCharDataBundle()));
+    }
+  }catch(e){ /* beim Verlassen nichts mehr zu retten */ }
+}
+window.addEventListener('pagehide', flushOnLeave);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') flushOnLeave(); });
 async function queueSaveShared(){
   try{
     const r = await apiSetFormulas({ rev: sharedRev, formulas, maxPrOverrides, wehrVerteilung });
@@ -3122,7 +3177,7 @@ function renderPresetSlots(cat, names, db, presets){
   const werteBtn = `<button type="button" class="action ${gefaehrtenMode==='werte'?'gold':''}" onclick="setGefaehrtenMode('werte')">${t('badge.manualvalues')}</button>`;
   const slotCards = cat.sources.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
+    const options = slotOptionsHtml(names, sel, db);
     return `<div class="slot-card">
       <label>${slotLabel(src)}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -3142,7 +3197,7 @@ function renderGefaehrtenWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(companionDb,n))}</option>`).join('');
+    const options = slotOptionsHtml(names, sel, companionDb);
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:var(--text-xs);">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadCompanionPreset('${src}', this.value)">${options}</select>
@@ -3209,7 +3264,7 @@ function renderReittierSlots(cat){
   const werteBtn = `<button type="button" class="action ${reittierMode==='werte'?'gold':''}" onclick="setReittierMode('werte')">${t('badge.manualvalues')}</button>`;
   const gruppeCards = REITTIER_GRUPPE_SLOTS.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
+    const options = slotOptionsHtml(names, sel, mountDb);
     return `<div class="slot-card">
       <label>${slotLabel(src)}</label>
       <select data-slot="${src}" data-cat="${cat.id}">${options}</select>
@@ -3230,7 +3285,7 @@ function renderReittierWerteTable(){
 
   const loaderCards = slots.map(src=>{
     const sel = getSlotSelection(src);
-    const options = ['Leer', ...names].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(mountDb,n))}</option>`).join('');
+    const options = slotOptionsHtml(names, sel, mountDb);
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:var(--text-xs);">${slotLabel(src)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadMountPreset('${src}', this.value)">${options}</select>
@@ -3310,7 +3365,7 @@ function renderFoodWerteTable(cat){
     const sel = getSlotSelection(fs.key);
     const items = foodSlotItems(fs);
     const db = foodDb[fs.category] || {};
-    const options = ['Leer', ...items].map(n=>`<option value="${escapeHtml(n)}" ${n===sel?'selected':''}>${escapeHtml(dbDisplayName(db,n))}</option>`).join('');
+    const options = slotOptionsHtml(items, sel, db);
     return `<div class="slot-card" style="padding:8px 10px;">
       <label style="font-size:var(--text-xs);">${t(fs.labelKey)}${t('label.aus.preset.laden')}</label>
       <select onchange="loadFoodPreset('${fs.key}', this.value)">${options}</select>
@@ -5598,6 +5653,7 @@ document.getElementById('modalConfirm').addEventListener('click', async ()=>{
     return;
   }
   if(pendingAction === 'deletechar' && pendingDeleteChar){
+    if(pendingSaveChar === pendingDeleteChar){ clearTimeout(saveTimer); pendingSaveChar = null; } // nichts mehr in einen gelöschten Charakter speichern
     try{ await apiDeleteCharacter(pendingDeleteChar); }catch(e){ setAccountMsg(e.message); }
     if(currentChar === pendingDeleteChar){
       currentChar = null;

@@ -332,6 +332,25 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.57.0: Datenintegrität (Punkte 7-12 aus dem Code-Review). Betrifft
+  `server.js` UND `index.html` - Server braucht Rebuild.**
+  - **Autosave verliert nichts mehr**: `pendingSaveChar` hält den Namen fest, für den
+    gespeichert werden soll; `flushSave()` schreibt sofort (vor `selectCharacter`,
+    Umbenennen, Abmelden - bei Fehlschlag wird der Wechsel abgebrochen);
+    `flushOnLeave()` (pagehide/visibilitychange) schickt einen keepalive-PUT bzw.
+    schreibt den Gast-Zwischenspeicher. Beim Löschen wird ein ausstehender Save verworfen.
+  - **safeName-Kollisionen**: "A B" und "A_B" landen in derselben Datei. Neue Helfer
+    `fileKeyTaken/charFileTaken/gpCharFileTaken` prüfen das bei Anlegen, Umbenennen,
+    Übergabe-Annahme, Admin-Kopie und GP-Charakteren (409); Registrierung prüft
+    `safeName(username)` gegen alle Konten.
+  - **Konto löschen** entfernt jetzt auch `gpchars`-Dateien; **Tagesbackup** enthält
+    `transfers.json`, Dateizähler zählt rekursiv.
+  - **Schema/Größe**: `cleanJson()` (max. Tiefe 12, entfernt `__proto__`/`constructor`/
+    `prototype`), `sanitizeCharData` liefert `null` bei falschem Grundtyp -> 400;
+    GP-Chars/Pläne/Shared ebenso; Shared-Obergrenze `SHARED_MAX_BYTES` 6 MB.
+  - **Preset-Dropdowns**: `slotOptionsHtml()` zeigt einen nicht mehr vorhandenen
+    gespeicherten Eintrag rot als "(nicht mehr in den Presets)" statt ihn auf "Leer" zu setzen.
+  - Smoke-Test: 299 Prüfungen (Abschnitt [1c] neu).
 - **Seit v0.56.0: Kritische Sicherheitsfixes aus dem Code-Review (Punkte 1-4).
   Betrifft `server.js` UND `index.html` - Server braucht Rebuild.**
   - **Login-/Register-/Passwort-Absturz**: async-Handler hatten kein try/catch, ein
