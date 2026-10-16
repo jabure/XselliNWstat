@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Xselli's Stats-Rechner</title>
+<meta name="description" content="Kostenloser Stats-Rechner für Neverwinter Online: Werte, Schaden, Heilung und effektive Trefferpunkte berechnen. Dazu Gruppenplaner und Insignienrechner.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Xselli's Stats-Rechner">
+<meta property="og:title" content="Xselli's Stats-Rechner für Neverwinter">
+<meta property="og:description" content="Kostenloser Stats-Rechner für Neverwinter Online: Werte, Schaden, Heilung und eHP berechnen. Dazu Gruppenplaner und Insignienrechner.">
+<meta name="twitter:card" content="summary">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2314161c'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- mathjs liegt lokal bei (public/vendor), damit der Rechner auch ohne CDN/Internet-Zugriff funktioniert -->
 <script src="vendor/mathjs-11.8.0.min.js"></script>
@@ -1105,6 +1111,13 @@ const TRANSLATIONS = {
     'gp.of': 'von',
     'generic.error': 'Fehler: ',
     'footer.imprint': 'Impressum',
+    'btn.delaccount': 'Konto löschen',
+    'btn.delaccountconfirm': 'Konto endgültig löschen',
+    'acc.delaccounthint': 'Löscht dein Konto mit allen Charakteren und Gruppenplaner-Daten endgültig. Zur Bestätigung dein Passwort eingeben.',
+    'acc.delpw': 'Passwort',
+    'accmsg.delpw': 'Bitte gib dein Passwort ein.',
+    'confirm.delaccount': 'Wirklich dein Konto samt allen Charakteren löschen? Das kann nicht rückgängig gemacht werden.',
+    'status.accdeleted': 'Dein Konto wurde gelöscht.',
     'footer.privacy': 'Datenschutz',
     'status.saving': 'Speichere …',
     'status.saved': 'Gespeichert',
@@ -1541,6 +1554,13 @@ const TRANSLATIONS = {
     'gp.of': 'of',
     'generic.error': 'Error: ',
     'footer.imprint': 'Legal notice',
+    'btn.delaccount': 'Delete account',
+    'btn.delaccountconfirm': 'Delete account permanently',
+    'acc.delaccounthint': 'Permanently deletes your account with all characters and group planner data. Enter your password to confirm.',
+    'acc.delpw': 'Password',
+    'accmsg.delpw': 'Please enter your password.',
+    'confirm.delaccount': 'Really delete your account including all characters? This cannot be undone.',
+    'status.accdeleted': 'Your account has been deleted.',
     'footer.privacy': 'Privacy policy',
     'status.saving': 'Saving …',
     'status.saved': 'Saved',
@@ -2073,6 +2093,7 @@ const apiAuthConfig = () => fetch('/api/auth/config').then(r=>r.json()).catch(()
 const apiLogin = (username, password) => apiRequest('/api/auth/login', {method:'POST', body:JSON.stringify({username,password})});
 const apiMe = () => apiRequest('/api/me');
 const apiSetLang = (lang) => apiRequest('/api/me/lang', {method:'PUT', body:JSON.stringify({lang})});
+const apiDeleteAccount = (password) => apiRequest('/api/me/delete', {method:'POST', body:JSON.stringify({password})});
 const apiChangePassword = (oldPassword, newPassword) => apiRequest('/api/me/change-password', {method:'POST', body:JSON.stringify({oldPassword, newPassword})});
 
 /* ---------- API-Hilfsfunktionen: Gruppenplaner (komplett eigener Datentopf) ---------- */
@@ -2286,7 +2307,15 @@ async function renderAccountPanel(){
       <input type="file" id="acc_importfile" accept=".json,application/json" style="display:none;" onchange="handleImportFile(event)">
       <button class="action" type="button" onclick="togglePwChange()">${t('btn.changepw')}</button>
       <button class="action" type="button" onclick="logoutAccount()">${t('btn.logout')}</button>
+      <button class="action danger" type="button" id="btnDelAccount" onclick="toggleDelAccount()">${t('btn.delaccount')}</button>
       <button class="action" type="button" onclick="closeAccountModal()">${t('btn.close')}</button>
+    </div>
+    <div id="delAccountArea" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <p class="helptext" style="margin-top:0;">${t('acc.delaccounthint')}</p>
+      <div class="login-grid">
+        <div><label for="acc_delpw">${t('acc.delpw')}</label><input type="password" id="acc_delpw" autocomplete="current-password" onkeydown="if(event.key==='Enter')deleteOwnAccount()"></div>
+      </div>
+      <div class="btnrow"><button class="action danger" type="button" onclick="deleteOwnAccount()">${t('btn.delaccountconfirm')}</button></div>
     </div>
     <div id="pwChangeArea" style="display:${pwChangeRequired ? 'block' : 'none'};margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
       ${pwChangeRequired ? `<p class="helptext" style="color:var(--gold);margin-top:0;">${t('acc.pwresethint')}</p>` : ''}
@@ -2306,6 +2335,25 @@ let pwChangeRequired = false;
 function togglePwChange(){
   const el = document.getElementById('pwChangeArea');
   if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleDelAccount(){
+  const el = document.getElementById('delAccountArea');
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// Eigenes Konto löschen: Passwort zur Bestätigung, danach wie Abmelden (zurück zum Gast-Stand).
+async function deleteOwnAccount(){
+  const pw = document.getElementById('acc_delpw').value;
+  if(!pw){ setAccountMsg(t('accmsg.delpw')); return; }
+  if(!confirm(t('confirm.delaccount'))) return;
+  try{
+    await apiDeleteAccount(pw);
+    // Ausstehende Speicherung verwerfen - es gibt keinen Charakter mehr, in den sie schreiben könnte.
+    clearTimeout(saveTimer); saveTimer = null; pendingSaveChar = null;
+    logoutAccount();
+    document.getElementById('saveStatus').textContent = t('status.accdeleted');
+  }catch(e){ setAccountMsg(e.message); }
 }
 
 async function changePassword(){

@@ -143,7 +143,7 @@ function privacyHtml(lang, L){
 <h2>Recipients</h2>
 <p>Data is stored on a server operated by the controller and is not passed on to third parties or transferred to third countries by this application.</p>
 <h2>Your rights</h2>
-<p>You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15–21 GDPR). To delete your account or receive a copy of your data, write to the email address above. You also have the right to lodge a complaint with a supervisory authority; in Austria this is the Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
+<p>You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15–21 GDPR). You can delete your account yourself at any time in the account window (button “Delete account”); this removes the account and all its characters. To receive a copy of your data, write to the email address above. You also have the right to lodge a complaint with a supervisory authority; in Austria this is the Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
 <p><strong>${esc(t.fiction)}</strong></p>`;
   } else {
     body += `
@@ -167,7 +167,7 @@ function privacyHtml(lang, L){
 <h2>Empfänger</h2>
 <p>Die Daten liegen auf einem Server, den der Verantwortliche selbst betreibt. Diese Anwendung gibt sie nicht an Dritte weiter und übermittelt sie nicht in Drittländer.</p>
 <h2>Deine Rechte</h2>
-<p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15–21 DSGVO). Für die Löschung deines Kontos oder eine Kopie deiner Daten schreib an die oben genannte E-Mail-Adresse. Außerdem kannst du dich bei einer Aufsichtsbehörde beschweren, in Österreich ist das die Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
+<p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15–21 DSGVO). Dein Konto kannst du jederzeit selbst im Konto-Fenster löschen (Knopf „Konto löschen“), dabei werden das Konto und alle Charaktere entfernt. Für eine Kopie deiner Daten schreib an die oben genannte E-Mail-Adresse. Außerdem kannst du dich bei einer Aufsichtsbehörde beschweren, in Österreich ist das die Datenschutzbehörde (<a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>).</p>
 <p><strong>${esc(t.fiction)}</strong></p>`;
   }
   return page(lang, t.privacyTitle, body);

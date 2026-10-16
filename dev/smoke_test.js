@@ -230,6 +230,34 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
       check('Startseite hat Fußzeile mit beiden Links', /href="\/impressum"/.test(fr.text) && /href="\/datenschutz"/.test(fr.text));
     }
 
+    console.log('\n[1f] Konto selbst löschen');
+    {
+      const u = 'weg_' + uniq, pw = 'wegpw12345';
+      // Eigene IP simulieren: die Registrier-Bremse (5 pro IP und Stunde) soll für die späteren Abschnitte frei bleiben.
+      const reg = await fetch(BASE + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.9.9.9' }, body: JSON.stringify({ username: u, password: pw }) });
+      let rr = { status: reg.status, data: await reg.json().catch(() => null) };
+      const tk = rr.data && rr.data.token;
+      check('Wegwerf-Konto angelegt', rr.status === 201, rr.status);
+      rr = await api('/api/characters', { method: 'POST', body: JSON.stringify({ name: 'WegChar_' + uniq }) }, tk);
+      check('Charakter für Lösch-Test angelegt', rr.status === 201, rr.status);
+      rr = await api('/api/me/delete', { method: 'POST', body: JSON.stringify({}) }, tk);
+      check('Löschen ohne Passwort -> 400', rr.status === 400, rr.status);
+      rr = await api('/api/me/delete', { method: 'POST', body: JSON.stringify({ password: 'falsch' }) }, tk);
+      check('Löschen mit falschem Passwort -> 401', rr.status === 401, rr.status);
+      rr = await api('/api/me', {}, tk);
+      check('Konto besteht nach Fehlversuch weiter', rr.status === 200, rr.status);
+      rr = await api('/api/me/delete', { method: 'POST', body: JSON.stringify({ password: pw }) }, tk);
+      check('Löschen mit richtigem Passwort -> 200', rr.status === 200, rr.status);
+      rr = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: pw }) });
+      check('Anmelden danach nicht mehr möglich', rr.status === 401, rr.status);
+      rr = await api('/api/me', {}, tk);
+      check('Altes Token wird abgelehnt', rr.status === 401, rr.status);
+      const files = fs.readdirSync(path.join(dataDir, 'chars')).filter(f => f.includes('WegChar_' + uniq));
+      check('Charakterdatei wurde mitgelöscht', files.length === 0, files.join(','));
+      const pg = await fetch(BASE + '/').then(x => x.text());
+      check('Startseite hat Meta-Beschreibung und og:title', /name="description"/.test(pg) && /property="og:title"/.test(pg));
+    }
+
     console.log('\n[1d] Missbrauchsschutz: Login-Sperre pro IP+Name, Obergrenzen, Einladungscode-Abfrage');
     const rawPost = (p, body, ip, tk) => fetch(BASE + p, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: JSON.stringify(body) }).then(async x => ({ status: x.status, data: await x.json().catch(() => null) }));
     const opfer = 'opfer_' + uniq, opferPw = 'opferpw1234';
@@ -269,6 +297,7 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     // Moderator-Rechte nötig: Admin registrieren und dem Test-User die Rolle geben
     const adm = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username: ADMIN, password: 'adminpw' }) });
     const admToken = adm.data && adm.data.token;
+    { const dr = await api('/api/me/delete', { method: 'POST', body: JSON.stringify({ password: 'adminpw' }) }, admToken); check('Haupt-Admin-Konto lässt sich nicht selbst löschen', dr.status === 400, dr.status); }
     await api('/api/admin/users/' + encodeURIComponent(user), { method: 'PUT', body: JSON.stringify({ role: 'coadmin' }) }, admToken);
     let shared = (await api('/api/shared')).data;
     const rev0 = shared.rev || 0;
@@ -549,6 +578,11 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     input(win, doc.getElementById('acc_username'), vglUser);
     input(win, doc.getElementById('acc_password'), 'pass1234');
     win.loginAccount(); await wait(800);
+    win.openAccountPanel(); await wait(300);
+    const delBtn = doc.getElementById('btnDelAccount');
+    check('Knopf "Konto löschen" im Konto-Fenster', !!delBtn);
+    if (delBtn) { delBtn.click(); check('Klick öffnet Passwortfeld zum Löschen', doc.getElementById('delAccountArea').style.display === 'block' && !!doc.getElementById('acc_delpw')); }
+    win.closeAccountModal();
     win.selectCharacterByIndex(0); await wait(800);
     win.showPage('uebersicht'); await wait(800);
     check('Waffenschaden-Basis 12.000', num((doc.getElementById('uebersichtContent').textContent.match(/Waffenschaden:\s*([\d.,]+)/) || [])[1]) === 12000);

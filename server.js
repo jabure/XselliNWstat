@@ -1031,12 +1031,9 @@ app.post('/api/admin/users/:username/reset-password', authMiddleware, requireRol
 }));
 
 // Kompletten Account inkl. aller Charakterdaten löschen.
-app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req, res) => {
-  const target = req.params.username;
-  if(target === req.username) return res.status(400).json({ error: 'Du kannst dich nicht selbst löschen' });
-  if(target === ADMIN_USERNAME) return res.status(400).json({ error: 'Das Haupt-Admin-Konto kann nicht gelöscht werden' });
-  const users = readUsers();
-  if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+// Entfernt ein Konto samt allen Dateien (Charaktere, Gruppenplaner-Charaktere, Übergaben).
+// Gemeinsam genutzt von der Admin-Löschung und dem Selbst-Löschen.
+function removeUserCompletely(users, target){
   (users[target].characters || []).forEach(c => {
     try{ fs.unlinkSync(charFile(target, c)); }catch(e){ /* Datei gab es evtl. nicht */ }
   });
@@ -1047,6 +1044,36 @@ app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (
   delete users[target];
   writeJson(USERS_FILE, users);
   removeTransfersInvolving(target);
+}
+
+// Eigenes Konto löschen (Passwort muss stimmen). Das Haupt-Admin-Konto bleibt geschützt.
+app.post('/api/me/delete', authMiddleware, wrap(async (req, res) => {
+  const { password } = req.body || {};
+  if(!isStr(password) || !password || password.length > PASSWORD_MAX_LEN){
+    return res.status(400).json({ error: 'Bitte gib zur Bestätigung dein Passwort ein' });
+  }
+  if(req.username === ADMIN_USERNAME) return res.status(400).json({ error: 'Das Haupt-Admin-Konto kann nicht gelöscht werden' });
+  const lockedMin = loginLockedFor(req.ip, req.username);
+  if(lockedMin > 0){
+    return res.status(429).json({ error: `Zu viele Fehlversuche - bitte in ${lockedMin} Minute${lockedMin===1?'':'n'} erneut versuchen` });
+  }
+  const before = readUsers()[req.username];
+  if(!before || !isStr(before.passwordHash)) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  const ok = await bcrypt.compare(password, before.passwordHash);
+  if(!ok){ noteLoginFailure(req.ip, req.username); return res.status(401).json({ error: 'Das Passwort ist falsch' }); }
+  const users = readUsers(); // frisch lesen, erst nach dem Hashen schreiben
+  if(!users[req.username]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  removeUserCompletely(users, req.username);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/admin/users/:username', authMiddleware, requireRole('admin'), (req, res) => {
+  const target = req.params.username;
+  if(target === req.username) return res.status(400).json({ error: 'Du kannst dich nicht selbst löschen' });
+  if(target === ADMIN_USERNAME) return res.status(400).json({ error: 'Das Haupt-Admin-Konto kann nicht gelöscht werden' });
+  const users = readUsers();
+  if(!users[target]) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  removeUserCompletely(users, target);
   res.json({ ok: true });
 });
 
