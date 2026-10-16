@@ -332,6 +332,18 @@ Quelle.** Ich habe normalerweise KEINEN dauerhaften Push-Zugriff:
     `.textContent` auf (nur reine Text-Elemente wie `<th>`/`<span>` tun das) -
     Tests auf befüllte Inputs IMMER über `.value` prüfen, nie über
     `element.textContent.includes(...)`.
+- **Seit v0.60.0: Barrierefreiheit (Punkt 15 der Review-Liste). Nur `index.html` + Smoke-Test, kein Server-Rebuild nötig.**
+  - Zahlenfelder in den Stat-/Ausrüstungs-/Gefährten-/Reittier-Tabellen haben `aria-label` über
+    `inLabel(statId, kind, src)` ("Kraft – Werte (Kopf)"). Neue Tabellen-Inputs mit `num-in` MÜSSEN das
+    auch bekommen (Smoke-Test prüft: kein `input.num-in` ohne Namen).
+  - Toast `#saveStatus` = `role=status`/`aria-live=polite`. Konto-Dialog: `role=dialog`, `aria-modal`,
+    Fokus rein/zurück zum Auslöser, Esc schließt, Tab bleibt im Dialog (`accountModalOpener`).
+  - `tr.subgroup-header` = `role=button tabindex=0`, Enter/Leertaste klappt (delegierter keydown).
+    `aria-expanded` für `.accordion`-Knöpfe und Untergruppen-Zeilen setzt ein MutationObserver
+    (`syncExpanded`) - in neuen Toggle-Funktionen daher nichts extra tun, nur die Klasse `open` umschalten.
+  - Seiten-Tab: `aria-current=page` in `showPage()`. CSS: globaler `:focus-visible`-Ring,
+    `prefers-reduced-motion`.
+  - Bewusst noch offen: Farbkontrast-Messung, Gruppenplaner-Board-Selects (Namen nur über Spaltenkopf).
 - **Seit v0.59.0: Docker-Härtung + Deployment mit Rollback + CI (Punkte 13-14 der Review-Liste).
   Betrifft `Dockerfile`, `docker-compose.yml`, `update.sh`, neu: `docker-entrypoint.sh`,
   `.dockerignore`, `package-lock.json`, `.github/workflows/test.yml`. UNGETESTET im echten Docker

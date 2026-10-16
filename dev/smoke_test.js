@@ -341,6 +341,40 @@ const change = (win, el, val) => { el.value = val; el.dispatchEvent(new win.Even
     await wait(200);
     check('Wehrhaftigkeit-Umverteilung (+50 % der Differenz auf Kraft)', doc.getElementById('F-kraft').textContent.startsWith('55'), doc.getElementById('F-kraft').textContent);
     check('Toast: Statusmeldung wird sichtbar eingeblendet', doc.getElementById('saveStatus').classList.contains('show') || doc.getElementById('saveStatus').textContent === '', undefined);
+    // [5a] Barrierefreiheit (Punkt 15 der Review-Liste)
+    check('A11y: Toast ist Live-Region', doc.getElementById('saveStatus').getAttribute('role') === 'status' && doc.getElementById('saveStatus').getAttribute('aria-live') === 'polite', undefined);
+    {
+      const ki = doc.querySelector('input[data-role="H"][data-stat="kraft"]');
+      check('A11y: Werte-Eingabefeld hat zugänglichen Namen (Stat + Spalte)', /Kraft/.test(ki.getAttribute('aria-label') || ''), ki.getAttribute('aria-label'));
+      const pi = doc.querySelector('input[data-src="Kopf"][data-stat="kraft"][data-field="prozent"]');
+      check('A11y: Ausrüstungs-Prozentfeld nennt Stat und Slot', pi && /Kraft/.test(pi.getAttribute('aria-label')||'') && /Kopf/.test(pi.getAttribute('aria-label')||''), pi && pi.getAttribute('aria-label'));
+      const unnamed = Array.from(doc.querySelectorAll('input.num-in')).filter(i => !i.getAttribute('aria-label'));
+      check('A11y: kein Tabellen-Zahlenfeld ohne Namen', unnamed.length === 0, unnamed.length + ' ohne');
+      check('A11y: aktiver Seiten-Tab trägt aria-current', doc.getElementById('tab-rechner').getAttribute('aria-current') === 'page', undefined);
+      // Konto-Dialog: Semantik, Fokus, Esc
+      const dlg = doc.querySelector('#accountModalBg .modal');
+      check('A11y: Konto-Dialog hat role=dialog + aria-modal', dlg.getAttribute('role') === 'dialog' && dlg.getAttribute('aria-modal') === 'true', undefined);
+      doc.querySelector('.account-btn').focus();
+      win.openAccountPanel();
+      await wait(100);
+      check('A11y: Fokus wandert beim Öffnen in den Dialog', dlg.contains(doc.activeElement), String(doc.activeElement && doc.activeElement.tagName));
+      doc.dispatchEvent(new win.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+      check('A11y: Esc schließt den Konto-Dialog', !doc.getElementById('accountModalBg').classList.contains('show'), undefined);
+      check('A11y: Fokus kehrt zum Auslöser zurück', doc.activeElement === doc.querySelector('.account-btn'), String(doc.activeElement && doc.activeElement.className));
+      // Untergruppen-Zeilen: Tastatur + aria-expanded
+      const hdr = doc.querySelector('#statGroups tr.subgroup-header');
+      check('A11y: Untergruppen-Kopf ist fokussierbarer Knopf', hdr && hdr.getAttribute('role') === 'button' && hdr.getAttribute('tabindex') === '0', undefined);
+      const body = hdr.closest('tbody');
+      const vorher = body.classList.contains('open');
+      hdr.dispatchEvent(new win.KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
+      await wait(50);
+      check('A11y: Enter klappt die Untergruppe um', body.classList.contains('open') !== vorher, undefined);
+      check('A11y: aria-expanded folgt dem Zustand', hdr.getAttribute('aria-expanded') === String(body.classList.contains('open')), hdr.getAttribute('aria-expanded'));
+      const accBtn = doc.querySelector('#sourceAccordions .accordion > button');
+      accBtn.click();
+      await wait(50);
+      check('A11y: Akkordeon-Knopf hat aria-expanded', accBtn.getAttribute('aria-expanded') === String(accBtn.parentElement.classList.contains('open')), accBtn.getAttribute('aria-expanded'));
+    }
     // Klassen-Hinweis: Schadensberechnung ohne gewählte Klasse in einer frischen Instanz
     {
       const dg = loadFrontend();

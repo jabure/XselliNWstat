@@ -256,6 +256,14 @@
     touch-action:manipulation;
   }
   .app-select:focus{outline:none; border-color:var(--gold);}
+  button:focus-visible, .page-tab:focus-visible, .group-tab:focus-visible, a:focus-visible,
+  input:focus-visible, select:focus-visible, textarea:focus-visible, tr.subgroup-header:focus-visible, .modal:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+  .modal:focus{outline:none;}
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important;}
+  }
   .app-select:focus-visible{outline:2px solid var(--gold); outline-offset:1px;}
   /* Oberste Zeile: App-Auswahl links, Konto-Button rechts */
   .top-bar{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
@@ -433,14 +441,14 @@
 
   <div id="appStats">
   <div class="page-nav">
-    <button class="page-tab active" id="tab-rechner" onclick="showPage('rechner')" type="button" data-i18n="tab.rechner">Rechner</button>
+    <button class="page-tab active" id="tab-rechner" aria-current="page" onclick="showPage('rechner')" type="button" data-i18n="tab.rechner">Rechner</button>
     <button class="page-tab" id="tab-uebersicht" onclick="showPage('uebersicht')" type="button" data-i18n="tab.uebersicht">Schadensberechnung</button>
     <button class="page-tab" id="tab-presets" onclick="showPage('presets')" type="button" style="display:none;" data-i18n="tab.presets">Presets</button>
     <button class="page-tab" id="tab-formeln" onclick="showPage('formeln')" type="button" style="display:none;" data-i18n="tab.formeln">Formeln</button>
     <button class="page-tab" id="tab-users" onclick="showPage('users')" type="button" style="display:none;" data-i18n="tab.users">Benutzer</button>
   </div>
 
-  <div id="saveStatus" class="save-status"></div>
+  <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
 
 <div id="pageRechner">
   <div class="legend" style="align-items:center;">
@@ -722,7 +730,7 @@
 </div>
 
 <div class="modal-bg" id="accountModalBg">
-  <div class="modal" style="max-width:1100px; width:95vw;">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accountModalBody" style="max-width:1100px; width:95vw;">
     <div id="accountModalBody"></div>
   </div>
 </div>
@@ -2015,13 +2023,61 @@ function setAccountMsg(msg, ok){
   const el = document.getElementById('accMsg');
   if(el){ el.textContent = msg; el.style.color = ok ? 'var(--sup)' : 'var(--off)'; }
 }
+let accountModalOpener = null;
 function openAccountPanel(){
+  accountModalOpener = document.activeElement;
   renderAccountPanel();
-  document.getElementById('accountModalBg').classList.add('show');
+  const bg = document.getElementById('accountModalBg');
+  bg.classList.add('show');
+  const dlg = bg.querySelector('.modal');
+  dlg.setAttribute('tabindex','-1');
+  dlg.focus();
 }
 function closeAccountModal(){
   document.getElementById('accountModalBg').classList.remove('show');
+  // Fokus zurück zum Auslöser, damit Tastaturnutzer nicht oben auf der Seite landen
+  if(accountModalOpener && accountModalOpener.focus){ try{ accountModalOpener.focus(); }catch(e){} }
+  accountModalOpener = null;
 }
+// Esc schließt den Konto-Dialog; Tab bleibt im Dialog (einfacher Fokus-Fang)
+document.addEventListener('keydown', function(e){
+  const bg = document.getElementById('accountModalBg');
+  if(!bg || !bg.classList.contains('show')) return;
+  if(e.key === 'Escape'){ closeAccountModal(); return; }
+  if(e.key !== 'Tab') return;
+  const f = Array.from(bg.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')).filter(el=>!el.disabled && el.offsetParent !== null);
+  if(!f.length) return;
+  const first = f[0], last = f[f.length-1];
+  if(e.shiftKey && (document.activeElement === first || document.activeElement === bg.querySelector('.modal'))){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
+// aria-expanded an Akkordeon-Knöpfen und klappbaren Untergruppen-Zeilen spiegeln.
+// Zentral per MutationObserver statt in jeder Toggle-Funktion einzeln (es gibt viele).
+function syncExpanded(el){
+  const ctl = el.classList.contains('accordion') ? el.querySelector(':scope > button') : el.querySelector(':scope > tr.subgroup-header');
+  if(ctl) ctl.setAttribute('aria-expanded', el.classList.contains('open') ? 'true' : 'false');
+}
+function syncExpandedAll(root){
+  root.querySelectorAll('.accordion, tbody.stat-subgroup, tbody[id^="srcgrp-"]').forEach(syncExpanded);
+}
+new MutationObserver(function(muts){
+  muts.forEach(function(m){
+    if(m.type === 'attributes'){
+      if(m.target.classList && (m.target.classList.contains('accordion') || m.target.tagName === 'TBODY')) syncExpanded(m.target);
+    } else {
+      m.addedNodes.forEach(function(n){ if(n.nodeType === 1) syncExpandedAll(n.matches ? n : document); });
+    }
+  });
+}).observe(document.body, {attributes:true, attributeFilter:['class'], subtree:true, childList:true});
+syncExpandedAll(document);
+// Klappbare Tabellenzeilen (Untergruppen) per Tastatur bedienbar machen
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target && e.target.closest ? e.target.closest('tr.subgroup-header') : null;
+  if(!row || e.target !== row) return;
+  e.preventDefault();
+  row.click();
+});
 async function renderAccountPanel(){
   // Charakterverwaltung (Anlegen/Umbenennen/Kopieren/Löschen) läuft über dieses
   // Panel - danach kann die Namensliste und der Daten-Cache des Charakter-Vergleichs
@@ -2987,7 +3043,7 @@ function buildStatGroupsDOM(){
         return `<tr class="subgroup-row">
           <td class="statname">${L(stat)}</td>
           <td class="muted">&ndash;</td>
-          <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
+          <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'werte', '')}" ${werteValueAttr(getBase(stat.id).H)}></td>
           <td class="muted">&ndash;</td>
           <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span></td>
           <td class="muted" id="note-${stat.id}">${note}</td>
@@ -3008,7 +3064,7 @@ function buildStatGroupsDOM(){
           <td class="statname">${L(stat)}</td>
           <td class="muted">&ndash;</td>
           <td class="muted">&ndash;</td>
-          <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
+          <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'prozent', '')}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
           <td class="computed-stack"><span class="computed" id="F-${stat.id}"></span></td>
           <td class="muted">&ndash;</td>
         </tr>`;
@@ -3016,14 +3072,14 @@ function buildStatGroupsDOM(){
       return `<tr class="subgroup-row">
         <td class="statname">${L(stat)}</td>
         <td class="muted">${maxPr? Math.round(maxPr*100)+'%':'&ndash;'}</td>
-        <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" ${werteValueAttr(getBase(stat.id).H)}></td>
-        <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
+        <td><input type="text" inputmode="numeric" class="num-in werte-in" data-role="H" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'werte', '')}" ${werteValueAttr(getBase(stat.id).H)}></td>
+        <td><span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in" data-role="I" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'prozent', '')}" ${pctValueAttr(getBase(stat.id).I)}><span class="pct-suffix">%</span></span></td>
         <td class="computed-stack"><span class="computed" id="E-${stat.id}"></span><span class="computed" id="F-${stat.id}"></span></td>
         <td id="delta-${stat.id}" class="muted">&ndash;</td>
       </tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-stats-${g.id}" data-group="${g.id}">
-      <tr class="subgroup-header" onclick="toggleSrcSubgroup('stats','${g.id}')">
+      <tr class="subgroup-header" role="button" tabindex="0" onclick="toggleSrcSubgroup('stats','${g.id}')">
         <td colspan="6"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
@@ -3125,13 +3181,13 @@ function renderManualTable(cat){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'werte', src)}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'prozent', src)}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-${cat.id}-${g.id}" data-group="${g.id}">
-      <tr class="subgroup-header" onclick="toggleSrcSubgroup('${cat.id}','${g.id}')">
+      <tr class="subgroup-header" role="button" tabindex="0" onclick="toggleSrcSubgroup('${cat.id}','${g.id}')">
         <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
@@ -3226,13 +3282,13 @@ function renderGefaehrtenWerteTable(){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'werte', src)}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'prozent', src)}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-gefwerte-${g.id}" data-group="${g.id}">
-      <tr class="subgroup-header" onclick="toggleSrcSubgroup('gefwerte','${g.id}')">
+      <tr class="subgroup-header" role="button" tabindex="0" onclick="toggleSrcSubgroup('gefwerte','${g.id}')">
         <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
@@ -3314,13 +3370,13 @@ function renderReittierWerteTable(){
         const v = getSourceVal(src, stat.id);
         const werteFilled = v.werte && Number(v.werte)!==0 ? ' has-value' : '';
         const prozentFilled = v.prozent && Number(v.prozent)!==0 ? ' has-value' : '';
-        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
-          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
+        return `<td class="${i>0?'slot-sep':''}">${showWerte ? `<input type="text" inputmode="numeric" class="num-in werte-in${werteFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'werte', src)}" data-field="werte" ${werteValueAttr(v.werte)}` + '>' : '<span class="muted">&ndash;</span>'}</td>
+          <td>${showPct ? `<span class="pct-wrap"><input type="text" inputmode="decimal" class="num-in pct-in${prozentFilled}" data-src="${src}" data-stat="${stat.id}" aria-label="${inLabel(stat.id, 'prozent', src)}" data-field="prozent" ${pctValueAttr(v.prozent)}><span class="pct-suffix">%</span></span>` : '<span class="muted">&ndash;</span>'}</td>`;
       }).join('');
       return `<tr class="subgroup-row"><td class="statname">${L(stat)}</td>${cells}</tr>`;
     }).join('');
     return `<tbody class="stat-subgroup" id="srcgrp-reittierwerte-${g.id}" data-group="${g.id}">
-      <tr class="subgroup-header" onclick="toggleSrcSubgroup('reittierwerte','${g.id}')">
+      <tr class="subgroup-header" role="button" tabindex="0" onclick="toggleSrcSubgroup('reittierwerte','${g.id}')">
         <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
       </tr>
       ${rows}
@@ -3787,6 +3843,12 @@ function cappedF(results, statId){
   const cap = r.maxPr ? r.maxPr*100 : null;
   return cap !== null ? Math.min(r.F, cap) : r.F;
 }
+// Zugänglicher Name für die Tabellen-Eingabefelder (Stat + Spalte [+ Slot]) - Screenreader
+// lesen sonst nur "Eingabefeld". Rein Anzeige, die interne ID bleibt der deutsche String.
+function inLabel(statId, kind, src){
+  const base = statLabel(statId) + ' – ' + (kind === 'prozent' ? '%' : t('th.werte'));
+  return escapeHtml(src ? base + ' (' + slotLabel(src) + ')' : base);
+}
 function statLabel(statId){
   const s = ALL_STATS.find(x=>x.id===statId);
   return s ? L(s) : statId;
@@ -4078,7 +4140,7 @@ function renderAlleCharsSection(){
         zeile(L(stat), entries.map(e=>statVal(e, stat)), entries.map(e=>statText(e, stat)), { relevFor, noBest: true, subrow: true })
       ).join('');
       return `<tbody class="stat-subgroup${defaultOffen.includes(g.id) ? ' open' : ''}" id="srcgrp-ovw-${g.id}">
-        <tr class="subgroup-header" onclick="toggleSrcSubgroup('ovw','${g.id}')">
+        <tr class="subgroup-header" role="button" tabindex="0" onclick="toggleSrcSubgroup('ovw','${g.id}')">
           <td colspan="${totalCols}"><span class="chevron">&#9656;</span><span class="dot" style="background:${g.color}"></span> ${L(g)}</td>
         </tr>
         ${rows}
@@ -5024,6 +5086,7 @@ function showPage(name){
   PAGE_IDS.forEach(p=>{
     document.getElementById('page'+capitalize(p)).style.display = p===name ? '' : 'none';
     document.getElementById('tab-'+p).classList.toggle('active', p===name);
+    if(p===name) document.getElementById('tab-'+p).setAttribute('aria-current','page'); else document.getElementById('tab-'+p).removeAttribute('aria-current');
   });
   if(name==='uebersicht'){
     renderUebersicht();
